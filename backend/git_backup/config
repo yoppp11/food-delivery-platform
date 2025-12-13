@@ -1,0 +1,10 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[remote "food-delivery-platform"]
+	url = https://github.com/yoppp11/food-delivery-platform.git
+	fetch = +refs/heads/*:refs/remotes/food-delivery-platform/*
