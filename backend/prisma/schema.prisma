@@ -5,7 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
 }
 
@@ -26,15 +26,65 @@ datasource db {
   provider = "postgresql"
 }
 
+// Better Auth Models
 model User {
-  id            String @unique @default(uuid())
+  id            String    @id @default(uuid())
   name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
   address       String?
-  phoneNumber   Int?
-  userRole      UserRole[]
+  phoneNumber   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Custom fields
   locationId    String?
+  
+  // Relations
+  userRole      UserRole[]
+  accounts      Account[]
+  sessions      Session[]
+  
+  @@map("user")
+}
 
-  @@map("users")
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  accountId         String
+  providerId        String
+  accessToken       String?
+  refreshToken      String?
+  idToken           String?
+  expiresAt         DateTime?
+  password          String?
+  
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("account")
+}
+
+model Session {
+  id            String   @id @default(uuid())
+  userId        String
+  expiresAt     DateTime
+  ipAddress     String?
+  userAgent     String?
+  
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("session")
+}
+
+model Verification {
+  id            String   @id @default(uuid())
+  identifier    String
+  value         String
+  expiresAt     DateTime
+  
+  @@unique([identifier, value])
+  @@map("verification")
 }
 
 model Role {
