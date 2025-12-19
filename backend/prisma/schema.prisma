@@ -6,20 +6,19 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 generator zod {
-  provider                              = "zod-prisma-types"
-  output                                = "../src/generated/zod"
-  addInputTypeValidation                = "false"
-  coerceDate                            = "true"
-  createInputTypes                      = "true"
-  createModelTypes                      = "true"
-  createOptionalDefaultValuesTypes      = "true"
-  createPartialTypes                    = "true"
-  useDefaultValidators                  = "true"
-  writeNullishInModelTypes              = "true"
+  provider                         = "zod-prisma-types"
+  output                           = "../src/generated/zod"
+  addInputTypeValidation           = "false"
+  coerceDate                       = "true"
+  createInputTypes                 = "true"
+  createModelTypes                 = "true"
+  createOptionalDefaultValuesTypes = "true"
+  createPartialTypes               = "true"
+  useDefaultValidators             = "true"
+  writeNullishInModelTypes         = "true"
 }
 
 datasource db {
@@ -27,164 +26,178 @@ datasource db {
 }
 
 // Better Auth Models
+
 model User {
-  id            String    @id @default(uuid())
+  id            String     @id @default(uuid())
   name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
+  email         String     @unique
+  emailVerified Boolean    @default(false)
   image         String?
   address       String?
   phoneNumber   String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
   // Custom fields
   locationId    String?
-  
   // Relations
   userRole      UserRole[]
   accounts      Account[]
   sessions      Session[]
-  
+
   @@map("user")
 }
 
 model Account {
-  id                String  @id @default(uuid())
-  userId            String
-  accountId         String
-  providerId        String
-  accessToken       String?
-  refreshToken      String?
-  idToken           String?
-  expiresAt         DateTime?
-  password          String?
-  
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id           String    @id @default(uuid())
+  userId       String
+  accountId    String
+  providerId   String
+  accessToken  String?
+  refreshToken String?
+  idToken      String?
+  expiresAt    DateTime?
+  password     String?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
   @@map("account")
+  @@index([userId])
 }
 
 model Session {
-  id            String   @id @default(uuid())
-  userId        String
-  expiresAt     DateTime
-  ipAddress     String?
-  userAgent     String?
-  
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id        String   @id @default(uuid())
+  userId    String
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("session")
+  @@unique([token])
+  @@index([userId])
 }
 
 model Verification {
-  id            String   @id @default(uuid())
-  identifier    String
-  value         String
-  expiresAt     DateTime
-  
+  id         String   @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([identifier, value])
   @@map("verification")
+  @@index([identifier])
 }
 
 model Role {
-  id          String @unique @default(uuid())
-  name        String
-  userRole    UserRole[]
+  id       String     @unique @default(uuid())
+  name     String
+  userRole UserRole[]
 
   @@map("roles")
 }
 
 model UserRole {
-  id        String @unique @default(uuid())
-  roleId    String
-  userId    String
+  id     String @unique @default(uuid())
+  roleId String
+  userId String
 
-  User      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  Role      Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  User User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@map("userRoles")
 }
 
 model Category {
-  id            String @unique @default(uuid())
-  name          String
-  description   String?
-  createdAt     DateTime @default(now())
-  Menu          Menu[]
+  id          String   @unique @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  Menu        Menu[]
 
   @@map("categories")
 }
 
 model Menu {
-  id            String @unique @default(uuid())
-  name          String
-  description   String
-  categoryId    String
-  Category      Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  menuSizes     MenuSize[]
-  menuAddons    MenuAddon[]
+  id          String      @unique @default(uuid())
+  name        String
+  description String
+  categoryId  String
+  Category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  menuSizes   MenuSize[]
+  menuAddons  MenuAddon[]
 
   @@map("menus")
 }
 
 model MenuSize {
-  id            String @unique @default(uuid())
-  name          String
-  price         Int
-  isAvailable   Boolean
-  menuId        String
-  OrderItem     OrderItem[]
-  Menu          Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  id          String      @unique @default(uuid())
+  name        String
+  price       Int
+  isAvailable Boolean
+  menuId      String
+  OrderItem   OrderItem[]
+  Menu        Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
   @@map("menuSizes")
 }
 
 model MenuAddon {
-  id                  String @unique @default(uuid())
-  name                String
-  price               Int
-  isAvailable         Boolean
-  menuId              String
-  OrderItemAddon      OrderItemAddon[]
-  Menu                Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  id             String           @unique @default(uuid())
+  name           String
+  price          Int
+  isAvailable    Boolean
+  menuId         String
+  OrderItemAddon OrderItemAddon[]
+  Menu           Menu             @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
   @@map("menuAddons")
 }
 
 model Order {
-  id                      String @unique @default(uuid())
-  total                   Int
-  customerName            String
-  paymentStatus           String
-  orderStatus             String
-  specialInstruction      String
-  items                   OrderItem[]
+  id                 String      @unique @default(uuid())
+  total              Int
+  customerName       String
+  paymentStatus      String
+  orderStatus        String
+  specialInstruction String
+  items              OrderItem[]
 
   @@map("orders")
 }
 
 model OrderItem {
-  id            String @unique @default(ulid())
-  menuSizeId    String
-  quantity      Int
-  total         Int
-  orderId       String
-  itemAddons    OrderItemAddon[]
-  Order         Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  MenuSize      MenuSize @relation(fields: [menuSizeId], references: [id], onDelete: Cascade)
+  id         String           @unique @default(ulid())
+  menuSizeId String
+  quantity   Int
+  total      Int
+  orderId    String
+  itemAddons OrderItemAddon[]
+  Order      Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  MenuSize   MenuSize         @relation(fields: [menuSizeId], references: [id], onDelete: Cascade)
 
   @@map("orderItems")
 }
 
 model OrderItemAddon {
-  id              String @unique @default(uuid())
-  menuAddonId     String
-  orderItemId     String
-  quantity        Int
-  total           Int
-  OrderItem       OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  MenuAddon       MenuAddon @relation(fields: [menuAddonId], references: [id], onDelete: Cascade)
+  id          String    @unique @default(uuid())
+  menuAddonId String
+  orderItemId String
+  quantity    Int
+  total       Int
+  OrderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  MenuAddon   MenuAddon @relation(fields: [menuAddonId], references: [id], onDelete: Cascade)
 
   @@map("orderItemAddons")
 }
