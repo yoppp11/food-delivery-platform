@@ -29,22 +29,57 @@ datasource db {
 
 model User {
   id            String     @id @default(uuid())
-  name          String
   email         String     @unique
   emailVerified Boolean    @default(false)
   image         String?
-  address       String?
   phoneNumber   String?
+  role          Role       @default(CUSTOMER)
+  status        UserStatus @default(ACTIVE)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-  // Custom fields
-  locationId    String?
+
   // Relations
-  userRole      UserRole[]
-  accounts      Account[]
-  sessions      Session[]
+  userProfiles         UserProfile[]
+  userAddresses        UserAddres[]
+  accounts             Account[]
+  sessions             Session[]
+  merchants            Merchant[]
+  orders               Order[]
+  orderStatusHistories OrderStatusHistory[]
+  drivers              Driver[]
+  merchantReviews      MerchantReview[]
+  driverReviews        DriverReview[]
+  notifications        Notification[]
 
   @@map("user")
+}
+
+model UserProfile {
+  id        String   @id @default(uuid())
+  userId    String
+  fullName  String
+  imageId   String
+  birthDate DateTime
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  image Image @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@map("userProfiles")
+}
+
+model UserAddres {
+  id        String  @id @default(uuid())
+  userId    String
+  label     String
+  latitude  Decimal
+  longitude Decimal
+  address   String
+  isDefault Boolean
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("userAddresses")
 }
 
 model Account {
@@ -65,8 +100,8 @@ model Account {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  @@map("account")
   @@index([userId])
+  @@map("account")
 }
 
 model Session {
@@ -81,9 +116,9 @@ model Session {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("session")
   @@unique([token])
   @@index([userId])
+  @@map("session")
 }
 
 model Verification {
@@ -96,27 +131,41 @@ model Verification {
   updatedAt DateTime @updatedAt
 
   @@unique([identifier, value])
-  @@map("verification")
   @@index([identifier])
+  @@map("verification")
 }
 
-model Role {
-  id       String     @unique @default(uuid())
-  name     String
-  userRole UserRole[]
+model Merchant {
+  id          String   @id @default(uuid())
+  ownerId     String
+  name        String
+  description String
+  latitude    Decimal
+  longitude   Decimal
+  isOpen      Boolean
+  rating      Decimal
+  createdAt   DateTime @default(now())
 
-  @@map("roles")
+  user User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  merchantOperationalHours MerchantOperationalHour[]
+  menus                    Menu[]
+  orders                   Order[]
+  merchantReviews          MerchantReview[]
+
+  @@map("merchants")
 }
 
-model UserRole {
-  id     String @unique @default(uuid())
-  roleId String
-  userId String
+model MerchantOperationalHour {
+  id         String @id @default(uuid())
+  merchantId String
+  dayOfWeek  Int
+  openTime   String
+  closeTime  String
 
-  User User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  Role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
-  @@map("userRoles")
+  @@map("merchantsOperationalHours")
 }
 
 model Category {
@@ -124,80 +173,282 @@ model Category {
   name        String
   description String?
   createdAt   DateTime @default(now())
-  Menu        Menu[]
+  menus       Menu[]
 
   @@map("categories")
 }
 
 model Menu {
-  id          String      @unique @default(uuid())
+  id          String   @unique @default(uuid())
+  merchantId  String
+  categoryId  String
   name        String
   description String
-  categoryId  String
-  Category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  menuSizes   MenuSize[]
-  menuAddons  MenuAddon[]
+  price       Int
+  isAvailable Boolean
+  imageId     String
+  createdAt   DateTime
+
+  merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  category     Category      @relation(fields: [categoryId], references: [id])
+  image        Image         @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  menuVariants MenuVariant[]
+  orderItems   OrderItem[]
 
   @@map("menus")
 }
 
-model MenuSize {
-  id          String      @unique @default(uuid())
-  name        String
-  price       Int
-  isAvailable Boolean
-  menuId      String
-  OrderItem   OrderItem[]
-  Menu        Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
+model MenuVariant {
+  id         String      @unique @default(uuid())
+  name       String
+  price      Int
+  menuId     String
+  orderItems OrderItem[]
+  menu       Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
-  @@map("menuSizes")
-}
-
-model MenuAddon {
-  id             String           @unique @default(uuid())
-  name           String
-  price          Int
-  isAvailable    Boolean
-  menuId         String
-  OrderItemAddon OrderItemAddon[]
-  Menu           Menu             @relation(fields: [menuId], references: [id], onDelete: Cascade)
-
-  @@map("menuAddons")
+  @@map("menuVariants")
 }
 
 model Order {
-  id                 String      @unique @default(uuid())
-  total              Int
-  customerName       String
-  paymentStatus      String
-  orderStatus        String
-  specialInstruction String
-  items              OrderItem[]
+  id              String               @unique @default(uuid())
+  userId          String
+  merchantId      String
+  driverId        String
+  status          OrderStatus          @default(CREATED)
+  totalPrice      Int
+  deliveryFee     Int
+  paymentStatus   PaymentStatus        @default(PENDING)
+  items           OrderItem[]
+  statusHistories OrderStatusHistory[]
+  payments        Payment[]
+  deliveries      Delivery[]
+  orderPromotions OrderPromotion[]
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  driver   Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
   @@map("orders")
 }
 
 model OrderItem {
-  id         String           @unique @default(ulid())
-  menuSizeId String
-  quantity   Int
-  total      Int
-  orderId    String
-  itemAddons OrderItemAddon[]
-  Order      Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  MenuSize   MenuSize         @relation(fields: [menuSizeId], references: [id], onDelete: Cascade)
+  id          String      @unique @default(ulid())
+  orderId     String
+  menuId      String
+  variantId   String
+  quantity    Int
+  price       Int
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menu        Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  menuVariant MenuVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
   @@map("orderItems")
 }
 
-model OrderItemAddon {
-  id          String    @unique @default(uuid())
-  menuAddonId String
-  orderItemId String
-  quantity    Int
-  total       Int
-  OrderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  MenuAddon   MenuAddon @relation(fields: [menuAddonId], references: [id], onDelete: Cascade)
+model OrderStatusHistory {
+  id        String   @id @default(uuid())
+  orderId   String
+  status    String
+  changedAt DateTime
+  changedBy String
 
-  @@map("orderItemAddons")
+  orders Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  users  User  @relation(fields: [changedBy], references: [id], onDelete: Cascade)
+
+  @@map("orderStatusHistories")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String
+  provider      Provider      @default(MIDTRANS)
+  paymentType   String
+  transactionId String
+  amount        Int
+  status        PaymentStatus @default(PENDING)
+  createdAt     DateTime
+
+  paymentCallbacks PaymentCallback[]
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model PaymentCallback {
+  id         String   @id @default(uuid())
+  paymentId  String
+  payload    Json
+  receivedAt DateTime
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("paymentCallbacks")
+}
+
+model Driver {
+  id          String  @id @default(uuid())
+  userId      String
+  plateNumber String
+  isAvailable Boolean
+
+  orders          Order[]
+  driverLocations DriverLocation[]
+  deliveries      Delivery[]
+  driverReviews   DriverReview[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("drivers")
+}
+
+model DriverLocation {
+  id         String   @id @default(uuid())
+  driverId   String
+  latitude   Decimal
+  longitude  Decimal
+  recordedAt DateTime
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driverLocations")
+}
+
+model Delivery {
+  id          String   @id @default(uuid())
+  orderId     String
+  driverId    String
+  pickedAt    DateTime
+  deliveredAt DateTime
+  distanceKm  Decimal
+
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("deliveries")
+}
+
+model Promotion {
+  id            String       @id @default(uuid())
+  code          String       @unique
+  discountType  DiscountType @default(PERCENT)
+  maxDiscount   Int
+  discountValue Int
+  expiredAt     DateTime
+
+  orderPromotions OrderPromotion[]
+
+  @@map("promotions")
+}
+
+model OrderPromotion {
+  id             String @id @default(uuid())
+  orderId        String
+  promotionId    String
+  discountAmount Int
+
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@map("orderPromotions")
+}
+
+model MerchantReview {
+  id         String   @id @default(uuid())
+  userId     String
+  merchantId String
+  rating     Int
+  comment    String
+  createdAt  DateTime
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@map("merchantReviews")
+}
+
+model DriverReview {
+  id       String @id @default(uuid())
+  userId   String
+  driverId String
+  rating   Int
+  comment  String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driverReviews")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType @default(ORDER)
+  message   String
+  isRead    Boolean
+  createdAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Image {
+  id           String        @id @default(uuid())
+  createdAt    DateTime      @default(now())
+  userProfiles UserProfile[]
+  menus        Menu[]
+
+  @@map("images")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum Role {
+  CUSTOMER
+  MERCHANT
+  DRIVER
+  ADMIN
+}
+
+enum Status {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  PREPARING
+  READY
+  ON_DELIVERY
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum Provider {
+  MIDTRANS
+  XENDIT
+}
+
+enum DiscountType {
+  PERCENT
+  FLAT
+}
+
+enum NotificationType {
+  ORDER
+  Payment
+  PROMO
 }

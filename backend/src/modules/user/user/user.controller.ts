@@ -5,8 +5,9 @@ import {
   OptionalAuth,
   Session,
 } from "@thallesp/nestjs-better-auth";
-import { User } from "../../generated/zod";
+import { User } from "../../../generated/zod";
 import { UserService } from "./user.service";
+import type { UserRequest } from "../types";
 
 @Controller("users")
 export class UserController {
@@ -32,15 +33,9 @@ export class UserController {
   @Put(":id")
   async updateUser(
     @Param("id") id: string,
-    @Body("name") name: string,
-    @Body("address") address: string,
-    @Body("phone") phone: string,
+    @Body() body: UserRequest,
   ): Promise<User> {
-    return await this.userService.updateUser(id, {
-      name,
-      address,
-      phoneNumber: phone,
-    });
+    return await this.userService.updateUser(id, body);
   }
 
   @Delete(":id")

@@ -1,7 +1,9 @@
+import { Injectable } from "@nestjs/common";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { PrismaService } from "../services/prisma/prisma.service";
+import { PrismaService } from "./prisma.service";
 
+@Injectable()
 export class Auth {
   constructor(private prisma: PrismaService) {}
 
