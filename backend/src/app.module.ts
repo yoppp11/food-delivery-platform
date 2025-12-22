@@ -1,19 +1,32 @@
-import { Logger, Module } from "@nestjs/common";
+import { Logger, MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { AuthModule } from "@thallesp/nestjs-better-auth";
 import { WinstonModule } from "nest-winston";
 import * as winston from "winston";
-import { auth } from "./lib/auth.service";
+import { auth } from "./common/auth.service";
+import { LibModule } from "./common/common.module";
 import { UserModule } from "./modules/user/user.module";
 import { UserController } from "./modules/user/user/user.controller";
 import { UserService } from "./modules/user/user/user.service";
-import { LibModule } from "./lib/lib.module";
 import { ValidationModule } from "./validation/validation.module";
+import { CategoryModule } from "./modules/category/category.module";
+import { CategoryController } from "./modules/category/category/category.controller";
+import { CategoryService } from "./modules/category/category/category.service";
+import { MenuModule } from "./modules/menu/menu.module";
+import { MenuController } from "./modules/menu/menu.controller";
+import { MenuService } from "./modules/menu/menu.service";
+import { AuthMiddleware } from "./common/auth.middleware";
 
 @Module({
   imports: [
     WinstonModule.forRoot({
       level: "debug",
-      format: winston.format.json(),
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.timestamp({ format: "HH:mm:ss" }),
+        winston.format.printf(({ level, message, timestamp }) => {
+          return `[${timestamp}] ${level}: ${message}`;
+        }),
+      ),
       transports: [new winston.transports.Console()],
     }),
     AuthModule.forRoot({
@@ -32,8 +45,14 @@ import { ValidationModule } from "./validation/validation.module";
     ValidationModule.forRoot(),
     UserModule,
     LibModule,
+    CategoryModule,
+    MenuModule,
   ],
-  controllers: [UserController],
-  providers: [UserService],
+  controllers: [UserController, CategoryController, MenuController],
+  providers: [UserService, CategoryService, MenuService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(AuthMiddleware).forRoutes("api/*");
+  }
+}

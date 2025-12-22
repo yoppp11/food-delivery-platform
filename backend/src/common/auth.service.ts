@@ -16,6 +16,7 @@ export class Auth {
         enabled: true,
         requireEmailVerification: false,
       },
+      basePath: "/auth",
       secret: process.env.BETTER_AUTH_SECRET!,
       baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
       trustedOrigins: ["http://localhost:3000", "http://localhost:5173"],

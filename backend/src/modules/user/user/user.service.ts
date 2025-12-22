@@ -1,10 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
+import { PrismaService } from "../../../common/prisma.service";
 import { User } from "../../../generated/zod";
-import { PrismaService } from "../../../lib/prisma.service";
-import { UpdateUserRequest, UpdateUserSchema } from "../../../validations/user";
 import { ValidationService } from "../../../validation/validation.service";
+import { UpdateUserRequest, UpdateUserSchema } from "../../../validations/user";
 
 @Injectable()
 export class UserService {
