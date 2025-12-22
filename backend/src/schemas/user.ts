@@ -1,3 +1,4 @@
+import { User } from "@prisma/client";
 import z from "zod";
 
 export const UpdateUserSchema = z.object({
@@ -7,3 +8,8 @@ export const UpdateUserSchema = z.object({
 });
 
 export type UpdateUserRequest = z.infer<typeof UpdateUserSchema>;
+
+export type UserResponse = {
+  token: string;
+  user: User;
+};

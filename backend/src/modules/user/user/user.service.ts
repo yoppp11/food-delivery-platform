@@ -4,7 +4,7 @@ import { Logger } from "winston";
 import { PrismaService } from "../../../common/prisma.service";
 import { User } from "../../../generated/zod";
 import { ValidationService } from "../../../validation/validation.service";
-import { UpdateUserRequest, UpdateUserSchema } from "../../../validations/user";
+import { UpdateUserRequest, UpdateUserSchema } from "../../../schemas/user";
 
 @Injectable()
 export class UserService {

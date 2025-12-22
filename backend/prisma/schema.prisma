@@ -139,11 +139,11 @@ model Merchant {
   id          String   @id @default(uuid())
   ownerId     String
   name        String
-  description String
+  description String?
   latitude    Decimal
   longitude   Decimal
   isOpen      Boolean
-  rating      Decimal
+  rating      Decimal?
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
