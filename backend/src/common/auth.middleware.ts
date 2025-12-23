@@ -1,4 +1,10 @@
-import { Inject, Injectable, NestMiddleware } from "@nestjs/common";
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  NestMiddleware,
+} from "@nestjs/common";
 import { Request, Response } from "express";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
@@ -16,7 +22,7 @@ export class AuthMiddleware implements NestMiddleware<Request, Response> {
   ) {}
 
   async use(
-    req: Request & { user?: User },
+    req: Request & { user: User },
     res: Response,
     next: (error?: any) => void,
   ) {
@@ -32,6 +38,10 @@ export class AuthMiddleware implements NestMiddleware<Request, Response> {
         id: session.user.id,
       },
     });
+
+    if (!user) {
+      throw new HttpException("User not found", HttpStatus.BAD_REQUEST);
+    }
 
     req.user = user;
 

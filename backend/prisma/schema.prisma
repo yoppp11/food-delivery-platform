@@ -186,12 +186,12 @@ model Menu {
   description String
   price       Int
   isAvailable Boolean
-  imageId     String
+  imageId     String?
   createdAt   DateTime
 
   merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   category     Category      @relation(fields: [categoryId], references: [id])
-  image        Image         @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  image        Image?         @relation(fields: [imageId], references: [id], onDelete: Cascade)
   menuVariants MenuVariant[]
   orderItems   OrderItem[]
 
