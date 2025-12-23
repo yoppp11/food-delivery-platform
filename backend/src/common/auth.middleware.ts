@@ -1,16 +1,40 @@
 import { Inject, Injectable, NestMiddleware } from "@nestjs/common";
+import { Request, Response } from "express";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
+import { Auth } from "./auth.service";
+import { UnauthorizedError } from "./exception.filter";
+import { PrismaService } from "./prisma.service";
+import { User } from "@prisma/client";
 
 @Injectable()
-export class AuthMiddleware implements NestMiddleware {
-  constructor(@Inject(WINSTON_MODULE_PROVIDER) private logger: Logger) {}
+export class AuthMiddleware implements NestMiddleware<Request, Response> {
+  constructor(
+    @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
+    private auth: Auth,
+    private prisma: PrismaService,
+  ) {}
 
-  use(req: any, res: any, next: (error?: any) => void) {
-    this.logger.info(req);
-    this.logger.info(typeof req, "<=======");
-    this.logger.info(res);
-    this.logger.info(typeof res, "<=======");
+  async use(
+    req: Request & { user?: User },
+    res: Response,
+    next: (error?: any) => void,
+  ) {
+    const session = await this.auth.auth().api.getSession();
+
+    if (!session) {
+      return new UnauthorizedError();
+    }
+    this.logger.warn(session);
+
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: session.user.id,
+      },
+    });
+
+    req.user = user;
+
     next();
   }
 }

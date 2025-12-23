@@ -142,7 +142,7 @@ model Merchant {
   description String?
   latitude    Decimal
   longitude   Decimal
-  isOpen      Boolean
+  isOpen      Boolean @default(false)
   rating      Decimal?
   createdAt   DateTime @default(now())
 
