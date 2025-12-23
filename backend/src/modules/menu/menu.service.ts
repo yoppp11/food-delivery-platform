@@ -1,19 +1,31 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
 import type { Menu, Prisma, User } from "@prisma/client";
 import type { CreateMenu } from "../../schemas/menu";
+import { WINSTON_MODULE_PROVIDER } from "nest-winston";
+import { Logger } from "winston";
+import { Multer } from "multer";
 
 @Injectable()
 export class MenuService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
+    private prisma: PrismaService
+  ) {}
 
   async getAllMenus(): Promise<Menu[]> {
     return await this.prisma.menu.findMany();
   }
 
-  async createMenu(user: User, body: CreateMenu): Promise<Menu> {
+  async createMenu(
+    user: User,
+    body: CreateMenu,
+    file: Express.Multer.File
+  ): Promise<Menu> {
     try {
+      this.logger.warn(file.);
+
       const menu = await this.prisma.menu.create({
         data: {
           name: body.name,

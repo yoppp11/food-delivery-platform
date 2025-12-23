@@ -5,7 +5,9 @@ import {
   Inject,
   Post,
   Req,
+  UploadedFile,
   UseFilters,
+  UseInterceptors,
 } from "@nestjs/common";
 import type { Menu, User } from "@prisma/client";
 import { MenuService } from "./menu.service";
@@ -14,6 +16,7 @@ import { Logger } from "winston";
 import type { CreateMenu } from "../../schemas/menu";
 import { BadRequestError } from "../../common/exception.filter";
 import { Auth } from "../../common/decorators";
+import { FileInterceptor } from "@nestjs/platform-express";
 
 @Controller("menus")
 export class MenuController {
@@ -29,8 +32,13 @@ export class MenuController {
   }
 
   @Post()
+  @UseInterceptors(FileInterceptor("file"))
   @UseFilters(BadRequestError)
-  async createMenus(@Body() body: CreateMenu, @Auth() user: User) {
-    return await this.service.createMenu(user, body);
+  async createMenus(
+    @Body() body: CreateMenu,
+    @Auth() user: User,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return await this.service.createMenu(user, body, file);
   }
 }
