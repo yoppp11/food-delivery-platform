@@ -1,0 +1,455 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+generator zod {
+  provider                         = "zod-prisma-types"
+  output                           = "../src/generated/zod"
+  addInputTypeValidation           = "false"
+  coerceDate                       = "true"
+  createInputTypes                 = "true"
+  createModelTypes                 = "true"
+  createOptionalDefaultValuesTypes = "true"
+  createPartialTypes               = "true"
+  useDefaultValidators             = "true"
+  writeNullishInModelTypes         = "true"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Better Auth Models
+
+model User {
+  id            String     @id @default(uuid())
+  email         String     @unique
+  emailVerified Boolean    @default(false)
+  image         String?
+  phoneNumber   String?
+  role          Role       @default(CUSTOMER)
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // Relations
+  userProfiles         UserProfile[]
+  userAddresses        UserAddres[]
+  accounts             Account[]
+  sessions             Session[]
+  merchants            Merchant[]
+  orders               Order[]
+  orderStatusHistories OrderStatusHistory[]
+  drivers              Driver[]
+  merchantReviews      MerchantReview[]
+  driverReviews        DriverReview[]
+  notifications        Notification[]
+
+  @@map("user")
+}
+
+model UserProfile {
+  id        String   @id @default(uuid())
+  userId    String
+  fullName  String
+  imageId   String
+  birthDate DateTime
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  image Image @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@map("userProfiles")
+}
+
+model UserAddres {
+  id        String  @id @default(uuid())
+  userId    String
+  label     String
+  latitude  Decimal
+  longitude Decimal
+  address   String
+  isDefault Boolean
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("userAddresses")
+}
+
+model Account {
+  id           String    @id @default(uuid())
+  userId       String
+  accountId    String
+  providerId   String
+  accessToken  String?
+  refreshToken String?
+  idToken      String?
+  expiresAt    DateTime?
+  password     String?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Verification {
+  id         String   @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([identifier, value])
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Merchant {
+  id          String   @id @default(uuid())
+  ownerId     String
+  name        String
+  description String?
+  latitude    Decimal
+  longitude   Decimal
+  isOpen      Boolean @default(false)
+  rating      Decimal?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  merchantOperationalHours MerchantOperationalHour[]
+  menus                    Menu[]
+  orders                   Order[]
+  merchantReviews          MerchantReview[]
+
+  @@map("merchants")
+}
+
+model MerchantOperationalHour {
+  id         String @id @default(uuid())
+  merchantId String
+  dayOfWeek  Int
+  openTime   String
+  closeTime  String
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@map("merchantsOperationalHours")
+}
+
+model Category {
+  id          String   @unique @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  menus       Menu[]
+
+  @@map("categories")
+}
+
+model Menu {
+  id          String   @unique @default(uuid())
+  merchantId  String
+  categoryId  String
+  name        String
+  description String
+  price       Int
+  isAvailable Boolean
+  imageId     String?
+  createdAt   DateTime
+
+  merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  category     Category      @relation(fields: [categoryId], references: [id])
+  image        Image?         @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  menuVariants MenuVariant[]
+  orderItems   OrderItem[]
+
+  @@map("menus")
+}
+
+model MenuVariant {
+  id         String      @unique @default(uuid())
+  name       String
+  price      Int
+  menuId     String
+  orderItems OrderItem[]
+  menu       Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@map("menuVariants")
+}
+
+model Order {
+  id              String               @unique @default(uuid())
+  userId          String
+  merchantId      String
+  driverId        String
+  status          OrderStatus          @default(CREATED)
+  totalPrice      Int
+  deliveryFee     Int
+  paymentStatus   PaymentStatus        @default(PENDING)
+  items           OrderItem[]
+  statusHistories OrderStatusHistory[]
+  payments        Payment[]
+  deliveries      Delivery[]
+  orderPromotions OrderPromotion[]
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  driver   Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String      @unique @default(ulid())
+  orderId     String
+  menuId      String
+  variantId   String
+  quantity    Int
+  price       Int
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menu        Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  menuVariant MenuVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@map("orderItems")
+}
+
+model OrderStatusHistory {
+  id        String   @id @default(uuid())
+  orderId   String
+  status    String
+  changedAt DateTime
+  changedBy String
+
+  orders Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  users  User  @relation(fields: [changedBy], references: [id], onDelete: Cascade)
+
+  @@map("orderStatusHistories")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String
+  provider      Provider      @default(MIDTRANS)
+  paymentType   String
+  transactionId String
+  amount        Int
+  status        PaymentStatus @default(PENDING)
+  createdAt     DateTime
+
+  paymentCallbacks PaymentCallback[]
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model PaymentCallback {
+  id         String   @id @default(uuid())
+  paymentId  String
+  payload    Json
+  receivedAt DateTime
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("paymentCallbacks")
+}
+
+model Driver {
+  id          String  @id @default(uuid())
+  userId      String
+  plateNumber String
+  isAvailable Boolean
+
+  orders          Order[]
+  driverLocations DriverLocation[]
+  deliveries      Delivery[]
+  driverReviews   DriverReview[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("drivers")
+}
+
+model DriverLocation {
+  id         String   @id @default(uuid())
+  driverId   String
+  latitude   Decimal
+  longitude  Decimal
+  recordedAt DateTime
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driverLocations")
+}
+
+model Delivery {
+  id          String   @id @default(uuid())
+  orderId     String
+  driverId    String
+  pickedAt    DateTime
+  deliveredAt DateTime
+  distanceKm  Decimal
+
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("deliveries")
+}
+
+model Promotion {
+  id            String       @id @default(uuid())
+  code          String       @unique
+  discountType  DiscountType @default(PERCENT)
+  maxDiscount   Int
+  discountValue Int
+  expiredAt     DateTime
+
+  orderPromotions OrderPromotion[]
+
+  @@map("promotions")
+}
+
+model OrderPromotion {
+  id             String @id @default(uuid())
+  orderId        String
+  promotionId    String
+  discountAmount Int
+
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@map("orderPromotions")
+}
+
+model MerchantReview {
+  id         String   @id @default(uuid())
+  userId     String
+  merchantId String
+  rating     Int
+  comment    String
+  createdAt  DateTime
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@map("merchantReviews")
+}
+
+model DriverReview {
+  id       String @id @default(uuid())
+  userId   String
+  driverId String
+  rating   Int
+  comment  String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driverReviews")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType @default(ORDER)
+  message   String
+  isRead    Boolean
+  createdAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Image {
+  id           String        @id @default(uuid())
+  imageUrl     String
+  createdAt    DateTime      @default(now())
+  userProfiles UserProfile[]
+  menus        Menu[]
+
+  @@map("images")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum Role {
+  CUSTOMER
+  MERCHANT
+  DRIVER
+  ADMIN
+}
+
+enum Status {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  PREPARING
+  READY
+  ON_DELIVERY
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum Provider {
+  MIDTRANS
+  XENDIT
+}
+
+enum DiscountType {
+  PERCENT
+  FLAT
+}
+
+enum NotificationType {
+  ORDER
+  Payment
+  PROMO
+}

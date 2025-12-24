@@ -1,2 +1,8 @@
 packages: 
   - backend
+
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - "prisma"
+  - "better-sqlite3"
