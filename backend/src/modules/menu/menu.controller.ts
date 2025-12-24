@@ -22,7 +22,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 export class MenuController {
   constructor(
     private service: MenuService,
-    @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
+    @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger
   ) {}
 
   @Get()
@@ -32,7 +32,6 @@ export class MenuController {
   }
 
   @Post()
-  @UseInterceptors(FileInterceptor("file"))
   @UseFilters(BadRequestError)
   async createMenus(
     @Body() body: CreateMenu,

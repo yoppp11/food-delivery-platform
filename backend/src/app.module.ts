@@ -24,6 +24,9 @@ import { AuthMiddleware } from "./common/auth.middleware";
 import { MerchantModule } from "./modules/merchant/merchant.module";
 import { MerchantController } from "./modules/merchant/merchant.controller";
 import { MerchantService } from "./modules/merchant/merchant.service";
+import { UploadModule } from "./modules/upload/upload.module";
+import { UploadController } from "./modules/upload/upload.controller";
+import { UploadService } from "./modules/upload/upload.service";
 
 @Module({
   imports: [
@@ -57,14 +60,22 @@ import { MerchantService } from "./modules/merchant/merchant.service";
     CategoryModule,
     MenuModule,
     MerchantModule,
+    UploadModule,
   ],
   controllers: [
     UserController,
     CategoryController,
     MenuController,
     MerchantController,
+    UploadController,
   ],
-  providers: [UserService, CategoryService, MenuService, MerchantService],
+  providers: [
+    UserService,
+    CategoryService,
+    MenuService,
+    MerchantService,
+    UploadService,
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

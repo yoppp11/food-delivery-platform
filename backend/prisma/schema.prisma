@@ -395,6 +395,7 @@ model Notification {
 
 model Image {
   id           String        @id @default(uuid())
+  imageUrl     String
   createdAt    DateTime      @default(now())
   userProfiles UserProfile[]
   menus        Menu[]

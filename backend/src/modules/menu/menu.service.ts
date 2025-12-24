@@ -5,13 +5,12 @@ import type { Menu, Prisma, User } from "@prisma/client";
 import type { CreateMenu } from "../../schemas/menu";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
-import { Multer } from "multer";
 
 @Injectable()
 export class MenuService {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
-    private prisma: PrismaService
+    private prisma: PrismaService,
   ) {}
 
   async getAllMenus(): Promise<Menu[]> {
@@ -21,10 +20,14 @@ export class MenuService {
   async createMenu(
     user: User,
     body: CreateMenu,
-    file: Express.Multer.File
+    file: Express.Multer.File,
   ): Promise<Menu> {
     try {
-      this.logger.warn(file.);
+      this.logger.warn(file.path);
+
+      // const base64 = base64(file.buffer).toString()
+
+      // const image = cloudinary.uploader.upload(file)
 
       const menu = await this.prisma.menu.create({
         data: {

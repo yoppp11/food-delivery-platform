@@ -16,6 +16,7 @@ async function signUpUser(email: string, password: string) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Origin: "http://localhost:3000",
     },
     body: JSON.stringify({ email, password }),
   });
@@ -64,14 +65,50 @@ async function main() {
   // Create Images
   console.log("📸 Creating images...");
   const images = await Promise.all([
-    prisma.image.create({ data: { id: "img-user-1" } }),
-    prisma.image.create({ data: { id: "img-user-2" } }),
-    prisma.image.create({ data: { id: "img-menu-1" } }),
-    prisma.image.create({ data: { id: "img-menu-2" } }),
-    prisma.image.create({ data: { id: "img-menu-3" } }),
-    prisma.image.create({ data: { id: "img-menu-4" } }),
-    prisma.image.create({ data: { id: "img-menu-5" } }),
-    prisma.image.create({ data: { id: "img-menu-6" } }),
+    prisma.image.create({ data: { id: "img-user-1", imageUrl: "" } }),
+    prisma.image.create({ data: { id: "img-user-2", imageUrl: "" } }),
+    prisma.image.create({
+      data: {
+        id: "img-menu-1",
+        imageUrl:
+          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750513695/c7pxafle3zhmhmzpswmb.jpg",
+      },
+    }),
+    prisma.image.create({
+      data: {
+        id: "img-menu-2",
+        imageUrl:
+          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750503080/o6oy3773pbava52m2ygp.jpg",
+      },
+    }),
+    prisma.image.create({
+      data: {
+        id: "img-menu-3",
+        imageUrl:
+          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750502929/m7w1sqiayr0sqwmmhpyh.jpg",
+      },
+    }),
+    prisma.image.create({
+      data: {
+        id: "img-menu-4",
+        imageUrl:
+          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750502672/ukdeffqc5pkbgbebefvr.jpg",
+      },
+    }),
+    prisma.image.create({
+      data: {
+        id: "img-menu-5",
+        imageUrl:
+          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750445576/m4nrl2spmzrp4bc3in8s.jpg",
+      },
+    }),
+    prisma.image.create({
+      data: {
+        id: "img-menu-6",
+        imageUrl:
+          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750445798/fgskfbi1w8q7qtlrrnrq.jpg",
+      },
+    }),
   ]);
 
   // Create Users via Better Auth API
@@ -79,13 +116,13 @@ async function main() {
 
   const customerUserData = await signUpUser(
     "customer@example.com",
-    "password123",
+    "password123"
   );
   console.log(`   ✓ Customer created: ${customerUserData.id}`);
 
   const merchantUserData = await signUpUser(
     "merchant@example.com",
-    "password123",
+    "password123"
   );
   console.log(`   ✓ Merchant created: ${merchantUserData.id}`);
 
