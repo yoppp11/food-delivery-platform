@@ -10,7 +10,6 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { UploadService } from "./upload.service";
 import { PrismaService } from "../../common/prisma.service";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
@@ -20,7 +19,6 @@ import { CloudinaryUpload } from "../../common/cloudinary/cloudinary.storage";
 export class UploadController {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
-    private uploadService: UploadService,
     private prisma: PrismaService,
   ) {}
 
