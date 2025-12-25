@@ -9,4 +9,7 @@ export const CreateMenuSchema = z.object({
   imageId: z.string().optional(),
 });
 
+export const UpdateMenuSchema = CreateMenuSchema.partial();
+
 export type CreateMenu = z.infer<typeof CreateMenuSchema>;
+export type UpdateMenu = z.infer<typeof UpdateMenuSchema>;

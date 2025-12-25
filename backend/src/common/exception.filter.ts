@@ -1,4 +1,10 @@
-import { ArgumentsHost, Catch, ExceptionFilter } from "@nestjs/common";
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { Response } from "express";
 import { ZodError } from "zod";
 
@@ -16,16 +22,22 @@ export class BadRequestError implements ExceptionFilter<ZodError> {
   }
 }
 
-@Catch()
+@Catch(UnauthorizedException)
 export class UnauthorizedError implements ExceptionFilter {
-  catch(exception: any, host: ArgumentsHost) {
+  catch(exception: UnauthorizedException, host: ArgumentsHost) {
     const http = host.switchToHttp();
     const response = http.getResponse<Response>();
 
-    response.status(401).json({
-      code: 401,
+    const status = exception.getStatus();
+    const exceptionResponse = exception.getResponse();
+
+    response.status(status).json({
+      code: status,
       name: "Unauthorized",
-      message: "Unauthorized",
+      message:
+        typeof exceptionResponse === "string"
+          ? exceptionResponse
+          : exceptionResponse["message"],
     });
   }
 }

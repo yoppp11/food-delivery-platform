@@ -3,8 +3,11 @@ import {
   Controller,
   Get,
   Inject,
+  Param,
   ParseIntPipe,
+  ParseUUIDPipe,
   Post,
+  Put,
   Query,
   UploadedFile,
   UseFilters,
@@ -13,7 +16,7 @@ import type { Merchant, User } from "@prisma/client";
 import { MenuService } from "./menu.service";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
-import type { CreateMenu } from "../../schemas/menu";
+import type { CreateMenu, UpdateMenu } from "../../schemas/menu";
 import { BadRequestError } from "../../common/exception.filter";
 import { AuthDec, MerchantDec } from "../../common/decorators";
 import { MenuApiResponse } from "./types";
@@ -29,7 +32,7 @@ export class MenuController {
   async getAllMenus(
     @Query("search") search: string,
     @Query("page", ParseIntPipe) page: number,
-    @MerchantDec() merchant: Merchant,
+    @MerchantDec() merchant: Merchant
   ): Promise<MenuApiResponse> {
     return await this.service.getAllMenus(merchant.id, search, page);
   }
@@ -42,5 +45,15 @@ export class MenuController {
     @UploadedFile() file: Express.Multer.File
   ) {
     return await this.service.createMenu(user, body, file);
+  }
+
+  @Put(":id")
+  @UseFilters(BadRequestError)
+  async updateMenu(
+    @Body() body: UpdateMenu,
+    @Param("id", ParseUUIDPipe) id: string,
+    @AuthDec() user: User,
+  ) {
+    return await this.service.updateMenu(id, body);
   }
 }

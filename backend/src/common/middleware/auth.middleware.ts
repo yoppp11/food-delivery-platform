@@ -18,20 +18,19 @@ export class AuthMiddleware implements NestMiddleware<Request, Response> {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
     private auth: Auth,
-    private prisma: PrismaService,
+    private prisma: PrismaService
   ) {}
 
   async use(
     req: Request & { user: User },
     res: Response,
-    next: (error?: any) => void,
+    next: (error?: any) => void
   ) {
     const session = await this.auth.auth().api.getSession();
 
     if (!session) {
       return new UnauthorizedError();
     }
-    this.logger.warn(session);
 
     const user = await this.prisma.user.findUnique({
       where: {

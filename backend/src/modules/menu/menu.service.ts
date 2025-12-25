@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import { Inject, Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
 import type { Prisma, User } from "@prisma/client";
-import type { CreateMenu } from "../../schemas/menu";
+import type { CreateMenu, UpdateMenu } from "../../schemas/menu";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
 import { Menu, MenuApiResponse } from "./types";
@@ -11,13 +11,13 @@ import { Menu, MenuApiResponse } from "./types";
 export class MenuService {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
-    private prisma: PrismaService
+    private prisma: PrismaService,
   ) {}
 
   async getAllMenus(
     merchantId: string,
     search: string,
-    page: number
+    page: number,
   ): Promise<MenuApiResponse> {
     const where: Record<string, unknown> = {};
 
@@ -40,7 +40,7 @@ export class MenuService {
       skip,
     });
 
-    this.logger.info(result)
+    this.logger.info(result);
 
     const total = await this.prisma.menu.count({ where });
 
@@ -55,7 +55,7 @@ export class MenuService {
   async createMenu(
     user: User,
     body: CreateMenu,
-    file: Express.Multer.File
+    file: Express.Multer.File,
   ): Promise<Menu> {
     try {
       this.logger.warn(file.path);
@@ -79,6 +79,34 @@ export class MenuService {
 
       return menu;
     } catch (error) {
+      return error;
+    }
+  }
+
+  async updateMenu(id: string, body: UpdateMenu): Promise<Menu> {
+    try {
+      if (!id) {
+        throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
+      }
+
+      const menu = await this.prisma.menu.findUnique({
+        where: {
+          id,
+        },
+      });
+
+      if (!menu) {
+        throw new HttpException("Menu not found", HttpStatus.NOT_FOUND);
+      }
+
+      const updateData = await this.prisma.menu.update({
+        where: { id },
+        data: body,
+      });
+
+      return updateData;
+    } catch (error) {
+      this.logger.error(error);
       return error;
     }
   }
