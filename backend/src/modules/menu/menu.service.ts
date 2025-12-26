@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
-import type { Prisma, User } from "@prisma/client";
+import type { Image, Prisma, User } from "@prisma/client";
 import type { CreateMenu, UpdateMenu } from "../../schemas/menu";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
@@ -11,13 +12,13 @@ import { Menu, MenuApiResponse } from "./types";
 export class MenuService {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
-    private prisma: PrismaService,
+    private prisma: PrismaService
   ) {}
 
   async getAllMenus(
     merchantId: string,
     search: string,
-    page: number,
+    page: number
   ): Promise<MenuApiResponse> {
     const where: Record<string, unknown> = {};
 
@@ -55,27 +56,43 @@ export class MenuService {
   async createMenu(
     user: User,
     body: CreateMenu,
-    file: Express.Multer.File,
+    file: Express.Multer.File
   ): Promise<Menu> {
     try {
-      this.logger.warn(file.path);
+      let image: Image | null = null;
 
-      // const base64 = base64(file.buffer).toString()
+      if (file) {
+        image = await this.prisma.image.create({
+          data: {
+            imageUrl: file.path,
+          },
+        });
+      }
 
-      // const image = cloudinary.uploader.upload(file)
+      const data = {
+        ...body,
+        imageId: image?.id ?? "",
+        merchantId: user.id,
+      };
+
+      this.logger.info(data);
+      this.logger.info(body);
+      this.logger.info(typeof body.price);
+      this.logger.info(typeof body.isAvailable);
 
       const menu = await this.prisma.menu.create({
         data: {
-          name: body.name,
-          categoryId: body.categoryId,
-          description: body.description ?? "",
-          price: body.price,
-          isAvailable: body.isAvailable,
-          imageId: "",
+          ...body,
+          price: Number(body.price),
+          isAvailable:
+            body.isAvailable === true ||
+            (body.isAvailable as unknown) === "true",
+          imageId: image?.id,
           merchantId: user.id,
-          createdAt: new Date(),
-        } satisfies Prisma.MenuUncheckedCreateInput,
+        },
       });
+
+      this.logger.info(menu);
 
       return menu;
     } catch (error) {

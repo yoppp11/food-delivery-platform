@@ -11,6 +11,7 @@ import {
   Query,
   UploadedFile,
   UseFilters,
+  UseInterceptors,
 } from "@nestjs/common";
 import type { Merchant, User } from "@prisma/client";
 import { MenuService } from "./menu.service";
@@ -20,6 +21,8 @@ import type { CreateMenu, UpdateMenu } from "../../schemas/menu";
 import { BadRequestError } from "../../common/exception.filter";
 import { AuthDec, MerchantDec } from "../../common/decorators";
 import { MenuApiResponse } from "./types";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { CloudinaryStorageService } from "../../common/cloudinary/cloudinary.storage";
 
 @Controller("menus")
 export class MenuController {
@@ -39,6 +42,11 @@ export class MenuController {
 
   @Post()
   @UseFilters(BadRequestError)
+  @UseInterceptors(
+    FileInterceptor("image", {
+      storage: CloudinaryStorageService,
+    }),
+  )
   async createMenus(
     @Body() body: CreateMenu,
     @AuthDec() user: User,
@@ -52,7 +60,7 @@ export class MenuController {
   async updateMenu(
     @Body() body: UpdateMenu,
     @Param("id", ParseUUIDPipe) id: string,
-    @AuthDec() user: User,
+    @AuthDec() user: User
   ) {
     return await this.service.updateMenu(id, body);
   }

@@ -8,10 +8,10 @@ import {
 import { Request, Response } from "express";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
-import { Auth } from "./auth.service";
-import { UnauthorizedError } from "./exception.filter";
-import { PrismaService } from "./prisma.service";
 import { User } from "@prisma/client";
+import { Auth } from "../auth.service";
+import { PrismaService } from "../prisma.service";
+import { UnauthorizedError } from "../exception.filter";
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware<Request, Response> {

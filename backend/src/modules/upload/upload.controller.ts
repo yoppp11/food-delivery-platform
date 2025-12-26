@@ -13,7 +13,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { PrismaService } from "../../common/prisma.service";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
-import { CloudinaryUpload } from "../../common/cloudinary/cloudinary.storage";
+import { CloudinaryStorageService } from "../../common/cloudinary/cloudinary.storage";
 
 @Controller("upload")
 export class UploadController {
@@ -25,7 +25,7 @@ export class UploadController {
   @Post("image")
   @UseInterceptors(
     FileInterceptor("image", {
-      storage: CloudinaryUpload,
+      storage: CloudinaryStorageService,
     }),
   )
   async uploadImage(@UploadedFile() file: Express.Multer.File) {

@@ -169,7 +169,7 @@ model MerchantOperationalHour {
 }
 
 model Category {
-  id          String   @unique @default(uuid())
+  id          String   @id @unique @default(uuid())
   name        String
   description String?
   createdAt   DateTime @default(now())
@@ -179,7 +179,7 @@ model Category {
 }
 
 model Menu {
-  id          String   @unique @default(uuid())
+  id          String   @id @unique @default(uuid())
   merchantId  String
   categoryId  String
   name        String
@@ -187,7 +187,7 @@ model Menu {
   price       Int
   isAvailable Boolean
   imageId     String?
-  createdAt   DateTime
+  createdAt   DateTime @default(now())
 
   merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   category     Category      @relation(fields: [categoryId], references: [id])
@@ -199,7 +199,7 @@ model Menu {
 }
 
 model MenuVariant {
-  id         String      @unique @default(uuid())
+  id         String      @id @unique @default(uuid())
   name       String
   price      Int
   menuId     String
@@ -210,7 +210,7 @@ model MenuVariant {
 }
 
 model Order {
-  id              String               @unique @default(uuid())
+  id              String               @id @unique @default(uuid())
   userId          String
   merchantId      String
   driverId        String
@@ -232,7 +232,7 @@ model Order {
 }
 
 model OrderItem {
-  id          String      @unique @default(ulid())
+  id          String      @id @unique @default(ulid())
   orderId     String
   menuId      String
   variantId   String
@@ -246,7 +246,7 @@ model OrderItem {
 }
 
 model OrderStatusHistory {
-  id        String   @id @default(uuid())
+  id        String   @id @unique @default(uuid())
   orderId   String
   status    String
   changedAt DateTime
@@ -259,14 +259,14 @@ model OrderStatusHistory {
 }
 
 model Payment {
-  id            String        @id @default(uuid())
+  id            String        @id @unique @default(uuid())
   orderId       String
   provider      Provider      @default(MIDTRANS)
   paymentType   String
   transactionId String
   amount        Int
   status        PaymentStatus @default(PENDING)
-  createdAt     DateTime
+  createdAt     DateTime      @default(now())
 
   paymentCallbacks PaymentCallback[]
 
@@ -276,10 +276,10 @@ model Payment {
 }
 
 model PaymentCallback {
-  id         String   @id @default(uuid())
+  id         String   @id @unique @default(uuid())
   paymentId  String
   payload    Json
-  receivedAt DateTime
+  receivedAt DateTime @default(now())
 
   payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
@@ -287,7 +287,7 @@ model PaymentCallback {
 }
 
 model Driver {
-  id          String  @id @default(uuid())
+  id          String  @id @unique @default(uuid())
   userId      String
   plateNumber String
   isAvailable Boolean
@@ -303,7 +303,7 @@ model Driver {
 }
 
 model DriverLocation {
-  id         String   @id @default(uuid())
+  id         String   @id @unique @default(uuid())
   driverId   String
   latitude   Decimal
   longitude  Decimal
@@ -315,10 +315,10 @@ model DriverLocation {
 }
 
 model Delivery {
-  id          String   @id @default(uuid())
+  id          String   @id @unique @default(uuid())
   orderId     String
   driverId    String
-  pickedAt    DateTime
+  pickedAt    DateTime 
   deliveredAt DateTime
   distanceKm  Decimal
 
@@ -329,7 +329,7 @@ model Delivery {
 }
 
 model Promotion {
-  id            String       @id @default(uuid())
+  id            String       @id @unique @default(uuid())
   code          String       @unique
   discountType  DiscountType @default(PERCENT)
   maxDiscount   Int
@@ -342,7 +342,7 @@ model Promotion {
 }
 
 model OrderPromotion {
-  id             String @id @default(uuid())
+  id             String @id @unique @default(uuid())
   orderId        String
   promotionId    String
   discountAmount Int
@@ -354,12 +354,12 @@ model OrderPromotion {
 }
 
 model MerchantReview {
-  id         String   @id @default(uuid())
+  id         String   @id @unique @default(uuid())
   userId     String
   merchantId String
   rating     Int
   comment    String
-  createdAt  DateTime
+  createdAt  DateTime @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
@@ -368,7 +368,7 @@ model MerchantReview {
 }
 
 model DriverReview {
-  id       String @id @default(uuid())
+  id       String @id @unique @default(uuid())
   userId   String
   driverId String
   rating   Int
@@ -381,12 +381,12 @@ model DriverReview {
 }
 
 model Notification {
-  id        String           @id @default(uuid())
+  id        String           @id @unique @default(uuid())
   userId    String
   type      NotificationType @default(ORDER)
   message   String
   isRead    Boolean
-  createdAt DateTime
+  createdAt DateTime         @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -394,7 +394,7 @@ model Notification {
 }
 
 model Image {
-  id           String        @id @default(uuid())
+  id           String        @id @unique @default(uuid())
   imageUrl     String
   createdAt    DateTime      @default(now())
   userProfiles UserProfile[]

@@ -20,12 +20,12 @@ import { CategoryService } from "./modules/category/category/category.service";
 import { MenuModule } from "./modules/menu/menu.module";
 import { MenuController } from "./modules/menu/menu.controller";
 import { MenuService } from "./modules/menu/menu.service";
-import { AuthMiddleware } from "./common/auth.middleware";
 import { MerchantModule } from "./modules/merchant/merchant.module";
 import { MerchantController } from "./modules/merchant/merchant.controller";
 import { MerchantService } from "./modules/merchant/merchant.service";
 import { UploadModule } from "./modules/upload/upload.module";
 import { UploadController } from "./modules/upload/upload.controller";
+import { AuthMiddleware } from "./common/middleware/auth.middleware";
 
 @Module({
   imports: [

@@ -521,6 +521,7 @@ export type MenuPartial = z.infer<typeof MenuPartialSchema>
 
 export const MenuOptionalDefaultsSchema = MenuSchema.merge(z.object({
   id: z.uuid().optional(),
+  createdAt: z.coerce.date().optional(),
 }))
 
 export type MenuOptionalDefaults = z.infer<typeof MenuOptionalDefaultsSchema>
@@ -686,6 +687,7 @@ export const PaymentOptionalDefaultsSchema = PaymentSchema.merge(z.object({
   provider: ProviderSchema.optional(),
   status: PaymentStatusSchema.optional(),
   id: z.uuid().optional(),
+  createdAt: z.coerce.date().optional(),
 }))
 
 export type PaymentOptionalDefaults = z.infer<typeof PaymentOptionalDefaultsSchema>
@@ -716,6 +718,7 @@ export type PaymentCallbackPartial = z.infer<typeof PaymentCallbackPartialSchema
 
 export const PaymentCallbackOptionalDefaultsSchema = PaymentCallbackSchema.merge(z.object({
   id: z.uuid().optional(),
+  receivedAt: z.coerce.date().optional(),
 }))
 
 export type PaymentCallbackOptionalDefaults = z.infer<typeof PaymentCallbackOptionalDefaultsSchema>
@@ -904,6 +907,7 @@ export type MerchantReviewPartial = z.infer<typeof MerchantReviewPartialSchema>
 
 export const MerchantReviewOptionalDefaultsSchema = MerchantReviewSchema.merge(z.object({
   id: z.uuid().optional(),
+  createdAt: z.coerce.date().optional(),
 }))
 
 export type MerchantReviewOptionalDefaults = z.infer<typeof MerchantReviewOptionalDefaultsSchema>
@@ -968,6 +972,7 @@ export type NotificationPartial = z.infer<typeof NotificationPartialSchema>
 export const NotificationOptionalDefaultsSchema = NotificationSchema.merge(z.object({
   type: NotificationTypeSchema.optional(),
   id: z.uuid().optional(),
+  createdAt: z.coerce.date().optional(),
 }))
 
 export type NotificationOptionalDefaults = z.infer<typeof NotificationOptionalDefaultsSchema>
@@ -4280,7 +4285,7 @@ export const MenuCreateInputSchema: z.ZodType<Prisma.MenuCreateInput> = z.strict
   description: z.string(),
   price: z.number(),
   isAvailable: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutMenusInputSchema),
   category: z.lazy(() => CategoryCreateNestedOneWithoutMenusInputSchema),
   image: z.lazy(() => ImageCreateNestedOneWithoutMenusInputSchema).optional(),
@@ -4297,7 +4302,7 @@ export const MenuUncheckedCreateInputSchema: z.ZodType<Prisma.MenuUncheckedCreat
   price: z.number(),
   isAvailable: z.boolean(),
   imageId: z.string().optional().nullable(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   menuVariants: z.lazy(() => MenuVariantUncheckedCreateNestedManyWithoutMenuInputSchema).optional(),
   orderItems: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutMenuInputSchema).optional(),
 });
@@ -4339,7 +4344,7 @@ export const MenuCreateManyInputSchema: z.ZodType<Prisma.MenuCreateManyInput> = 
   price: z.number(),
   isAvailable: z.boolean(),
   imageId: z.string().optional().nullable(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const MenuUpdateManyMutationInputSchema: z.ZodType<Prisma.MenuUpdateManyMutationInput> = z.strictObject({
@@ -4630,7 +4635,7 @@ export const PaymentCreateInputSchema: z.ZodType<Prisma.PaymentCreateInput> = z.
   transactionId: z.string(),
   amount: z.number(),
   status: z.lazy(() => PaymentStatusSchema).optional(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   paymentCallbacks: z.lazy(() => PaymentCallbackCreateNestedManyWithoutPaymentInputSchema).optional(),
   order: z.lazy(() => OrderCreateNestedOneWithoutPaymentsInputSchema),
 });
@@ -4643,7 +4648,7 @@ export const PaymentUncheckedCreateInputSchema: z.ZodType<Prisma.PaymentUnchecke
   transactionId: z.string(),
   amount: z.number(),
   status: z.lazy(() => PaymentStatusSchema).optional(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   paymentCallbacks: z.lazy(() => PaymentCallbackUncheckedCreateNestedManyWithoutPaymentInputSchema).optional(),
 });
 
@@ -4679,7 +4684,7 @@ export const PaymentCreateManyInputSchema: z.ZodType<Prisma.PaymentCreateManyInp
   transactionId: z.string(),
   amount: z.number(),
   status: z.lazy(() => PaymentStatusSchema).optional(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const PaymentUpdateManyMutationInputSchema: z.ZodType<Prisma.PaymentUpdateManyMutationInput> = z.strictObject({
@@ -4706,7 +4711,7 @@ export const PaymentUncheckedUpdateManyInputSchema: z.ZodType<Prisma.PaymentUnch
 export const PaymentCallbackCreateInputSchema: z.ZodType<Prisma.PaymentCallbackCreateInput> = z.strictObject({
   id: z.uuid().optional(),
   payload: z.union([ z.lazy(() => JsonNullValueInputSchema), InputJsonValueSchema ]),
-  receivedAt: z.coerce.date(),
+  receivedAt: z.coerce.date().optional(),
   payment: z.lazy(() => PaymentCreateNestedOneWithoutPaymentCallbacksInputSchema),
 });
 
@@ -4714,7 +4719,7 @@ export const PaymentCallbackUncheckedCreateInputSchema: z.ZodType<Prisma.Payment
   id: z.uuid().optional(),
   paymentId: z.string(),
   payload: z.union([ z.lazy(() => JsonNullValueInputSchema), InputJsonValueSchema ]),
-  receivedAt: z.coerce.date(),
+  receivedAt: z.coerce.date().optional(),
 });
 
 export const PaymentCallbackUpdateInputSchema: z.ZodType<Prisma.PaymentCallbackUpdateInput> = z.strictObject({
@@ -4735,7 +4740,7 @@ export const PaymentCallbackCreateManyInputSchema: z.ZodType<Prisma.PaymentCallb
   id: z.uuid().optional(),
   paymentId: z.string(),
   payload: z.union([ z.lazy(() => JsonNullValueInputSchema), InputJsonValueSchema ]),
-  receivedAt: z.coerce.date(),
+  receivedAt: z.coerce.date().optional(),
 });
 
 export const PaymentCallbackUpdateManyMutationInputSchema: z.ZodType<Prisma.PaymentCallbackUpdateManyMutationInput> = z.strictObject({
@@ -5049,7 +5054,7 @@ export const MerchantReviewCreateInputSchema: z.ZodType<Prisma.MerchantReviewCre
   id: z.uuid().optional(),
   rating: z.number(),
   comment: z.string(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutMerchantReviewsInputSchema),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutMerchantReviewsInputSchema),
 });
@@ -5060,7 +5065,7 @@ export const MerchantReviewUncheckedCreateInputSchema: z.ZodType<Prisma.Merchant
   merchantId: z.string(),
   rating: z.number(),
   comment: z.string(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const MerchantReviewUpdateInputSchema: z.ZodType<Prisma.MerchantReviewUpdateInput> = z.strictObject({
@@ -5087,7 +5092,7 @@ export const MerchantReviewCreateManyInputSchema: z.ZodType<Prisma.MerchantRevie
   merchantId: z.string(),
   rating: z.number(),
   comment: z.string(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const MerchantReviewUpdateManyMutationInputSchema: z.ZodType<Prisma.MerchantReviewUpdateManyMutationInput> = z.strictObject({
@@ -5165,7 +5170,7 @@ export const NotificationCreateInputSchema: z.ZodType<Prisma.NotificationCreateI
   type: z.lazy(() => NotificationTypeSchema).optional(),
   message: z.string(),
   isRead: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutNotificationsInputSchema),
 });
 
@@ -5175,7 +5180,7 @@ export const NotificationUncheckedCreateInputSchema: z.ZodType<Prisma.Notificati
   type: z.lazy(() => NotificationTypeSchema).optional(),
   message: z.string(),
   isRead: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const NotificationUpdateInputSchema: z.ZodType<Prisma.NotificationUpdateInput> = z.strictObject({
@@ -5202,7 +5207,7 @@ export const NotificationCreateManyInputSchema: z.ZodType<Prisma.NotificationCre
   type: z.lazy(() => NotificationTypeSchema).optional(),
   message: z.string(),
   isRead: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const NotificationUpdateManyMutationInputSchema: z.ZodType<Prisma.NotificationUpdateManyMutationInput> = z.strictObject({
@@ -9217,7 +9222,7 @@ export const MerchantReviewCreateWithoutUserInputSchema: z.ZodType<Prisma.Mercha
   id: z.uuid().optional(),
   rating: z.number(),
   comment: z.string(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutMerchantReviewsInputSchema),
 });
 
@@ -9226,7 +9231,7 @@ export const MerchantReviewUncheckedCreateWithoutUserInputSchema: z.ZodType<Pris
   merchantId: z.string(),
   rating: z.number(),
   comment: z.string(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const MerchantReviewCreateOrConnectWithoutUserInputSchema: z.ZodType<Prisma.MerchantReviewCreateOrConnectWithoutUserInput> = z.strictObject({
@@ -9268,7 +9273,7 @@ export const NotificationCreateWithoutUserInputSchema: z.ZodType<Prisma.Notifica
   type: z.lazy(() => NotificationTypeSchema).optional(),
   message: z.string(),
   isRead: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const NotificationUncheckedCreateWithoutUserInputSchema: z.ZodType<Prisma.NotificationUncheckedCreateWithoutUserInput> = z.strictObject({
@@ -9276,7 +9281,7 @@ export const NotificationUncheckedCreateWithoutUserInputSchema: z.ZodType<Prisma
   type: z.lazy(() => NotificationTypeSchema).optional(),
   message: z.string(),
   isRead: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const NotificationCreateOrConnectWithoutUserInputSchema: z.ZodType<Prisma.NotificationCreateOrConnectWithoutUserInput> = z.strictObject({
@@ -10148,7 +10153,7 @@ export const MenuCreateWithoutMerchantInputSchema: z.ZodType<Prisma.MenuCreateWi
   description: z.string(),
   price: z.number(),
   isAvailable: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   category: z.lazy(() => CategoryCreateNestedOneWithoutMenusInputSchema),
   image: z.lazy(() => ImageCreateNestedOneWithoutMenusInputSchema).optional(),
   menuVariants: z.lazy(() => MenuVariantCreateNestedManyWithoutMenuInputSchema).optional(),
@@ -10163,7 +10168,7 @@ export const MenuUncheckedCreateWithoutMerchantInputSchema: z.ZodType<Prisma.Men
   price: z.number(),
   isAvailable: z.boolean(),
   imageId: z.string().optional().nullable(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   menuVariants: z.lazy(() => MenuVariantUncheckedCreateNestedManyWithoutMenuInputSchema).optional(),
   orderItems: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutMenuInputSchema).optional(),
 });
@@ -10222,7 +10227,7 @@ export const MerchantReviewCreateWithoutMerchantInputSchema: z.ZodType<Prisma.Me
   id: z.uuid().optional(),
   rating: z.number(),
   comment: z.string(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutMerchantReviewsInputSchema),
 });
 
@@ -10231,7 +10236,7 @@ export const MerchantReviewUncheckedCreateWithoutMerchantInputSchema: z.ZodType<
   userId: z.string(),
   rating: z.number(),
   comment: z.string(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const MerchantReviewCreateOrConnectWithoutMerchantInputSchema: z.ZodType<Prisma.MerchantReviewCreateOrConnectWithoutMerchantInput> = z.strictObject({
@@ -10471,7 +10476,7 @@ export const MenuCreateWithoutCategoryInputSchema: z.ZodType<Prisma.MenuCreateWi
   description: z.string(),
   price: z.number(),
   isAvailable: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutMenusInputSchema),
   image: z.lazy(() => ImageCreateNestedOneWithoutMenusInputSchema).optional(),
   menuVariants: z.lazy(() => MenuVariantCreateNestedManyWithoutMenuInputSchema).optional(),
@@ -10486,7 +10491,7 @@ export const MenuUncheckedCreateWithoutCategoryInputSchema: z.ZodType<Prisma.Men
   price: z.number(),
   isAvailable: z.boolean(),
   imageId: z.string().optional().nullable(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   menuVariants: z.lazy(() => MenuVariantUncheckedCreateNestedManyWithoutMenuInputSchema).optional(),
   orderItems: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutMenuInputSchema).optional(),
 });
@@ -10817,7 +10822,7 @@ export const MenuCreateWithoutMenuVariantsInputSchema: z.ZodType<Prisma.MenuCrea
   description: z.string(),
   price: z.number(),
   isAvailable: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutMenusInputSchema),
   category: z.lazy(() => CategoryCreateNestedOneWithoutMenusInputSchema),
   image: z.lazy(() => ImageCreateNestedOneWithoutMenusInputSchema).optional(),
@@ -10833,7 +10838,7 @@ export const MenuUncheckedCreateWithoutMenuVariantsInputSchema: z.ZodType<Prisma
   price: z.number(),
   isAvailable: z.boolean(),
   imageId: z.string().optional().nullable(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   orderItems: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutMenuInputSchema).optional(),
 });
 
@@ -10952,7 +10957,7 @@ export const PaymentCreateWithoutOrderInputSchema: z.ZodType<Prisma.PaymentCreat
   transactionId: z.string(),
   amount: z.number(),
   status: z.lazy(() => PaymentStatusSchema).optional(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   paymentCallbacks: z.lazy(() => PaymentCallbackCreateNestedManyWithoutPaymentInputSchema).optional(),
 });
 
@@ -10963,7 +10968,7 @@ export const PaymentUncheckedCreateWithoutOrderInputSchema: z.ZodType<Prisma.Pay
   transactionId: z.string(),
   amount: z.number(),
   status: z.lazy(() => PaymentStatusSchema).optional(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   paymentCallbacks: z.lazy(() => PaymentCallbackUncheckedCreateNestedManyWithoutPaymentInputSchema).optional(),
 });
 
@@ -11418,7 +11423,7 @@ export const MenuCreateWithoutOrderItemsInputSchema: z.ZodType<Prisma.MenuCreate
   description: z.string(),
   price: z.number(),
   isAvailable: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutMenusInputSchema),
   category: z.lazy(() => CategoryCreateNestedOneWithoutMenusInputSchema),
   image: z.lazy(() => ImageCreateNestedOneWithoutMenusInputSchema).optional(),
@@ -11434,7 +11439,7 @@ export const MenuUncheckedCreateWithoutOrderItemsInputSchema: z.ZodType<Prisma.M
   price: z.number(),
   isAvailable: z.boolean(),
   imageId: z.string().optional().nullable(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   menuVariants: z.lazy(() => MenuVariantUncheckedCreateNestedManyWithoutMenuInputSchema).optional(),
 });
 
@@ -11748,13 +11753,13 @@ export const UserUncheckedUpdateWithoutOrderStatusHistoriesInputSchema: z.ZodTyp
 export const PaymentCallbackCreateWithoutPaymentInputSchema: z.ZodType<Prisma.PaymentCallbackCreateWithoutPaymentInput> = z.strictObject({
   id: z.uuid().optional(),
   payload: z.union([ z.lazy(() => JsonNullValueInputSchema), InputJsonValueSchema ]),
-  receivedAt: z.coerce.date(),
+  receivedAt: z.coerce.date().optional(),
 });
 
 export const PaymentCallbackUncheckedCreateWithoutPaymentInputSchema: z.ZodType<Prisma.PaymentCallbackUncheckedCreateWithoutPaymentInput> = z.strictObject({
   id: z.uuid().optional(),
   payload: z.union([ z.lazy(() => JsonNullValueInputSchema), InputJsonValueSchema ]),
-  receivedAt: z.coerce.date(),
+  receivedAt: z.coerce.date().optional(),
 });
 
 export const PaymentCallbackCreateOrConnectWithoutPaymentInputSchema: z.ZodType<Prisma.PaymentCallbackCreateOrConnectWithoutPaymentInput> = z.strictObject({
@@ -11876,7 +11881,7 @@ export const PaymentCreateWithoutPaymentCallbacksInputSchema: z.ZodType<Prisma.P
   transactionId: z.string(),
   amount: z.number(),
   status: z.lazy(() => PaymentStatusSchema).optional(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   order: z.lazy(() => OrderCreateNestedOneWithoutPaymentsInputSchema),
 });
 
@@ -11888,7 +11893,7 @@ export const PaymentUncheckedCreateWithoutPaymentCallbacksInputSchema: z.ZodType
   transactionId: z.string(),
   amount: z.number(),
   status: z.lazy(() => PaymentStatusSchema).optional(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const PaymentCreateOrConnectWithoutPaymentCallbacksInputSchema: z.ZodType<Prisma.PaymentCreateOrConnectWithoutPaymentCallbacksInput> = z.strictObject({
@@ -13052,7 +13057,7 @@ export const MenuCreateWithoutImageInputSchema: z.ZodType<Prisma.MenuCreateWitho
   description: z.string(),
   price: z.number(),
   isAvailable: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutMenusInputSchema),
   category: z.lazy(() => CategoryCreateNestedOneWithoutMenusInputSchema),
   menuVariants: z.lazy(() => MenuVariantCreateNestedManyWithoutMenuInputSchema).optional(),
@@ -13067,7 +13072,7 @@ export const MenuUncheckedCreateWithoutImageInputSchema: z.ZodType<Prisma.MenuUn
   description: z.string(),
   price: z.number(),
   isAvailable: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
   menuVariants: z.lazy(() => MenuVariantUncheckedCreateNestedManyWithoutMenuInputSchema).optional(),
   orderItems: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutMenuInputSchema).optional(),
 });
@@ -13196,7 +13201,7 @@ export const MerchantReviewCreateManyUserInputSchema: z.ZodType<Prisma.MerchantR
   merchantId: z.string(),
   rating: z.number(),
   comment: z.string(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const DriverReviewCreateManyUserInputSchema: z.ZodType<Prisma.DriverReviewCreateManyUserInput> = z.strictObject({
@@ -13211,7 +13216,7 @@ export const NotificationCreateManyUserInputSchema: z.ZodType<Prisma.Notificatio
   type: z.lazy(() => NotificationTypeSchema).optional(),
   message: z.string(),
   isRead: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const UserProfileUpdateWithoutUserInputSchema: z.ZodType<Prisma.UserProfileUpdateWithoutUserInput> = z.strictObject({
@@ -13555,7 +13560,7 @@ export const MenuCreateManyMerchantInputSchema: z.ZodType<Prisma.MenuCreateManyM
   price: z.number(),
   isAvailable: z.boolean(),
   imageId: z.string().optional().nullable(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const OrderCreateManyMerchantInputSchema: z.ZodType<Prisma.OrderCreateManyMerchantInput> = z.strictObject({
@@ -13573,7 +13578,7 @@ export const MerchantReviewCreateManyMerchantInputSchema: z.ZodType<Prisma.Merch
   userId: z.string(),
   rating: z.number(),
   comment: z.string(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const MerchantOperationalHourUpdateWithoutMerchantInputSchema: z.ZodType<Prisma.MerchantOperationalHourUpdateWithoutMerchantInput> = z.strictObject({
@@ -13706,7 +13711,7 @@ export const MenuCreateManyCategoryInputSchema: z.ZodType<Prisma.MenuCreateManyC
   price: z.number(),
   isAvailable: z.boolean(),
   imageId: z.string().optional().nullable(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const MenuUpdateWithoutCategoryInputSchema: z.ZodType<Prisma.MenuUpdateWithoutCategoryInput> = z.strictObject({
@@ -13858,7 +13863,7 @@ export const PaymentCreateManyOrderInputSchema: z.ZodType<Prisma.PaymentCreateMa
   transactionId: z.string(),
   amount: z.number(),
   status: z.lazy(() => PaymentStatusSchema).optional(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const DeliveryCreateManyOrderInputSchema: z.ZodType<Prisma.DeliveryCreateManyOrderInput> = z.strictObject({
@@ -13997,7 +14002,7 @@ export const OrderPromotionUncheckedUpdateManyWithoutOrderInputSchema: z.ZodType
 export const PaymentCallbackCreateManyPaymentInputSchema: z.ZodType<Prisma.PaymentCallbackCreateManyPaymentInput> = z.strictObject({
   id: z.uuid().optional(),
   payload: z.union([ z.lazy(() => JsonNullValueInputSchema), InputJsonValueSchema ]),
-  receivedAt: z.coerce.date(),
+  receivedAt: z.coerce.date().optional(),
 });
 
 export const PaymentCallbackUpdateWithoutPaymentInputSchema: z.ZodType<Prisma.PaymentCallbackUpdateWithoutPaymentInput> = z.strictObject({
@@ -14196,7 +14201,7 @@ export const MenuCreateManyImageInputSchema: z.ZodType<Prisma.MenuCreateManyImag
   description: z.string(),
   price: z.number(),
   isAvailable: z.boolean(),
-  createdAt: z.coerce.date(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const UserProfileUpdateWithoutImageInputSchema: z.ZodType<Prisma.UserProfileUpdateWithoutImageInput> = z.strictObject({
