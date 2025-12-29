@@ -142,7 +142,14 @@ export class MenuService {
 
       const updateData = await this.prisma.menu.update({
         where: { id },
-        data: body,
+        data: {
+          name: body.name,
+          description: body.description,
+          price: body.price,
+          isAvailable: body.isAvailable,
+
+          image: body.imageId ? { connect: { id: body.imageId } } : undefined,
+        },
       });
 
       return updateData;
