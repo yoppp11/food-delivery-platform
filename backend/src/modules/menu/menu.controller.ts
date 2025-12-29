@@ -11,6 +11,7 @@ import {
   Query,
   UploadedFile,
   UseFilters,
+  UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
 import type { Merchant, User } from "@prisma/client";
@@ -19,23 +20,25 @@ import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
 import type { CreateMenu, UpdateMenu } from "../../schemas/menu";
 import { BadRequestError } from "../../common/exception.filter";
-import { AuthDec, MerchantDec } from "../../common/decorators";
+import { AuthDec, MerchantDec, Roles } from "../../common/decorators";
 import { MenuApiResponse } from "./types";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { CloudinaryStorageService } from "../../common/cloudinary/cloudinary.storage";
+import { PermissionGuard } from "../../common/guard";
 
 @Controller("menus")
+@UseGuards(PermissionGuard)
 export class MenuController {
   constructor(
     private service: MenuService,
-    @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger
+    @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
   ) {}
 
   @Get()
   async getAllMenus(
     @Query("search") search: string,
     @Query("page", ParseIntPipe) page: number,
-    @MerchantDec() merchant: Merchant
+    @MerchantDec() merchant: Merchant,
   ): Promise<MenuApiResponse> {
     return await this.service.getAllMenus(merchant.id, search, page);
   }
@@ -47,20 +50,26 @@ export class MenuController {
       storage: CloudinaryStorageService,
     }),
   )
+  @Roles(["ADMIN", "MERCHANT"])
   async createMenus(
     @Body() body: CreateMenu,
     @AuthDec() user: User,
-    @UploadedFile() file: Express.Multer.File
+    @UploadedFile() file: Express.Multer.File,
   ) {
     return await this.service.createMenu(user, body, file);
   }
 
+  @Get(":id")
+  async getById(@Param("id", ParseUUIDPipe) id: string) {
+    return await this.service.getById(id);
+  }
+
   @Put(":id")
   @UseFilters(BadRequestError)
+  @Roles(["ADMIN", "MERCHANT"])
   async updateMenu(
     @Body() body: UpdateMenu,
     @Param("id", ParseUUIDPipe) id: string,
-    @AuthDec() user: User
   ) {
     return await this.service.updateMenu(id, body);
   }

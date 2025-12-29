@@ -5,6 +5,7 @@ import "dotenv/config";
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { PrismaService } from "../src/common/prisma.service";
+import { v4 as uuid } from "uuid";
 
 const prisma = new PrismaService();
 
@@ -65,46 +66,46 @@ async function main() {
   // Create Images
   console.log("📸 Creating images...");
   const images = await Promise.all([
-    prisma.image.create({ data: { id: "img-user-1", imageUrl: "" } }),
-    prisma.image.create({ data: { id: "img-user-2", imageUrl: "" } }),
+    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
+    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
     prisma.image.create({
       data: {
-        id: "img-menu-1",
+        id: uuid(),
         imageUrl:
           "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750513695/c7pxafle3zhmhmzpswmb.jpg",
       },
     }),
     prisma.image.create({
       data: {
-        id: "img-menu-2",
+        id: uuid(),
         imageUrl:
           "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750503080/o6oy3773pbava52m2ygp.jpg",
       },
     }),
     prisma.image.create({
       data: {
-        id: "img-menu-3",
+        id: uuid(),
         imageUrl:
           "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750502929/m7w1sqiayr0sqwmmhpyh.jpg",
       },
     }),
     prisma.image.create({
       data: {
-        id: "img-menu-4",
+        id: uuid(),
         imageUrl:
           "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750502672/ukdeffqc5pkbgbebefvr.jpg",
       },
     }),
     prisma.image.create({
       data: {
-        id: "img-menu-5",
+        id: uuid(),
         imageUrl:
           "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750445576/m4nrl2spmzrp4bc3in8s.jpg",
       },
     }),
     prisma.image.create({
       data: {
-        id: "img-menu-6",
+        id: uuid(),
         imageUrl:
           "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750445798/fgskfbi1w8q7qtlrrnrq.jpg",
       },
@@ -204,7 +205,7 @@ async function main() {
   console.log("🏪 Creating merchants...");
   const merchant1 = await prisma.merchant.create({
     data: {
-      id: "merchant-1",
+      id: uuid(),
       ownerId: merchantUser.id,
       name: "Warung Nasi Padang Sederhana",
       description: "Authentic Padang cuisine with rich flavors",
@@ -217,7 +218,7 @@ async function main() {
 
   const merchant2 = await prisma.merchant.create({
     data: {
-      id: "merchant-2",
+      id: uuid(),
       ownerId: merchantUser.id,
       name: "Sushi Express",
       description: "Fresh Japanese sushi and sashimi",
@@ -249,28 +250,28 @@ async function main() {
   const categories = await Promise.all([
     prisma.category.create({
       data: {
-        id: "cat-rice",
+        id: uuid(),
         name: "Rice Dishes",
         description: "Various rice-based meals",
       },
     }),
     prisma.category.create({
       data: {
-        id: "cat-noodles",
+        id: uuid(),
         name: "Noodles",
         description: "Noodle dishes",
       },
     }),
     prisma.category.create({
       data: {
-        id: "cat-sushi",
+        id: uuid(),
         name: "Sushi",
         description: "Fresh sushi rolls and nigiri",
       },
     }),
     prisma.category.create({
       data: {
-        id: "cat-drinks",
+        id: uuid(),
         name: "Beverages",
         description: "Refreshing drinks",
       },
@@ -281,7 +282,7 @@ async function main() {
   console.log("🍽️ Creating menus...");
   const menu1 = await prisma.menu.create({
     data: {
-      id: "menu-1",
+      id: uuid(),
       merchantId: merchant1.id,
       categoryId: categories[0].id,
       name: "Nasi Rendang",
@@ -295,7 +296,7 @@ async function main() {
 
   const menu2 = await prisma.menu.create({
     data: {
-      id: "menu-2",
+      id: uuid(),
       merchantId: merchant1.id,
       categoryId: categories[0].id,
       name: "Nasi Ayam Pop",
@@ -309,7 +310,7 @@ async function main() {
 
   const menu3 = await prisma.menu.create({
     data: {
-      id: "menu-3",
+      id: uuid(),
       merchantId: merchant2.id,
       categoryId: categories[2].id,
       name: "Salmon Sashimi",
@@ -323,7 +324,7 @@ async function main() {
 
   const menu4 = await prisma.menu.create({
     data: {
-      id: "menu-4",
+      id: uuid(),
       merchantId: merchant2.id,
       categoryId: categories[2].id,
       name: "Dragon Roll",
@@ -339,7 +340,7 @@ async function main() {
   console.log("🔄 Creating menu variants...");
   const variant1 = await prisma.menuVariant.create({
     data: {
-      id: "variant-1",
+      id: uuid(),
       menuId: menu1.id,
       name: "Regular",
       price: 35000,
@@ -348,7 +349,7 @@ async function main() {
 
   const variant2 = await prisma.menuVariant.create({
     data: {
-      id: "variant-2",
+      id: uuid(),
       menuId: menu1.id,
       name: "Large",
       price: 45000,
@@ -357,7 +358,7 @@ async function main() {
 
   const variant3 = await prisma.menuVariant.create({
     data: {
-      id: "variant-3",
+      id: uuid(),
       menuId: menu3.id,
       name: "5 pcs",
       price: 65000,
@@ -366,7 +367,7 @@ async function main() {
 
   const variant4 = await prisma.menuVariant.create({
     data: {
-      id: "variant-4",
+      id: uuid(),
       menuId: menu3.id,
       name: "10 pcs",
       price: 120000,
@@ -377,7 +378,7 @@ async function main() {
   console.log("🚗 Creating drivers...");
   const driver = await prisma.driver.create({
     data: {
-      id: "driver-1",
+      id: uuid(),
       userId: driverUser.id,
       plateNumber: "B 1234 XYZ",
       isAvailable: true,
@@ -399,7 +400,7 @@ async function main() {
   console.log("🎉 Creating promotions...");
   const promotion = await prisma.promotion.create({
     data: {
-      id: "promo-1",
+      id: uuid(),
       code: "NEWUSER50",
       discountType: "PERCENT",
       discountValue: 50,
@@ -410,7 +411,7 @@ async function main() {
 
   await prisma.promotion.create({
     data: {
-      id: "promo-2",
+      id: uuid(),
       code: "FLAT10K",
       discountType: "FLAT",
       discountValue: 10000,
@@ -423,7 +424,7 @@ async function main() {
   console.log("📦 Creating orders...");
   const order1 = await prisma.order.create({
     data: {
-      id: "order-1",
+      id: uuid(),
       userId: customerUser.id,
       merchantId: merchant1.id,
       driverId: driver.id,
@@ -436,7 +437,7 @@ async function main() {
 
   const order2 = await prisma.order.create({
     data: {
-      id: "order-2",
+      id: uuid(),
       userId: customerUser.id,
       merchantId: merchant2.id,
       driverId: driver.id,
@@ -503,7 +504,7 @@ async function main() {
   console.log("💳 Creating payments...");
   const payment = await prisma.payment.create({
     data: {
-      id: "payment-1",
+      id: uuid(),
       orderId: order1.id,
       provider: "MIDTRANS",
       paymentType: "gopay",
@@ -516,7 +517,7 @@ async function main() {
 
   await prisma.payment.create({
     data: {
-      id: "payment-2",
+      id: uuid(),
       orderId: order2.id,
       provider: "MIDTRANS",
       paymentType: "bank_transfer",

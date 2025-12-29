@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
-import type { Image, Prisma, User } from "@prisma/client";
+import type { Image, User } from "@prisma/client";
 import type { CreateMenu, UpdateMenu } from "../../schemas/menu";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
@@ -53,6 +53,31 @@ export class MenuService {
     };
   }
 
+  async getById(id: string) {
+    try {
+      if (!id) {
+        throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
+      }
+
+      const menu = await this.prisma.menu.findUnique({
+        where: { id },
+        include: {
+          category: true,
+          menuVariants: true,
+        },
+      });
+
+      if (!menu) {
+        throw new HttpException("Menu not found", HttpStatus.NOT_FOUND);
+      }
+
+      return menu;
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
   async createMenu(
     user: User,
     body: CreateMenu,
@@ -69,16 +94,12 @@ export class MenuService {
         });
       }
 
-      const data = {
-        ...body,
-        imageId: image?.id ?? "",
-        merchantId: user.id,
-      };
-
-      this.logger.info(data);
-      this.logger.info(body);
-      this.logger.info(typeof body.price);
-      this.logger.info(typeof body.isAvailable);
+      const variants = body.menuVariants?.map((m) => {
+        return {
+          name: m.name,
+          price: m.price,
+        };
+      });
 
       const menu = await this.prisma.menu.create({
         data: {
@@ -89,6 +110,9 @@ export class MenuService {
             (body.isAvailable as unknown) === "true",
           imageId: image?.id,
           merchantId: user.id,
+          menuVariants: {
+            create: variants,
+          },
         },
       });
 

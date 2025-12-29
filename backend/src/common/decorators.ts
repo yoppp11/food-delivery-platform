@@ -2,6 +2,7 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
 import type { User } from "@prisma/client";
 import { PrismaService } from "./prisma.service";
+import { Reflector } from "@nestjs/core";
 
 const prisma = new PrismaService();
 
@@ -17,7 +18,7 @@ export const AuthDec = createParamDecorator(
     });
 
     return user;
-  }
+  },
 );
 
 export const MerchantDec = createParamDecorator(
@@ -32,5 +33,7 @@ export const MerchantDec = createParamDecorator(
     });
 
     return merchant;
-  }
+  },
 );
+
+export const Roles = Reflector.createDecorator<string[]>();
