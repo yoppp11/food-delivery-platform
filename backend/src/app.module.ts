@@ -25,7 +25,7 @@ import { MerchantController } from "./modules/merchant/merchant.controller";
 import { MerchantService } from "./modules/merchant/merchant.service";
 import { UploadModule } from "./modules/upload/upload.module";
 import { UploadController } from "./modules/upload/upload.controller";
-import { AuthMiddleware } from "./common/middleware/auth.middleware";
+import { AuthenticationMiddleware } from "./common/middleware/auth.middleware";
 
 @Module({
   imports: [
@@ -36,18 +36,15 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
         winston.format.timestamp({ format: "HH:mm:ss" }),
         winston.format.printf(({ level, message, timestamp }) => {
           return `[${timestamp}] ${level}: ${JSON.stringify(message)}`;
-        })
+        }),
       ),
       transports: [new winston.transports.Console()],
     }),
     AuthModule.forRoot({
       auth,
+      // disableControllers: true,
+      // disableGlobalAuthGuard: true,
       middleware: (req, _res, next) => {
-        Logger.log({
-          originUrl: req.originalUrl,
-          baseUrl: req.baseUrl,
-          url: req.url,
-        });
         req.url = req.originalUrl;
         req.baseUrl = "";
         next();
@@ -72,8 +69,8 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(AuthMiddleware).forRoutes({
-      path: "/api/*",
+    consumer.apply(AuthenticationMiddleware).forRoutes({
+      path: "api/*",
       method: RequestMethod.ALL,
     });
   }

@@ -14,13 +14,13 @@ import {
   UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
-import type { Merchant, User } from "@prisma/client";
+import type { User } from "@prisma/client";
 import { MenuService } from "./menu.service";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
 import type { CreateMenu, UpdateMenu } from "../../schemas/menu";
 import { BadRequestError } from "../../common/exception.filter";
-import { AuthDec, MerchantDec, Roles } from "../../common/decorators";
+import { CurrentUser, Roles } from "../../common/decorators";
 import { MenuApiResponse } from "./types";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { CloudinaryStorageService } from "../../common/cloudinary/cloudinary.storage";
@@ -37,10 +37,10 @@ export class MenuController {
   @Get()
   async getAllMenus(
     @Query("search") search: string,
-    @Query("page", ParseIntPipe) page: number,
-    @MerchantDec() merchant: Merchant,
+    @Query("page") page: number,
+    @CurrentUser() user: User,
   ): Promise<MenuApiResponse> {
-    return await this.service.getAllMenus(merchant.id, search, page);
+    return await this.service.getAllMenus(user, search, page);
   }
 
   @Post()
@@ -53,7 +53,7 @@ export class MenuController {
   @Roles(["ADMIN", "MERCHANT"])
   async createMenus(
     @Body() body: CreateMenu,
-    @AuthDec() user: User,
+    @CurrentUser() user: User,
     @UploadedFile() file: Express.Multer.File,
   ) {
     return await this.service.createMenu(user, body, file);

@@ -1,3 +1,4 @@
+/* eslint-disable no-case-declarations */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
@@ -12,41 +13,53 @@ import { Menu, MenuApiResponse } from "./types";
 export class MenuService {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
-    private prisma: PrismaService
+    private prisma: PrismaService,
   ) {}
 
   async getAllMenus(
-    merchantId: string,
-    search: string,
-    page: number
+    user: User,
+    search: string = "",
+    page: number = 1,
   ): Promise<MenuApiResponse> {
     const where: Record<string, unknown> = {};
 
-    where.merchantId = merchantId;
+    switch (user.role) {
+      case "MERCHANT":
+        const merchant = await this.prisma.merchant.findFirst({
+          where: {
+            ownerId: user.id,
+          },
+        });
+        where.merchantId = merchant?.id;
+        break;
+    }
     where.isAvailable = true;
+
+    if (search) {
+      where.name = {
+        contains: search,
+        mode: "insensitive",
+      };
+    }
 
     const limit = 20;
     const skip = (page - 1) * limit;
 
-    const result = await this.prisma.menu.findMany({
-      where: {
-        merchantId,
-        isAvailable: true,
-      },
-      include: {
-        category: true,
-        menuVariants: true,
-      },
-      take: limit,
-      skip,
-    });
-
-    this.logger.info(result);
-
-    const total = await this.prisma.menu.count({ where });
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.menu.findMany({
+        where,
+        include: {
+          category: true,
+          menuVariants: true,
+        },
+        take: limit,
+        skip,
+      }),
+      this.prisma.menu.count({ where }),
+    ]);
 
     return {
-      data: result,
+      data,
       total,
       page,
       limit,
@@ -81,7 +94,7 @@ export class MenuService {
   async createMenu(
     user: User,
     body: CreateMenu,
-    file: Express.Multer.File
+    file: Express.Multer.File,
   ): Promise<Menu> {
     try {
       let image: Image | null = null;
@@ -109,7 +122,7 @@ export class MenuService {
             body.isAvailable === true ||
             (body.isAvailable as unknown) === "true",
           imageId: image?.id,
-          merchantId: user.id,
+          merchantId: user.id || "",
           menuVariants: {
             create: variants,
           },

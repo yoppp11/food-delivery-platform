@@ -14,17 +14,20 @@ import { PrismaService } from "../prisma.service";
 import { UnauthorizedError } from "../exception.filter";
 
 @Injectable()
-export class AuthMiddleware implements NestMiddleware<Request, Response> {
+export class AuthenticationMiddleware implements NestMiddleware<
+  Request,
+  Response
+> {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
     private auth: Auth,
-    private prisma: PrismaService
+    private prisma: PrismaService,
   ) {}
 
   async use(
     req: Request & { user: User },
     res: Response,
-    next: (error?: any) => void
+    next: (error?: any) => void,
   ) {
     const session = await this.auth.auth().api.getSession();
 
@@ -43,6 +46,7 @@ export class AuthMiddleware implements NestMiddleware<Request, Response> {
     }
 
     req.user = user;
+    this.logger.info("=====>", user);
 
     next();
   }

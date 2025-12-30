@@ -1,25 +1,30 @@
 import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
 import { Request } from "express";
-import { Observable } from "rxjs";
 import { User } from "@prisma/client";
 import { Reflector } from "@nestjs/core";
 import { Roles } from "./decorators";
+import { PrismaService } from "./prisma.service";
 
 @Injectable()
 export class PermissionGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    private prisma: PrismaService,
+  ) {}
 
-  canActivate(
-    context: ExecutionContext
-  ): boolean | Promise<boolean> | Observable<boolean> {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context
       .switchToHttp()
-      .getRequest<Request & { user: User }>();
+      .getRequest<Request & { user: User; session: any }>();
 
-    const user = request.user;
+    const user = await this.prisma.user.findFirst({
+      where: { id: request.user.id },
+    });
     const roles = this.reflector.get(Roles, context.getHandler());
     if (!roles) return true;
 
-    return roles.includes(user.role);
+    const role = user?.role ? roles.includes(user.role) : false;
+
+    return role;
   }
 }
