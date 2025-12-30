@@ -4,7 +4,6 @@ import {
   Get,
   Inject,
   Param,
-  ParseIntPipe,
   ParseUUIDPipe,
   Post,
   Put,
@@ -14,7 +13,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
-import type { User } from "@prisma/client";
+import type { Merchant, User } from "@prisma/client";
 import { MenuService } from "./menu.service";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
@@ -53,7 +52,7 @@ export class MenuController {
   @Roles(["ADMIN", "MERCHANT"])
   async createMenus(
     @Body() body: CreateMenu,
-    @CurrentUser() user: User,
+    @CurrentUser() user: User & { merchants: Merchant[] },
     @UploadedFile() file: Express.Multer.File,
   ) {
     return await this.service.createMenu(user, body, file);

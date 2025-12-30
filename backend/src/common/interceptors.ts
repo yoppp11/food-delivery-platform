@@ -24,6 +24,9 @@ export class CurrentUserInterceptor implements NestInterceptor {
     if (req.user?.id) {
       req.currentUser = await this.prisma.user.findFirst({
         where: { id: req.user.id },
+        include: {
+          merchants: true,
+        },
       });
     }
 
