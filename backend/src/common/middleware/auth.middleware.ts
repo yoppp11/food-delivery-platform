@@ -8,13 +8,16 @@ import {
 import { Request, Response } from "express";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
-import { Auth } from "./auth.service";
-import { UnauthorizedError } from "./exception.filter";
-import { PrismaService } from "./prisma.service";
 import { User } from "@prisma/client";
+import { Auth } from "../auth.service";
+import { PrismaService } from "../prisma.service";
+import { UnauthorizedError } from "../exception.filter";
 
 @Injectable()
-export class AuthMiddleware implements NestMiddleware<Request, Response> {
+export class AuthenticationMiddleware implements NestMiddleware<
+  Request,
+  Response
+> {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
     private auth: Auth,
@@ -31,7 +34,6 @@ export class AuthMiddleware implements NestMiddleware<Request, Response> {
     if (!session) {
       return new UnauthorizedError();
     }
-    this.logger.warn(session);
 
     const user = await this.prisma.user.findUnique({
       where: {
@@ -44,6 +46,7 @@ export class AuthMiddleware implements NestMiddleware<Request, Response> {
     }
 
     req.user = user;
+    this.logger.info("=====>", user);
 
     next();
   }

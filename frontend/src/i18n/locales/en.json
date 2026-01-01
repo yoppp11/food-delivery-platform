@@ -1,0 +1,263 @@
+{
+  "common": {
+    "search": "Search",
+    "searchPlaceholder": "Search for restaurants or food...",
+    "viewAll": "View All",
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "close": "Close",
+    "seeMore": "See More",
+    "showLess": "Show Less",
+    "noResults": "No results found",
+    "welcome": "Welcome",
+    "logout": "Logout",
+    "login": "Login",
+    "register": "Register",
+    "or": "or",
+    "and": "and"
+  },
+  "nav": {
+    "home": "Home",
+    "restaurants": "Restaurants",
+    "orders": "My Orders",
+    "profile": "Profile",
+    "notifications": "Notifications",
+    "cart": "Cart",
+    "settings": "Settings",
+    "help": "Help & Support",
+    "about": "About Us"
+  },
+  "home": {
+    "hero": {
+      "title": "Delicious Food",
+      "subtitle": "Delivered To Your Door",
+      "description": "Order from the best local restaurants with easy on-demand delivery.",
+      "cta": "Order Now",
+      "deliveryTime": "Average delivery time",
+      "minutes": "min"
+    },
+    "categories": {
+      "title": "Browse by Category",
+      "subtitle": "Find your favorite cuisine"
+    },
+    "featured": {
+      "title": "Featured Restaurants",
+      "subtitle": "Popular places near you"
+    },
+    "popular": {
+      "title": "Popular Dishes",
+      "subtitle": "Most ordered items this week"
+    },
+    "promotions": {
+      "title": "Special Offers",
+      "subtitle": "Save more on your orders",
+      "expiresIn": "Expires in",
+      "days": "days",
+      "useCode": "Use code"
+    }
+  },
+  "merchant": {
+    "open": "Open",
+    "closed": "Closed",
+    "rating": "Rating",
+    "reviews": "reviews",
+    "deliveryFee": "Delivery Fee",
+    "minOrder": "Min. Order",
+    "distance": "Distance",
+    "menu": "Menu",
+    "info": "Info",
+    "reviewsTab": "Reviews",
+    "operationalHours": "Operational Hours",
+    "noMenus": "No menus available",
+    "searchMenu": "Search menu...",
+    "addToCart": "Add to Cart",
+    "customize": "Customize"
+  },
+  "menu": {
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "variant": "Variant",
+    "quantity": "Quantity",
+    "addToCart": "Add to Cart",
+    "total": "Total",
+    "specialInstructions": "Special Instructions",
+    "instructionsPlaceholder": "Any special requests? (optional)"
+  },
+  "cart": {
+    "title": "Your Cart",
+    "empty": "Your cart is empty",
+    "emptyDescription": "Add items from a restaurant to start your order",
+    "browseRestaurants": "Browse Restaurants",
+    "subtotal": "Subtotal",
+    "deliveryFee": "Delivery Fee",
+    "discount": "Discount",
+    "total": "Total",
+    "checkout": "Proceed to Checkout",
+    "clearCart": "Clear Cart",
+    "removeItem": "Remove",
+    "from": "From",
+    "promoCode": "Promo Code",
+    "applyPromo": "Apply",
+    "promoApplied": "Promo applied!",
+    "invalidPromo": "Invalid promo code",
+    "items": "items"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "deliveryAddress": "Delivery Address",
+    "changeAddress": "Change",
+    "addAddress": "Add New Address",
+    "paymentMethod": "Payment Method",
+    "orderSummary": "Order Summary",
+    "placeOrder": "Place Order",
+    "processing": "Processing...",
+    "orderPlaced": "Order Placed!",
+    "orderConfirmation": "Your order has been confirmed",
+    "trackOrder": "Track Order",
+    "backToHome": "Back to Home"
+  },
+  "orders": {
+    "title": "My Orders",
+    "active": "Active",
+    "history": "History",
+    "noActive": "No active orders",
+    "noHistory": "No order history",
+    "orderNumber": "Order",
+    "status": "Status",
+    "total": "Total",
+    "date": "Date",
+    "viewDetails": "View Details",
+    "reorder": "Reorder",
+    "trackOrder": "Track",
+    "cancelOrder": "Cancel Order",
+    "rateOrder": "Rate Order",
+    "statuses": {
+      "CREATED": "Order Created",
+      "PAID": "Payment Confirmed",
+      "PREPARING": "Preparing",
+      "READY": "Ready for Pickup",
+      "ON_DELIVERY": "On Delivery",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled"
+    }
+  },
+  "tracking": {
+    "title": "Track Order",
+    "estimatedArrival": "Estimated Arrival",
+    "driver": "Your Driver",
+    "contact": "Contact",
+    "liveLocation": "Live Location",
+    "orderDetails": "Order Details"
+  },
+  "profile": {
+    "title": "My Profile",
+    "personalInfo": "Personal Information",
+    "fullName": "Full Name",
+    "email": "Email",
+    "phone": "Phone Number",
+    "birthDate": "Birth Date",
+    "addresses": "My Addresses",
+    "addAddress": "Add Address",
+    "editAddress": "Edit Address",
+    "defaultAddress": "Default",
+    "setDefault": "Set as Default",
+    "paymentMethods": "Payment Methods",
+    "addPayment": "Add Payment Method",
+    "favorites": "Favorites",
+    "settings": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "notifications": "Notifications",
+    "enableNotifications": "Enable Notifications",
+    "orderUpdates": "Order Updates",
+    "promotions": "Promotions & Offers",
+    "newsletter": "Newsletter"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "Sign in to continue",
+      "email": "Email",
+      "password": "Password",
+      "rememberMe": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign In",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "register": {
+      "title": "Create Account",
+      "subtitle": "Join us and start ordering",
+      "fullName": "Full Name",
+      "email": "Email",
+      "phone": "Phone Number",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "terms": "I agree to the Terms of Service and Privacy Policy",
+      "submit": "Create Account",
+      "hasAccount": "Already have an account?",
+      "signIn": "Sign in"
+    },
+    "forgotPassword": {
+      "title": "Forgot Password",
+      "subtitle": "Enter your email to reset your password",
+      "email": "Email",
+      "submit": "Send Reset Link",
+      "backToLogin": "Back to login",
+      "checkEmail": "Check your email",
+      "emailSent": "We've sent a password reset link to your email"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all as read",
+    "noNotifications": "No notifications",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "earlier": "Earlier"
+  },
+  "review": {
+    "title": "Write a Review",
+    "rating": "Rating",
+    "comment": "Comment",
+    "commentPlaceholder": "Share your experience...",
+    "submit": "Submit Review",
+    "thanks": "Thanks for your review!"
+  },
+  "address": {
+    "label": "Label",
+    "labelPlaceholder": "e.g., Home, Office",
+    "address": "Address",
+    "addressPlaceholder": "Enter your full address",
+    "notes": "Notes (optional)",
+    "notesPlaceholder": "Additional delivery instructions",
+    "save": "Save Address"
+  },
+  "footer": {
+    "tagline": "Your favorite food, delivered fast",
+    "quickLinks": "Quick Links",
+    "support": "Support",
+    "legal": "Legal",
+    "termsOfService": "Terms of Service",
+    "privacyPolicy": "Privacy Policy",
+    "contactUs": "Contact Us",
+    "faq": "FAQ",
+    "careers": "Careers",
+    "partner": "Become a Partner",
+    "download": "Download App",
+    "followUs": "Follow Us",
+    "copyright": "© 2026 FoodGo. All rights reserved."
+  }
+}

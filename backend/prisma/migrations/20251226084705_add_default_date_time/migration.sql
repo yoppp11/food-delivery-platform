@@ -1,0 +1,14 @@
+-- AlterTable
+ALTER TABLE "menus" ALTER COLUMN "createdAt" SET DEFAULT CURRENT_TIMESTAMP;
+
+-- AlterTable
+ALTER TABLE "merchantReviews" ALTER COLUMN "createdAt" SET DEFAULT CURRENT_TIMESTAMP;
+
+-- AlterTable
+ALTER TABLE "notifications" ALTER COLUMN "createdAt" SET DEFAULT CURRENT_TIMESTAMP;
+
+-- AlterTable
+ALTER TABLE "paymentCallbacks" ALTER COLUMN "receivedAt" SET DEFAULT CURRENT_TIMESTAMP;
+
+-- AlterTable
+ALTER TABLE "payments" ALTER COLUMN "createdAt" SET DEFAULT CURRENT_TIMESTAMP;

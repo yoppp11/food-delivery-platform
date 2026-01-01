@@ -1,0 +1,263 @@
+{
+  "common": {
+    "search": "Cari",
+    "searchPlaceholder": "Cari restoran atau makanan...",
+    "viewAll": "Lihat Semua",
+    "loading": "Memuat...",
+    "error": "Terjadi kesalahan",
+    "retry": "Coba Lagi",
+    "cancel": "Batal",
+    "confirm": "Konfirmasi",
+    "save": "Simpan",
+    "edit": "Edit",
+    "delete": "Hapus",
+    "back": "Kembali",
+    "next": "Lanjut",
+    "submit": "Kirim",
+    "close": "Tutup",
+    "seeMore": "Lihat Lebih",
+    "showLess": "Tampilkan Lebih Sedikit",
+    "noResults": "Tidak ada hasil",
+    "welcome": "Selamat Datang",
+    "logout": "Keluar",
+    "login": "Masuk",
+    "register": "Daftar",
+    "or": "atau",
+    "and": "dan"
+  },
+  "nav": {
+    "home": "Beranda",
+    "restaurants": "Restoran",
+    "orders": "Pesanan Saya",
+    "profile": "Profil",
+    "notifications": "Notifikasi",
+    "cart": "Keranjang",
+    "settings": "Pengaturan",
+    "help": "Bantuan",
+    "about": "Tentang Kami"
+  },
+  "home": {
+    "hero": {
+      "title": "Makanan Lezat",
+      "subtitle": "Diantar ke Pintu Anda",
+      "description": "Pesan dari restoran lokal terbaik dengan pengantaran cepat.",
+      "cta": "Pesan Sekarang",
+      "deliveryTime": "Rata-rata waktu pengantaran",
+      "minutes": "menit"
+    },
+    "categories": {
+      "title": "Jelajahi Kategori",
+      "subtitle": "Temukan masakan favorit Anda"
+    },
+    "featured": {
+      "title": "Restoran Unggulan",
+      "subtitle": "Tempat populer di sekitar Anda"
+    },
+    "popular": {
+      "title": "Hidangan Populer",
+      "subtitle": "Item paling banyak dipesan minggu ini"
+    },
+    "promotions": {
+      "title": "Penawaran Spesial",
+      "subtitle": "Hemat lebih banyak untuk pesanan Anda",
+      "expiresIn": "Berakhir dalam",
+      "days": "hari",
+      "useCode": "Gunakan kode"
+    }
+  },
+  "merchant": {
+    "open": "Buka",
+    "closed": "Tutup",
+    "rating": "Rating",
+    "reviews": "ulasan",
+    "deliveryFee": "Ongkir",
+    "minOrder": "Min. Pesanan",
+    "distance": "Jarak",
+    "menu": "Menu",
+    "info": "Info",
+    "reviewsTab": "Ulasan",
+    "operationalHours": "Jam Operasional",
+    "noMenus": "Tidak ada menu tersedia",
+    "searchMenu": "Cari menu...",
+    "addToCart": "Tambah ke Keranjang",
+    "customize": "Kustomisasi"
+  },
+  "menu": {
+    "available": "Tersedia",
+    "unavailable": "Tidak Tersedia",
+    "variant": "Varian",
+    "quantity": "Jumlah",
+    "addToCart": "Tambah ke Keranjang",
+    "total": "Total",
+    "specialInstructions": "Instruksi Khusus",
+    "instructionsPlaceholder": "Ada permintaan khusus? (opsional)"
+  },
+  "cart": {
+    "title": "Keranjang Anda",
+    "empty": "Keranjang Anda kosong",
+    "emptyDescription": "Tambahkan item dari restoran untuk memulai pesanan",
+    "browseRestaurants": "Jelajahi Restoran",
+    "subtotal": "Subtotal",
+    "deliveryFee": "Ongkir",
+    "discount": "Diskon",
+    "total": "Total",
+    "checkout": "Lanjut ke Pembayaran",
+    "clearCart": "Kosongkan Keranjang",
+    "removeItem": "Hapus",
+    "from": "Dari",
+    "promoCode": "Kode Promo",
+    "applyPromo": "Terapkan",
+    "promoApplied": "Promo diterapkan!",
+    "invalidPromo": "Kode promo tidak valid",
+    "items": "item"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "deliveryAddress": "Alamat Pengiriman",
+    "changeAddress": "Ubah",
+    "addAddress": "Tambah Alamat Baru",
+    "paymentMethod": "Metode Pembayaran",
+    "orderSummary": "Ringkasan Pesanan",
+    "placeOrder": "Pesan Sekarang",
+    "processing": "Memproses...",
+    "orderPlaced": "Pesanan Berhasil!",
+    "orderConfirmation": "Pesanan Anda telah dikonfirmasi",
+    "trackOrder": "Lacak Pesanan",
+    "backToHome": "Kembali ke Beranda"
+  },
+  "orders": {
+    "title": "Pesanan Saya",
+    "active": "Aktif",
+    "history": "Riwayat",
+    "noActive": "Tidak ada pesanan aktif",
+    "noHistory": "Tidak ada riwayat pesanan",
+    "orderNumber": "Pesanan",
+    "status": "Status",
+    "total": "Total",
+    "date": "Tanggal",
+    "viewDetails": "Lihat Detail",
+    "reorder": "Pesan Lagi",
+    "trackOrder": "Lacak",
+    "cancelOrder": "Batalkan Pesanan",
+    "rateOrder": "Beri Ulasan",
+    "statuses": {
+      "CREATED": "Pesanan Dibuat",
+      "PAID": "Pembayaran Dikonfirmasi",
+      "PREPARING": "Sedang Disiapkan",
+      "READY": "Siap Diambil",
+      "ON_DELIVERY": "Sedang Diantar",
+      "COMPLETED": "Selesai",
+      "CANCELLED": "Dibatalkan"
+    }
+  },
+  "tracking": {
+    "title": "Lacak Pesanan",
+    "estimatedArrival": "Perkiraan Tiba",
+    "driver": "Driver Anda",
+    "contact": "Hubungi",
+    "liveLocation": "Lokasi Langsung",
+    "orderDetails": "Detail Pesanan"
+  },
+  "profile": {
+    "title": "Profil Saya",
+    "personalInfo": "Informasi Pribadi",
+    "fullName": "Nama Lengkap",
+    "email": "Email",
+    "phone": "Nomor Telepon",
+    "birthDate": "Tanggal Lahir",
+    "addresses": "Alamat Saya",
+    "addAddress": "Tambah Alamat",
+    "editAddress": "Edit Alamat",
+    "defaultAddress": "Utama",
+    "setDefault": "Jadikan Utama",
+    "paymentMethods": "Metode Pembayaran",
+    "addPayment": "Tambah Metode Pembayaran",
+    "favorites": "Favorit",
+    "settings": "Pengaturan",
+    "language": "Bahasa",
+    "theme": "Tema",
+    "light": "Terang",
+    "dark": "Gelap",
+    "system": "Sistem",
+    "notifications": "Notifikasi",
+    "enableNotifications": "Aktifkan Notifikasi",
+    "orderUpdates": "Update Pesanan",
+    "promotions": "Promo & Penawaran",
+    "newsletter": "Newsletter"
+  },
+  "auth": {
+    "login": {
+      "title": "Selamat Datang Kembali",
+      "subtitle": "Masuk untuk melanjutkan",
+      "email": "Email",
+      "password": "Kata Sandi",
+      "rememberMe": "Ingat saya",
+      "forgotPassword": "Lupa kata sandi?",
+      "submit": "Masuk",
+      "noAccount": "Belum punya akun?",
+      "signUp": "Daftar"
+    },
+    "register": {
+      "title": "Buat Akun",
+      "subtitle": "Bergabung dan mulai memesan",
+      "fullName": "Nama Lengkap",
+      "email": "Email",
+      "phone": "Nomor Telepon",
+      "password": "Kata Sandi",
+      "confirmPassword": "Konfirmasi Kata Sandi",
+      "terms": "Saya setuju dengan Syarat Layanan dan Kebijakan Privasi",
+      "submit": "Buat Akun",
+      "hasAccount": "Sudah punya akun?",
+      "signIn": "Masuk"
+    },
+    "forgotPassword": {
+      "title": "Lupa Kata Sandi",
+      "subtitle": "Masukkan email untuk reset kata sandi",
+      "email": "Email",
+      "submit": "Kirim Link Reset",
+      "backToLogin": "Kembali ke login",
+      "checkEmail": "Cek email Anda",
+      "emailSent": "Kami telah mengirim link reset kata sandi ke email Anda"
+    }
+  },
+  "notifications": {
+    "title": "Notifikasi",
+    "markAllRead": "Tandai semua sudah dibaca",
+    "noNotifications": "Tidak ada notifikasi",
+    "today": "Hari Ini",
+    "yesterday": "Kemarin",
+    "earlier": "Sebelumnya"
+  },
+  "review": {
+    "title": "Tulis Ulasan",
+    "rating": "Rating",
+    "comment": "Komentar",
+    "commentPlaceholder": "Bagikan pengalaman Anda...",
+    "submit": "Kirim Ulasan",
+    "thanks": "Terima kasih atas ulasan Anda!"
+  },
+  "address": {
+    "label": "Label",
+    "labelPlaceholder": "cth., Rumah, Kantor",
+    "address": "Alamat",
+    "addressPlaceholder": "Masukkan alamat lengkap",
+    "notes": "Catatan (opsional)",
+    "notesPlaceholder": "Instruksi pengantaran tambahan",
+    "save": "Simpan Alamat"
+  },
+  "footer": {
+    "tagline": "Makanan favorit Anda, diantar cepat",
+    "quickLinks": "Link Cepat",
+    "support": "Dukungan",
+    "legal": "Legal",
+    "termsOfService": "Syarat Layanan",
+    "privacyPolicy": "Kebijakan Privasi",
+    "contactUs": "Hubungi Kami",
+    "faq": "FAQ",
+    "careers": "Karir",
+    "partner": "Jadi Mitra",
+    "download": "Download Aplikasi",
+    "followUs": "Ikuti Kami",
+    "copyright": "© 2026 FoodGo. Hak cipta dilindungi."
+  }
+}
