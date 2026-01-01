@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
@@ -71,5 +72,11 @@ export class MenuController {
     @Param("id", ParseUUIDPipe) id: string,
   ) {
     return await this.service.updateMenu(id, body);
+  }
+
+  @Delete(":id")
+  @Roles(["ADMIN", "MERCHANT"])
+  async deleteMenu(@Param("id") id: string, @CurrentUser() user: User) {
+    return await this.service.deleteMenu(id, user);
   }
 }
