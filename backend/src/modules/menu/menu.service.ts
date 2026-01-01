@@ -7,19 +7,19 @@ import type { Image, Merchant, User } from "@prisma/client";
 import type { CreateMenu, UpdateMenu } from "../../schemas/menu";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
-import { Menu, MenuApiResponse } from "./types";
+import { DeleteMenuResponse, Menu, MenuApiResponse } from "./types";
 
 @Injectable()
 export class MenuService {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
-    private prisma: PrismaService
+    private prisma: PrismaService,
   ) {}
 
   async getAllMenus(
     user: User,
     search: string = "",
-    page: number = 1
+    page: number = 1,
   ): Promise<MenuApiResponse> {
     const where: Record<string, unknown> = {};
 
@@ -94,7 +94,7 @@ export class MenuService {
   async createMenu(
     user: User & { merchants: Merchant[] },
     body: CreateMenu,
-    file: Express.Multer.File
+    file: Express.Multer.File,
   ): Promise<Menu> {
     try {
       let image: Image | null = null;
@@ -182,11 +182,13 @@ export class MenuService {
     }
   }
 
-  async deleteMenu(id: string, user: User): Promise<string> {
+  async deleteMenu(id: string, user: User): Promise<DeleteMenuResponse> {
     try {
       if (!id) {
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
       }
+
+      this.logger.info(user.id);
 
       const deletedMenu = await this.prisma.menu.findFirst({
         where: {
@@ -197,6 +199,8 @@ export class MenuService {
         },
       });
 
+      this.logger.info(deletedMenu?.merchant.ownerId);
+
       if (!deletedMenu) {
         throw new HttpException("Menu not found", HttpStatus.NOT_FOUND);
       }
@@ -205,7 +209,14 @@ export class MenuService {
         throw new HttpException("You dont have access", HttpStatus.FORBIDDEN);
       }
 
-      return "Successful deleted menu";
+      await this.prisma.menu.delete({
+        where: { id },
+      });
+
+      return {
+        data: deletedMenu,
+        message: "Successfully deleted menu",
+      };
     } catch (error) {
       this.logger.error(error);
       return error;

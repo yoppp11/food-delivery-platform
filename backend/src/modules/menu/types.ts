@@ -1,4 +1,5 @@
 import { Category, MenuVariant } from "@prisma/client";
+import { Merchant } from "../merchant/types";
 
 export interface Menu {
   id: string;
@@ -12,6 +13,7 @@ export interface Menu {
   createdAt: Date;
   category?: Category;
   menuVariants?: MenuVariant[];
+  merchant?: Merchant;
 }
 
 export interface MenuApiResponse {
@@ -19,4 +21,9 @@ export interface MenuApiResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface DeleteMenuResponse {
+  data: Menu;
+  message: string;
 }
