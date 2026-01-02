@@ -1,16 +1,14 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
-import { PrismaService } from "../../../common/prisma.service";
-import { User } from "../../../generated/zod";
-import { ValidationService } from "../../../validation/validation.service";
-import { UpdateUserRequest, UpdateUserSchema } from "../../../schemas/user";
+import { PrismaService } from "../../common/prisma.service";
+import { User } from "../../generated/zod";
+import { UpdateUserRequest } from "../../schemas/user";
 
 @Injectable()
 export class UserService {
   constructor(
     private prisma: PrismaService,
-    private validation: ValidationService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
@@ -18,14 +16,14 @@ export class UserService {
     try {
       if (!id) throw new Error("ID is required");
 
-      const updateUserRequest = this.validation.validate(
-        UpdateUserSchema,
-        data,
-      );
-      this.logger.info(updateUserRequest);
+      // const updateUserRequest = this.validation.validate(
+      //   UpdateUserSchema,
+      //   data,
+      // );
+      // this.logger.info(updateUserRequest);
       const user = await this.prisma.user.update({
         where: { id },
-        data: updateUserRequest,
+        data: data,
       });
 
       return user;

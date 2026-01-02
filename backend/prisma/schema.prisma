@@ -50,6 +50,7 @@ model User {
   merchantReviews      MerchantReview[]
   driverReviews        DriverReview[]
   notifications        Notification[]
+  carts                Cart[]
 
   @@map("user")
 }
@@ -142,7 +143,7 @@ model Merchant {
   description String?
   latitude    Decimal
   longitude   Decimal
-  isOpen      Boolean @default(false)
+  isOpen      Boolean  @default(false)
   rating      Decimal?
   createdAt   DateTime @default(now())
 
@@ -152,6 +153,8 @@ model Merchant {
   menus                    Menu[]
   orders                   Order[]
   merchantReviews          MerchantReview[]
+  merchantCategories       MerchantMenuCategory[]
+  carts                    Cart[]
 
   @@map("merchants")
 }
@@ -166,6 +169,16 @@ model MerchantOperationalHour {
   merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
   @@map("merchantsOperationalHours")
+}
+
+model MerchantMenuCategory {
+  id         String @id @unique @default(uuid())
+  name       String
+  merchantId String
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@map("merchantMenuCategories")
 }
 
 model Category {
@@ -191,9 +204,10 @@ model Menu {
 
   merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   category     Category      @relation(fields: [categoryId], references: [id])
-  image        Image?         @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  image        Image?        @relation(fields: [imageId], references: [id], onDelete: Cascade)
   menuVariants MenuVariant[]
   orderItems   OrderItem[]
+  cartItems    CartItem[]
 
   @@map("menus")
 }
@@ -207,6 +221,32 @@ model MenuVariant {
   menu       Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
   @@map("menuVariants")
+}
+
+model Cart {
+  id         String @id @unique @default(uuid())
+  merchantId String
+  userId     String
+  subtotal   Int
+
+  merchant  Merchant   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id       String @id @unique @default(uuid())
+  cartId   String
+  menuId   String
+  quantity Int
+  total    Int
+
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  menu Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@map("cartItems")
 }
 
 model Order {
@@ -318,7 +358,7 @@ model Delivery {
   id          String   @id @unique @default(uuid())
   orderId     String
   driverId    String
-  pickedAt    DateTime 
+  pickedAt    DateTime
   deliveredAt DateTime
   distanceKm  Decimal
 

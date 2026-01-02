@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import "dotenv/config";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -51,6 +52,7 @@ async function main() {
   await prisma.menu.deleteMany();
   await prisma.category.deleteMany();
   await prisma.merchantOperationalHour.deleteMany();
+  await prisma.merchantMenuCategory.deleteMany();
   await prisma.merchant.deleteMany();
   await prisma.driver.deleteMany();
   await prisma.promotion.deleteMany();
@@ -127,6 +129,12 @@ async function main() {
   );
   console.log(`   ✓ Merchant created: ${merchantUserData.id}`);
 
+  const merchantUserData2 = await signUpUser(
+    "merchant2@example.com",
+    "password123"
+  );
+  console.log(`   ✓ Merchant 2 created: ${merchantUserData2.id}`);
+
   const driverUserData = await signUpUser("driver@example.com", "password123");
   console.log(`   ✓ Driver created: ${driverUserData.id}`);
 
@@ -143,6 +151,11 @@ async function main() {
   const merchantUser = await prisma.user.update({
     where: { id: merchantUserData.id },
     data: { role: "MERCHANT", phoneNumber: "+6281234567891" },
+  });
+
+  const merchantUser2 = await prisma.user.update({
+    where: { id: merchantUserData2.id },
+    data: { role: "MERCHANT", phoneNumber: "+6281234567894" },
   });
 
   const driverUser = await prisma.user.update({
@@ -172,6 +185,14 @@ async function main() {
         fullName: "Jane Merchant",
         imageId: images[1].id,
         birthDate: new Date("1988-08-20"),
+      },
+    }),
+    prisma.userProfile.create({
+      data: {
+        userId: merchantUser2.id,
+        fullName: "Bob Sushi Owner",
+        imageId: images[1].id,
+        birthDate: new Date("1990-03-10"),
       },
     }),
   ]);
@@ -219,7 +240,7 @@ async function main() {
   const merchant2 = await prisma.merchant.create({
     data: {
       id: uuid(),
-      ownerId: merchantUser.id,
+      ownerId: merchantUser2.id,
       name: "Sushi Express",
       description: "Fresh Japanese sushi and sashimi",
       latitude: -6.21,
@@ -228,6 +249,53 @@ async function main() {
       rating: 4.7,
     },
   });
+
+  // Create Merchant Categories
+  console.log("🏷️ Creating merchant categories...");
+  await Promise.all([
+    prisma.merchantMenuCategory.create({
+      data: {
+        id: uuid(),
+        name: "Drinks",
+        merchantId: merchant1.id,
+      },
+    }),
+    prisma.merchantMenuCategory.create({
+      data: {
+        id: uuid(),
+        name: "Desserts",
+        merchantId: merchant1.id,
+      },
+    }),
+    prisma.merchantMenuCategory.create({
+      data: {
+        id: uuid(),
+        name: "Halal",
+        merchantId: merchant1.id,
+      },
+    }),
+    prisma.merchantMenuCategory.create({
+      data: {
+        id: uuid(),
+        name: "Japanese",
+        merchantId: merchant2.id,
+      },
+    }),
+    prisma.merchantMenuCategory.create({
+      data: {
+        id: uuid(),
+        name: "Sushi",
+        merchantId: merchant2.id,
+      },
+    }),
+    prisma.merchantMenuCategory.create({
+      data: {
+        id: uuid(),
+        name: "Seafood",
+        merchantId: merchant2.id,
+      },
+    }),
+  ]);
 
   // Create Merchant Operational Hours
   console.log("🕐 Creating operational hours...");
@@ -620,11 +688,12 @@ async function main() {
 
   console.log("✅ Seed completed successfully!");
   console.log("\n📋 Summary:");
-  console.log("   - 4 Users (customer, merchant, driver, admin)");
-  console.log("   - 4 Accounts with password: password123");
-  console.log("   - 2 User Profiles");
+  console.log("   - 5 Users (customer, 2 merchants, driver, admin)");
+  console.log("   - 5 Accounts with password: password123");
+  console.log("   - 3 User Profiles");
   console.log("   - 2 User Addresses");
   console.log("   - 2 Merchants with operational hours");
+  console.log("   - 6 Merchant Categories");
   console.log("   - 4 Categories");
   console.log("   - 4 Menus with variants");
   console.log("   - 1 Driver with location");

@@ -1,5 +1,4 @@
 import {
-  Logger,
   MiddlewareConsumer,
   Module,
   NestModule,
@@ -11,12 +10,9 @@ import * as winston from "winston";
 import { auth } from "./common/auth.service";
 import { LibModule } from "./common/common.module";
 import { UserModule } from "./modules/user/user.module";
-import { UserController } from "./modules/user/user/user.controller";
-import { UserService } from "./modules/user/user/user.service";
-import { ValidationModule } from "./validation/validation.module";
-import { CategoryModule } from "./modules/category/category.module";
-import { CategoryController } from "./modules/category/category.controller";
-import { CategoryService } from "./modules/category/category.service";
+import { UserController } from "./modules/user/user.controller";
+import { UserService } from "./modules/user/user.service";
+import { CategoryModule } from "./modules/merchant-category/merchant-category.module";
 import { MenuModule } from "./modules/menu/menu.module";
 import { MenuController } from "./modules/menu/menu.controller";
 import { MenuService } from "./modules/menu/menu.service";
@@ -26,6 +22,8 @@ import { MerchantService } from "./modules/merchant/merchant.service";
 import { UploadModule } from "./modules/upload/upload.module";
 import { UploadController } from "./modules/upload/upload.controller";
 import { AuthenticationMiddleware } from "./common/middleware/auth.middleware";
+import { MerchantCategoryController } from "./modules/merchant-category/merchant-category.controller";
+import { MerchantCategoryService } from "./modules/merchant-category/merchant-category.service";
 
 @Module({
   imports: [
@@ -36,7 +34,7 @@ import { AuthenticationMiddleware } from "./common/middleware/auth.middleware";
         winston.format.timestamp({ format: "HH:mm:ss" }),
         winston.format.printf(({ level, message, timestamp }) => {
           return `[${timestamp}] ${level}: ${JSON.stringify(message)}`;
-        }),
+        })
       ),
       transports: [new winston.transports.Console()],
     }),
@@ -50,7 +48,7 @@ import { AuthenticationMiddleware } from "./common/middleware/auth.middleware";
         next();
       },
     }),
-    ValidationModule.forRoot(),
+    // ValidationModule.forRoot(),
     UserModule,
     LibModule,
     CategoryModule,
@@ -60,12 +58,17 @@ import { AuthenticationMiddleware } from "./common/middleware/auth.middleware";
   ],
   controllers: [
     UserController,
-    CategoryController,
+    MerchantCategoryController,
     MenuController,
     MerchantController,
     UploadController,
   ],
-  providers: [UserService, CategoryService, MenuService, MerchantService],
+  providers: [
+    UserService,
+    MerchantCategoryService,
+    MenuService,
+    MerchantService,
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
