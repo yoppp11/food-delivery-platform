@@ -50,6 +50,7 @@ model User {
   merchantReviews      MerchantReview[]
   driverReviews        DriverReview[]
   notifications        Notification[]
+  carts                Cart[]
 
   @@map("user")
 }
@@ -153,6 +154,7 @@ model Merchant {
   orders                   Order[]
   merchantReviews          MerchantReview[]
   merchantCategories       MerchantMenuCategory[]
+  carts                    Cart[]
 
   @@map("merchants")
 }
@@ -205,6 +207,7 @@ model Menu {
   image        Image?        @relation(fields: [imageId], references: [id], onDelete: Cascade)
   menuVariants MenuVariant[]
   orderItems   OrderItem[]
+  cartItems    CartItem[]
 
   @@map("menus")
 }
@@ -218,6 +221,32 @@ model MenuVariant {
   menu       Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
   @@map("menuVariants")
+}
+
+model Cart {
+  id         String @id @unique @default(uuid())
+  merchantId String
+  userId     String
+  subtotal   Int
+
+  merchant  Merchant   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id       String @id @unique @default(uuid())
+  cartId   String
+  menuId   String
+  quantity Int
+  total    Int
+
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  menu Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@map("cartItems")
 }
 
 model Order {
