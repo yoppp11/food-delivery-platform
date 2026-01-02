@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import "dotenv/config";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
