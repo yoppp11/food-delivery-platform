@@ -6,6 +6,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from "nest-winston";
 import { CurrentUserInterceptor } from "./common/interceptors";
 import { PrismaService } from "./common/prisma.service";
 import cookieParser from "cookie-parser";
+import * as express from "express";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -13,6 +14,8 @@ async function bootstrap() {
   });
 
   app.use(cookieParser());
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
   const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
   const prisma = new PrismaService();

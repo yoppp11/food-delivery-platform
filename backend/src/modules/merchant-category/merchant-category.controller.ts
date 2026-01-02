@@ -2,21 +2,24 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   UseFilters,
   UseGuards,
-  UsePipes,
 } from "@nestjs/common";
 import type { Merchant, MerchantMenuCategory, User } from "@prisma/client";
 import { BadRequestError } from "../../common/exception.filter";
 import {
   CreateMenuCategorySchema,
+  UpdateMenuCategorySchema,
   type CreateCategory,
+  type UpdateCategory,
 } from "../../schemas/category";
-import { CurrentMerchant, CurrentUser } from "../../common/decorators";
+import { CurrentMerchant, CurrentUser, Roles } from "../../common/decorators";
 import { MerchantCategoryService } from "./merchant-category.service";
 import { MerchantGuard, PermissionGuard } from "../../common/guard";
 import { ZodValidationPipe } from "../../common/pipes";
@@ -31,7 +34,7 @@ export class MerchantCategoryController {
     return await this.services.getAllCategory();
   }
 
-  @Get()
+  @Get(':id')
   async getById(
     @Param("id", ParseUUIDPipe) id: string
   ): Promise<MerchantMenuCategory> {
@@ -39,14 +42,38 @@ export class MerchantCategoryController {
   }
 
   @Post()
-  @UseGuards(MerchantGuard)
-  @UsePipes(new ZodValidationPipe(CreateMenuCategorySchema))
   @UseFilters(BadRequestError)
+  @UseGuards(MerchantGuard)
+  @Roles(["ADMIN", "MERCHANT"])
   async createCategory(
-    @Body() body: CreateCategory,
+    @Body(new ZodValidationPipe(CreateMenuCategorySchema)) body: CreateCategory,
     @CurrentUser() user: User,
     @CurrentMerchant() merchant: Merchant
   ): Promise<MerchantMenuCategory> {
     return this.services.createCategory(body, user, merchant);
   }
+
+  @Put(':id')
+  @UseFilters(BadRequestError)
+  @UseGuards(MerchantGuard)
+  @Roles(["ADMIN", "MERCHANT"])
+  async updateCategory(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(UpdateMenuCategorySchema)) body: UpdateCategory,
+    @CurrentUser() user: User,
+    @CurrentMerchant() merchant: Merchant
+  ): Promise<MerchantMenuCategory> {
+    return await this.services.updateCategory(id, body, user, merchant)
+  }
+
+  @Delete(":id")
+  @UseGuards(MerchantGuard)
+  @Roles(["ADMIN", "MERCHANT"])
+  async deleteCategory(
+    @Param("id", ParseUUIDPipe) id: string
+  ) {
+    return await this.services.deleteCategory(id)
+  }
+
+  
 }

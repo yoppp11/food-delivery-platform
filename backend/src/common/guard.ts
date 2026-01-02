@@ -5,6 +5,7 @@ import {
   ExecutionContext,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
 } from "@nestjs/common";
 import { Request } from "express";
@@ -12,6 +13,8 @@ import { Merchant, User } from "@prisma/client";
 import { Reflector } from "@nestjs/core";
 import { Roles } from "./decorators";
 import { PrismaService } from "./prisma.service";
+import { WINSTON_MODULE_PROVIDER } from "nest-winston";
+import { Logger } from "winston";
 
 @Injectable()
 export class PermissionGuard implements CanActivate {
@@ -39,7 +42,7 @@ export class PermissionGuard implements CanActivate {
 
 @Injectable()
 export class MerchantGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context
@@ -62,6 +65,8 @@ export class MerchantGuard implements CanActivate {
 
     if (!merchant)
       throw new HttpException("You dont have access", HttpStatus.FORBIDDEN);
+
+    this.logger.info(merchant)
 
     request.merchant = merchant;
 

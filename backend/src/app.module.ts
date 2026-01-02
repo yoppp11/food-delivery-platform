@@ -10,9 +10,8 @@ import * as winston from "winston";
 import { auth } from "./common/auth.service";
 import { LibModule } from "./common/common.module";
 import { UserModule } from "./modules/user/user.module";
-import { UserController } from "./modules/user/user/user.controller";
-import { UserService } from "./modules/user/user/user.service";
-import { ValidationModule } from "./validation/validation.module";
+import { UserController } from "./modules/user/user.controller";
+import { UserService } from "./modules/user/user.service";
 import { CategoryModule } from "./modules/merchant-category/merchant-category.module";
 import { MenuModule } from "./modules/menu/menu.module";
 import { MenuController } from "./modules/menu/menu.controller";
@@ -49,7 +48,7 @@ import { MerchantCategoryService } from "./modules/merchant-category/merchant-ca
         next();
       },
     }),
-    ValidationModule.forRoot(),
+    // ValidationModule.forRoot(),
     UserModule,
     LibModule,
     CategoryModule,

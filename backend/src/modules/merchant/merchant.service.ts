@@ -11,7 +11,6 @@ import {
   CreateMerchantRequest,
   CreateMerchantSchema,
 } from "../../schemas/merchant";
-import { ValidationService } from "../../validation/validation.service";
 import { UserResponse } from "../../schemas/user";
 import type { Merchant } from "@prisma/client";
 
@@ -19,24 +18,23 @@ import type { Merchant } from "@prisma/client";
 export class MerchantService {
   constructor(
     private prisma: PrismaService,
-    private validation: ValidationService,
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
   ) {}
 
   async createTenant(data: CreateMerchantRequest): Promise<Merchant> {
     try {
-      const normalizeData = this.validation.validate(
-        CreateMerchantSchema,
-        data,
-      );
+      // const normalizeData = this.validation.validate(
+      //   CreateMerchantSchema,
+      //   data,
+      // );
 
-      this.logger.info(normalizeData);
+      // this.logger.info(normalizeData);
 
       const response = await fetch("http://localhost:3000/auth/sign-up/email", {
         method: "POST",
         body: JSON.stringify({
-          email: normalizeData.email,
-          password: normalizeData.password,
+          email: data.email,
+          password: data.password,
         }),
         headers: {
           Origin: "http://localhost:3000",
@@ -57,10 +55,10 @@ export class MerchantService {
       const user = await this.prisma.merchant.create({
         data: {
           ownerId: responseData.user.id,
-          name: normalizeData.name,
-          description: normalizeData.description ?? null,
-          latitude: normalizeData.latitude,
-          longitude: normalizeData.longitude,
+          name: data.name,
+          description: data.description ?? null,
+          latitude: data.latitude,
+          longitude: data.longitude,
         },
       });
 

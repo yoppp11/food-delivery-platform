@@ -5,9 +5,9 @@ import {
   OptionalAuth,
   Session,
 } from "@thallesp/nestjs-better-auth";
-import { User } from "../../../generated/zod";
+import { User } from "../../generated/zod";
 import { UserService } from "./user.service";
-import type { UserRequest } from "../types";
+import type { UserRequest } from "./types";
 
 @Controller("users")
 export class UserController {
