@@ -1,14 +1,18 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { NestFactory } from "@nestjs/core";
 import "dotenv/config";
 import { AppModule } from "./app.module";
 import { WINSTON_MODULE_NEST_PROVIDER } from "nest-winston";
 import { CurrentUserInterceptor } from "./common/interceptors";
 import { PrismaService } from "./common/prisma.service";
+import cookieParser from "cookie-parser";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
   });
+
+  app.use(cookieParser());
 
   const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
   const prisma = new PrismaService();
@@ -19,7 +23,7 @@ async function bootstrap() {
   });
   app.useLogger(logger);
   app.setGlobalPrefix("api");
-  app.useGlobalInterceptors(new CurrentUserInterceptor(prisma));
+  app.useGlobalInterceptors(new CurrentUserInterceptor(prisma, logger));
 
   await app.listen(process.env.PORT ?? 3000);
 }

@@ -16,6 +16,13 @@ export class Auth {
         enabled: true,
         requireEmailVerification: false,
       },
+      advanced: {
+        useSecureCookies: false,
+        crossSubDomainCookies: {
+          enabled: true,
+          domain: "http://localhost:3000",
+        },
+      },
       basePath: "/auth",
       secret: process.env.BETTER_AUTH_SECRET!,
       baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",

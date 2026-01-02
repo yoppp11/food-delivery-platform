@@ -142,7 +142,7 @@ model Merchant {
   description String?
   latitude    Decimal
   longitude   Decimal
-  isOpen      Boolean @default(false)
+  isOpen      Boolean  @default(false)
   rating      Decimal?
   createdAt   DateTime @default(now())
 
@@ -152,6 +152,7 @@ model Merchant {
   menus                    Menu[]
   orders                   Order[]
   merchantReviews          MerchantReview[]
+  merchantCategories       MerchantMenuCategory[]
 
   @@map("merchants")
 }
@@ -166,6 +167,16 @@ model MerchantOperationalHour {
   merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
   @@map("merchantsOperationalHours")
+}
+
+model MerchantMenuCategory {
+  id         String @id @unique @default(uuid())
+  name       String
+  merchantId String
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@map("merchantMenuCategories")
 }
 
 model Category {
@@ -191,7 +202,7 @@ model Menu {
 
   merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   category     Category      @relation(fields: [categoryId], references: [id])
-  image        Image?         @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  image        Image?        @relation(fields: [imageId], references: [id], onDelete: Cascade)
   menuVariants MenuVariant[]
   orderItems   OrderItem[]
 
@@ -318,7 +329,7 @@ model Delivery {
   id          String   @id @unique @default(uuid())
   orderId     String
   driverId    String
-  pickedAt    DateTime 
+  pickedAt    DateTime
   deliveredAt DateTime
   distanceKm  Decimal
 
