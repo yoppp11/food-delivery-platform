@@ -67,22 +67,11 @@ export class MerchantCategoryService {
   async updateCategory(
     id: string,
     body: UpdateCategory,
-    user: User,
     merchant: Merchant
   ): Promise<MerchantMenuCategory> {
     try {
       if (!id)
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
-
-      const category = await this.prisma.merchantMenuCategory.findFirst({
-        where: { id },
-      });
-
-      if (!category)
-        throw new HttpException(
-          "Menu Category not found",
-          HttpStatus.NOT_FOUND
-        );
 
       const updatedData = await this.prisma.merchantMenuCategory.update({
         where: { id },
@@ -104,17 +93,11 @@ export class MerchantCategoryService {
       if (!id)
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
 
-      const category = await this.prisma.merchantMenuCategory.findFirst({
-        where: { id }
-      })
-
-      if(!category) throw new HttpException('Menu category not found', HttpStatus.NOT_FOUND)
-
       await this.prisma.merchantMenuCategory.delete({
         where: { id }
       })
 
-      return "Menu category successfullyRole deleted"
+      return "Menu category successfully deleted"
     } catch (error) {
       this.logger.error(error);
       throw error;

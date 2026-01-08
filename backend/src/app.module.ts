@@ -24,6 +24,9 @@ import { UploadController } from "./modules/upload/upload.controller";
 import { AuthenticationMiddleware } from "./common/middleware/auth.middleware";
 import { MerchantCategoryController } from "./modules/merchant-category/merchant-category.controller";
 import { MerchantCategoryService } from "./modules/merchant-category/merchant-category.service";
+import { CartController } from "./modules/cart/cart.controller";
+import { CartModule } from "./modules/cart/cart.module";
+import { CartService } from "./modules/cart/cart.service";
 
 @Module({
   imports: [
@@ -55,6 +58,7 @@ import { MerchantCategoryService } from "./modules/merchant-category/merchant-ca
     MenuModule,
     MerchantModule,
     UploadModule,
+    CartModule,
   ],
   controllers: [
     UserController,
@@ -62,12 +66,14 @@ import { MerchantCategoryService } from "./modules/merchant-category/merchant-ca
     MenuController,
     MerchantController,
     UploadController,
+    CartController,
   ],
   providers: [
     UserService,
     MerchantCategoryService,
     MenuService,
     MerchantService,
+    CartService,
   ],
 })
 export class AppModule implements NestModule {
