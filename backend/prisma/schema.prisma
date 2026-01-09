@@ -224,10 +224,12 @@ model MenuVariant {
 }
 
 model Cart {
-  id         String @id @unique @default(uuid())
+  id         String     @id @unique @default(uuid())
   merchantId String
   userId     String
+  status     CartStatus @default(ACTIVE)
   subtotal   Int
+  notes      String?
 
   merchant  Merchant   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -237,11 +239,14 @@ model Cart {
 }
 
 model CartItem {
-  id       String @id @unique @default(uuid())
-  cartId   String
-  menuId   String
-  quantity Int
-  total    Int
+  id        String @id @unique @default(uuid())
+  cartId    String
+  menuId    String
+  menuName  String
+  basePrice Int
+  quantity  Int
+  itemTotal Int
+  notes     String?
 
   cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
   menu Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
@@ -460,6 +465,13 @@ enum Status {
   ACTIVE
   SUSPENDED
   DELETED
+}
+
+enum CartStatus {
+  ACTIVE
+  CHECKOUT
+  ORDER_CREATED
+  EXPIRED
 }
 
 enum OrderStatus {

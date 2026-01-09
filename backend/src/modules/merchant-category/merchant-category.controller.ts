@@ -21,8 +21,9 @@ import {
 } from "../../schemas/category";
 import { CurrentMerchant, CurrentUser, Roles } from "../../common/decorators";
 import { MerchantCategoryService } from "./merchant-category.service";
-import { MerchantGuard, PermissionGuard } from "../../common/guard";
 import { ZodValidationPipe } from "../../common/pipes";
+import { MerchantGuard, PermissionGuard } from "../../common/guards";
+import { CheckOwnershipGuard, ResourceType } from "../../common/guards/check-ownership.guard";
 
 @Controller("merchant-categories")
 @UseGuards(PermissionGuard)
@@ -55,20 +56,21 @@ export class MerchantCategoryController {
 
   @Put(':id')
   @UseFilters(BadRequestError)
-  @UseGuards(MerchantGuard)
+  @UseGuards(MerchantGuard, CheckOwnershipGuard)
   @Roles(["ADMIN", "MERCHANT"])
+  @ResourceType({ resourceType: "category" })
   async updateCategory(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(UpdateMenuCategorySchema)) body: UpdateCategory,
-    @CurrentUser() user: User,
     @CurrentMerchant() merchant: Merchant
   ): Promise<MerchantMenuCategory> {
-    return await this.services.updateCategory(id, body, user, merchant)
+    return await this.services.updateCategory(id, body, merchant)
   }
 
   @Delete(":id")
-  @UseGuards(MerchantGuard)
+  @UseGuards(MerchantGuard, CheckOwnershipGuard)
   @Roles(["ADMIN", "MERCHANT"])
+  @ResourceType({ resourceType: "category" })
   async deleteCategory(
     @Param("id", ParseUUIDPipe) id: string
   ) {

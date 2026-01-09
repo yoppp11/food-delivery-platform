@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 /* eslint-disable no-case-declarations */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
@@ -13,13 +14,13 @@ import { DeleteMenuResponse, Menu, MenuApiResponse } from "./types";
 export class MenuService {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
-    private prisma: PrismaService,
+    private prisma: PrismaService
   ) {}
 
   async getAllMenus(
     user: User,
     search: string = "",
-    page: number = 1,
+    page: number = 1
   ): Promise<MenuApiResponse> {
     const where: Record<string, unknown> = {};
 
@@ -92,9 +93,10 @@ export class MenuService {
   }
 
   async createMenu(
-    user: User & { merchants: Merchant[] },
+    user: User,
+    merchant: Merchant,
     body: CreateMenu,
-    file: Express.Multer.File,
+    file: Express.Multer.File
   ): Promise<Menu> {
     try {
       let image: Image | null = null;
@@ -130,7 +132,7 @@ export class MenuService {
             body.isAvailable === true ||
             (body.isAvailable as unknown) === "true",
           imageId: image?.id ?? null,
-          merchantId: user.role === "MERCHANT" ? user.merchants[0].id : "",
+          merchantId: user.role === "MERCHANT" ? merchant.id : "",
           menuVariants: {
             create: variants,
           },
@@ -153,16 +155,6 @@ export class MenuService {
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
       }
 
-      const menu = await this.prisma.menu.findUnique({
-        where: {
-          id,
-        },
-      });
-
-      if (!menu) {
-        throw new HttpException("Menu not found", HttpStatus.NOT_FOUND);
-      }
-
       const updateData = await this.prisma.menu.update({
         where: { id },
         data: {
@@ -182,34 +174,13 @@ export class MenuService {
     }
   }
 
-  async deleteMenu(id: string, user: User): Promise<DeleteMenuResponse> {
+  async deleteMenu(id: string): Promise<DeleteMenuResponse> {
     try {
       if (!id) {
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
       }
 
-      this.logger.info(user.id);
-
-      const deletedMenu = await this.prisma.menu.findFirst({
-        where: {
-          id,
-        },
-        include: {
-          merchant: true,
-        },
-      });
-
-      this.logger.info(deletedMenu?.merchant.ownerId);
-
-      if (!deletedMenu) {
-        throw new HttpException("Menu not found", HttpStatus.NOT_FOUND);
-      }
-
-      if (deletedMenu.merchant.ownerId !== user.id) {
-        throw new HttpException("You dont have access", HttpStatus.FORBIDDEN);
-      }
-
-      await this.prisma.menu.delete({
+      const deletedMenu = await this.prisma.menu.delete({
         where: { id },
       });
 

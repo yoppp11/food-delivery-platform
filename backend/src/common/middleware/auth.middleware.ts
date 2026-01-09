@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/only-throw-error */
 import {
   HttpException,
   HttpStatus,
@@ -32,7 +33,7 @@ export class AuthenticationMiddleware implements NestMiddleware<
     const session = await this.auth.auth().api.getSession();
 
     if (!session) {
-      return new UnauthorizedError();
+      throw new UnauthorizedError();
     }
 
     const user = await this.prisma.user.findUnique({
