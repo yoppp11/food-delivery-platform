@@ -1,5 +1,18 @@
 /* eslint-disable prettier/prettier */
-import { Body, Controller, Get, Inject, Post, UseFilters, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseFilters,
+  UseGuards,
+} from "@nestjs/common";
 import { CartService } from "./cart.service";
 import { CurrentUser, Roles } from "../../common/decorators";
 import type { Cart, User } from "@prisma/client";
@@ -7,7 +20,7 @@ import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
 import { PermissionGuard } from "../../common/guards";
 import { ZodValidationPipe } from "../../common/pipes";
-import { type CreateCart, CreateCartSchema } from "./types";
+import { type CreateCart, CreateCartSchema, type DeleteType, type EditType } from "./types";
 import { BadRequestError } from "../../common/exception.filter";
 
 @Controller("carts")
@@ -32,6 +45,25 @@ export class CartController {
     @Body(new ZodValidationPipe(CreateCartSchema)) body: CreateCart,
     @CurrentUser() user: User
   ) {
-    return this.service.createCart(body, user);
+    return this.service.postCart(body, user);
+  }
+
+  @Delete(":id")
+  @Roles(["CUSTOMER"])
+  async deleteCart(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query("type") type: DeleteType
+  ) {
+    return this.service.clearCart(id, type);
+  }
+
+  @Patch(":id")
+  @Roles(["CUSTOMER"])
+  async editQuantity(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query("type") type: EditType,
+    @Body("quantity") quantity: number
+  ) {
+    return await this.service.editQuantity(id, type, quantity);
   }
 }
