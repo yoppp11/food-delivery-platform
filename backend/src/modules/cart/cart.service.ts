@@ -21,7 +21,15 @@ export class CartService {
         status: "ACTIVE",
       },
       include: {
-        cartItems: true,
+        cartItems: {
+          include: {
+            menuVariant: {
+              include: {
+                menu: true,
+              },
+            },
+          },
+        },
       },
     });
   }
@@ -141,39 +149,41 @@ export class CartService {
     body: CreateCart,
   ): Promise<Cart> {
     const existingItemsMap = new Map(
-      existingCart.cartItems.map((item) => [item.menuId, item]),
+      existingCart.cartItems.map((item) => [item.variantId, item]),
     );
 
     return this.prisma.$transaction(async (tx) => {
       for (const newItem of body.items) {
-        const existingItem = existingItemsMap.get(newItem.menuId);
+        const existingItem = existingItemsMap.get(newItem.variantId);
 
         if (existingItem) {
           const newQuantity = existingItem.quantity + newItem.quantity;
           const newItemTotal = newItem.basePrice * newQuantity;
 
           this.logger.info("Updating existing cart item", {
-            menuId: newItem.menuId,
+            variantId: newItem.variantId,
             oldQuantity: existingItem.quantity,
             addedQuantity: newItem.quantity,
             newQuantity,
           });
 
           await tx.cartItem.updateMany({
-            where: { cartId: existingCart.id, menuId: newItem.menuId },
+            where: { cartId: existingCart.id, variantId: newItem.variantId },
             data: {
               quantity: newQuantity,
               itemTotal: newItemTotal,
             },
           });
         } else {
-          this.logger.info("Adding new cart item", { menuId: newItem.menuId });
+          this.logger.info("Adding new cart item", {
+            variantId: newItem.variantId,
+          });
 
           await tx.cartItem.create({
             data: {
               basePrice: newItem.basePrice,
               menuName: newItem.menuName,
-              menuId: newItem.menuId,
+              variantId: newItem.variantId,
               cartId: existingCart.id,
               notes: newItem.notes ?? "",
               itemTotal: newItem.basePrice * newItem.quantity,
@@ -208,7 +218,7 @@ export class CartService {
     const cartItems = items.map((item) => ({
       cartId,
       basePrice: item.basePrice,
-      menuId: item.menuId,
+      variantId: item.variantId,
       menuName: item.menuName,
       quantity: item.quantity || 1,
       itemTotal: item.basePrice * (item.quantity || 1),

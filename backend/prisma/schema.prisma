@@ -177,6 +177,7 @@ model MerchantMenuCategory {
   merchantId String
 
   merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  menus    Menu[]
 
   @@map("merchantMenuCategories")
 }
@@ -186,7 +187,6 @@ model Category {
   name        String
   description String?
   createdAt   DateTime @default(now())
-  menus       Menu[]
 
   @@map("categories")
 }
@@ -202,12 +202,10 @@ model Menu {
   imageId     String?
   createdAt   DateTime @default(now())
 
-  merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  category     Category      @relation(fields: [categoryId], references: [id])
-  image        Image?        @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  merchant     Merchant             @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  category     MerchantMenuCategory @relation(fields: [categoryId], references: [id])
+  image        Image?               @relation(fields: [imageId], references: [id], onDelete: Cascade)
   menuVariants MenuVariant[]
-  orderItems   OrderItem[]
-  cartItems    CartItem[]
 
   @@map("menus")
 }
@@ -219,6 +217,7 @@ model MenuVariant {
   menuId     String
   orderItems OrderItem[]
   menu       Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  cartItems  CartItem[]
 
   @@map("menuVariants")
 }
@@ -239,17 +238,17 @@ model Cart {
 }
 
 model CartItem {
-  id        String @id @unique @default(uuid())
+  id        String  @id @unique @default(uuid())
   cartId    String
-  menuId    String
   menuName  String
+  variantId String
   basePrice Int
   quantity  Int
   itemTotal Int
   notes     String?
 
-  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  menu Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  cart        Cart        @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  menuVariant MenuVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
   @@map("cartItems")
 }
@@ -258,10 +257,10 @@ model Order {
   id              String               @id @unique @default(uuid())
   userId          String
   merchantId      String
-  driverId        String
+  driverId        String?
   status          OrderStatus          @default(CREATED)
   totalPrice      Int
-  deliveryFee     Int
+  deliveryFee     Int?
   paymentStatus   PaymentStatus        @default(PENDING)
   items           OrderItem[]
   statusHistories OrderStatusHistory[]
@@ -271,7 +270,7 @@ model Order {
 
   merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  driver   Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  driver   Driver?  @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
   @@map("orders")
 }
@@ -279,12 +278,10 @@ model Order {
 model OrderItem {
   id          String      @id @unique @default(ulid())
   orderId     String
-  menuId      String
   variantId   String
   quantity    Int
   price       Int
   order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menu        Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
   menuVariant MenuVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
   @@map("orderItems")
