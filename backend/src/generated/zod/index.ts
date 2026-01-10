@@ -163,6 +163,10 @@ export const OrderStatusSchema = z.enum(['CREATED','PAID','PREPARING','READY','O
 
 export type OrderStatusType = `${z.infer<typeof OrderStatusSchema>}`
 
+export const OrderStatusFieldHistorySchema = z.enum(['CREATED','PAID','COMPLETED','ON_DELIVERY','PREPARING']);
+
+export type OrderStatusFieldHistoryType = `${z.infer<typeof OrderStatusFieldHistorySchema>}`
+
 export const PaymentStatusSchema = z.enum(['PENDING','SUCCESS','FAILED']);
 
 export type PaymentStatusType = `${z.infer<typeof PaymentStatusSchema>}`
@@ -734,9 +738,9 @@ export type OrderItemOptionalDefaults = z.infer<typeof OrderItemOptionalDefaults
 /////////////////////////////////////////
 
 export const OrderStatusHistorySchema = z.object({
+  status: OrderStatusFieldHistorySchema,
   id: z.uuid(),
   orderId: z.string(),
-  status: z.string(),
   changedAt: z.coerce.date(),
   changedBy: z.string(),
 })
@@ -755,6 +759,7 @@ export type OrderStatusHistoryPartial = z.infer<typeof OrderStatusHistoryPartial
 //------------------------------------------------------
 
 export const OrderStatusHistoryOptionalDefaultsSchema = OrderStatusHistorySchema.merge(z.object({
+  status: OrderStatusFieldHistorySchema.optional(),
   id: z.uuid().optional(),
 }))
 
@@ -3183,7 +3188,7 @@ export const OrderStatusHistoryWhereInputSchema: z.ZodType<Prisma.OrderStatusHis
   NOT: z.union([ z.lazy(() => OrderStatusHistoryWhereInputSchema), z.lazy(() => OrderStatusHistoryWhereInputSchema).array() ]).optional(),
   id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   orderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
-  status: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  status: z.union([ z.lazy(() => EnumOrderStatusFieldHistoryFilterSchema), z.lazy(() => OrderStatusFieldHistorySchema) ]).optional(),
   changedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   changedBy: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   orders: z.union([ z.lazy(() => OrderScalarRelationFilterSchema), z.lazy(() => OrderWhereInputSchema) ]).optional(),
@@ -3209,7 +3214,7 @@ export const OrderStatusHistoryWhereUniqueInputSchema: z.ZodType<Prisma.OrderSta
   OR: z.lazy(() => OrderStatusHistoryWhereInputSchema).array().optional(),
   NOT: z.union([ z.lazy(() => OrderStatusHistoryWhereInputSchema), z.lazy(() => OrderStatusHistoryWhereInputSchema).array() ]).optional(),
   orderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
-  status: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  status: z.union([ z.lazy(() => EnumOrderStatusFieldHistoryFilterSchema), z.lazy(() => OrderStatusFieldHistorySchema) ]).optional(),
   changedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   changedBy: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   orders: z.union([ z.lazy(() => OrderScalarRelationFilterSchema), z.lazy(() => OrderWhereInputSchema) ]).optional(),
@@ -3233,7 +3238,7 @@ export const OrderStatusHistoryScalarWhereWithAggregatesInputSchema: z.ZodType<P
   NOT: z.union([ z.lazy(() => OrderStatusHistoryScalarWhereWithAggregatesInputSchema), z.lazy(() => OrderStatusHistoryScalarWhereWithAggregatesInputSchema).array() ]).optional(),
   id: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   orderId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
-  status: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  status: z.union([ z.lazy(() => EnumOrderStatusFieldHistoryWithAggregatesFilterSchema), z.lazy(() => OrderStatusFieldHistorySchema) ]).optional(),
   changedAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
   changedBy: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
 });
@@ -5145,7 +5150,7 @@ export const OrderItemUncheckedUpdateManyInputSchema: z.ZodType<Prisma.OrderItem
 
 export const OrderStatusHistoryCreateInputSchema: z.ZodType<Prisma.OrderStatusHistoryCreateInput> = z.strictObject({
   id: z.uuid().optional(),
-  status: z.string(),
+  status: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
   changedAt: z.coerce.date(),
   orders: z.lazy(() => OrderCreateNestedOneWithoutStatusHistoriesInputSchema),
   users: z.lazy(() => UserCreateNestedOneWithoutOrderStatusHistoriesInputSchema),
@@ -5154,14 +5159,14 @@ export const OrderStatusHistoryCreateInputSchema: z.ZodType<Prisma.OrderStatusHi
 export const OrderStatusHistoryUncheckedCreateInputSchema: z.ZodType<Prisma.OrderStatusHistoryUncheckedCreateInput> = z.strictObject({
   id: z.uuid().optional(),
   orderId: z.string(),
-  status: z.string(),
+  status: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
   changedAt: z.coerce.date(),
   changedBy: z.string(),
 });
 
 export const OrderStatusHistoryUpdateInputSchema: z.ZodType<Prisma.OrderStatusHistoryUpdateInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => EnumOrderStatusFieldHistoryFieldUpdateOperationsInputSchema) ]).optional(),
   changedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   orders: z.lazy(() => OrderUpdateOneRequiredWithoutStatusHistoriesNestedInputSchema).optional(),
   users: z.lazy(() => UserUpdateOneRequiredWithoutOrderStatusHistoriesNestedInputSchema).optional(),
@@ -5170,7 +5175,7 @@ export const OrderStatusHistoryUpdateInputSchema: z.ZodType<Prisma.OrderStatusHi
 export const OrderStatusHistoryUncheckedUpdateInputSchema: z.ZodType<Prisma.OrderStatusHistoryUncheckedUpdateInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => EnumOrderStatusFieldHistoryFieldUpdateOperationsInputSchema) ]).optional(),
   changedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   changedBy: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
 });
@@ -5178,21 +5183,21 @@ export const OrderStatusHistoryUncheckedUpdateInputSchema: z.ZodType<Prisma.Orde
 export const OrderStatusHistoryCreateManyInputSchema: z.ZodType<Prisma.OrderStatusHistoryCreateManyInput> = z.strictObject({
   id: z.uuid().optional(),
   orderId: z.string(),
-  status: z.string(),
+  status: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
   changedAt: z.coerce.date(),
   changedBy: z.string(),
 });
 
 export const OrderStatusHistoryUpdateManyMutationInputSchema: z.ZodType<Prisma.OrderStatusHistoryUpdateManyMutationInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => EnumOrderStatusFieldHistoryFieldUpdateOperationsInputSchema) ]).optional(),
   changedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const OrderStatusHistoryUncheckedUpdateManyInputSchema: z.ZodType<Prisma.OrderStatusHistoryUncheckedUpdateManyInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => EnumOrderStatusFieldHistoryFieldUpdateOperationsInputSchema) ]).optional(),
   changedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   changedBy: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
 });
@@ -7001,6 +7006,13 @@ export const OrderItemSumOrderByAggregateInputSchema: z.ZodType<Prisma.OrderItem
   price: z.lazy(() => SortOrderSchema).optional(),
 });
 
+export const EnumOrderStatusFieldHistoryFilterSchema: z.ZodType<Prisma.EnumOrderStatusFieldHistoryFilter> = z.strictObject({
+  equals: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
+  in: z.lazy(() => OrderStatusFieldHistorySchema).array().optional(),
+  notIn: z.lazy(() => OrderStatusFieldHistorySchema).array().optional(),
+  not: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => NestedEnumOrderStatusFieldHistoryFilterSchema) ]).optional(),
+});
+
 export const OrderStatusHistoryCountOrderByAggregateInputSchema: z.ZodType<Prisma.OrderStatusHistoryCountOrderByAggregateInput> = z.strictObject({
   id: z.lazy(() => SortOrderSchema).optional(),
   orderId: z.lazy(() => SortOrderSchema).optional(),
@@ -7023,6 +7035,16 @@ export const OrderStatusHistoryMinOrderByAggregateInputSchema: z.ZodType<Prisma.
   status: z.lazy(() => SortOrderSchema).optional(),
   changedAt: z.lazy(() => SortOrderSchema).optional(),
   changedBy: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const EnumOrderStatusFieldHistoryWithAggregatesFilterSchema: z.ZodType<Prisma.EnumOrderStatusFieldHistoryWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
+  in: z.lazy(() => OrderStatusFieldHistorySchema).array().optional(),
+  notIn: z.lazy(() => OrderStatusFieldHistorySchema).array().optional(),
+  not: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => NestedEnumOrderStatusFieldHistoryWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumOrderStatusFieldHistoryFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumOrderStatusFieldHistoryFilterSchema).optional(),
 });
 
 export const EnumProviderFilterSchema: z.ZodType<Prisma.EnumProviderFilter> = z.strictObject({
@@ -9034,6 +9056,10 @@ export const UserCreateNestedOneWithoutOrderStatusHistoriesInputSchema: z.ZodTyp
   connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
 });
 
+export const EnumOrderStatusFieldHistoryFieldUpdateOperationsInputSchema: z.ZodType<Prisma.EnumOrderStatusFieldHistoryFieldUpdateOperationsInput> = z.strictObject({
+  set: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
+});
+
 export const OrderUpdateOneRequiredWithoutStatusHistoriesNestedInputSchema: z.ZodType<Prisma.OrderUpdateOneRequiredWithoutStatusHistoriesNestedInput> = z.strictObject({
   create: z.union([ z.lazy(() => OrderCreateWithoutStatusHistoriesInputSchema), z.lazy(() => OrderUncheckedCreateWithoutStatusHistoriesInputSchema) ]).optional(),
   connectOrCreate: z.lazy(() => OrderCreateOrConnectWithoutStatusHistoriesInputSchema).optional(),
@@ -9920,6 +9946,23 @@ export const NestedEnumPaymentStatusWithAggregatesFilterSchema: z.ZodType<Prisma
   _max: z.lazy(() => NestedEnumPaymentStatusFilterSchema).optional(),
 });
 
+export const NestedEnumOrderStatusFieldHistoryFilterSchema: z.ZodType<Prisma.NestedEnumOrderStatusFieldHistoryFilter> = z.strictObject({
+  equals: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
+  in: z.lazy(() => OrderStatusFieldHistorySchema).array().optional(),
+  notIn: z.lazy(() => OrderStatusFieldHistorySchema).array().optional(),
+  not: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => NestedEnumOrderStatusFieldHistoryFilterSchema) ]).optional(),
+});
+
+export const NestedEnumOrderStatusFieldHistoryWithAggregatesFilterSchema: z.ZodType<Prisma.NestedEnumOrderStatusFieldHistoryWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
+  in: z.lazy(() => OrderStatusFieldHistorySchema).array().optional(),
+  notIn: z.lazy(() => OrderStatusFieldHistorySchema).array().optional(),
+  not: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => NestedEnumOrderStatusFieldHistoryWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumOrderStatusFieldHistoryFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumOrderStatusFieldHistoryFilterSchema).optional(),
+});
+
 export const NestedEnumProviderFilterSchema: z.ZodType<Prisma.NestedEnumProviderFilter> = z.strictObject({
   equals: z.lazy(() => ProviderSchema).optional(),
   in: z.lazy(() => ProviderSchema).array().optional(),
@@ -10200,7 +10243,7 @@ export const OrderCreateManyUserInputEnvelopeSchema: z.ZodType<Prisma.OrderCreat
 
 export const OrderStatusHistoryCreateWithoutUsersInputSchema: z.ZodType<Prisma.OrderStatusHistoryCreateWithoutUsersInput> = z.strictObject({
   id: z.uuid().optional(),
-  status: z.string(),
+  status: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
   changedAt: z.coerce.date(),
   orders: z.lazy(() => OrderCreateNestedOneWithoutStatusHistoriesInputSchema),
 });
@@ -10208,7 +10251,7 @@ export const OrderStatusHistoryCreateWithoutUsersInputSchema: z.ZodType<Prisma.O
 export const OrderStatusHistoryUncheckedCreateWithoutUsersInputSchema: z.ZodType<Prisma.OrderStatusHistoryUncheckedCreateWithoutUsersInput> = z.strictObject({
   id: z.uuid().optional(),
   orderId: z.string(),
-  status: z.string(),
+  status: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
   changedAt: z.coerce.date(),
 });
 
@@ -10562,7 +10605,7 @@ export const OrderStatusHistoryScalarWhereInputSchema: z.ZodType<Prisma.OrderSta
   NOT: z.union([ z.lazy(() => OrderStatusHistoryScalarWhereInputSchema), z.lazy(() => OrderStatusHistoryScalarWhereInputSchema).array() ]).optional(),
   id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   orderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
-  status: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  status: z.union([ z.lazy(() => EnumOrderStatusFieldHistoryFilterSchema), z.lazy(() => OrderStatusFieldHistorySchema) ]).optional(),
   changedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   changedBy: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
 });
@@ -12570,14 +12613,14 @@ export const OrderItemCreateManyOrderInputEnvelopeSchema: z.ZodType<Prisma.Order
 
 export const OrderStatusHistoryCreateWithoutOrdersInputSchema: z.ZodType<Prisma.OrderStatusHistoryCreateWithoutOrdersInput> = z.strictObject({
   id: z.uuid().optional(),
-  status: z.string(),
+  status: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
   changedAt: z.coerce.date(),
   users: z.lazy(() => UserCreateNestedOneWithoutOrderStatusHistoriesInputSchema),
 });
 
 export const OrderStatusHistoryUncheckedCreateWithoutOrdersInputSchema: z.ZodType<Prisma.OrderStatusHistoryUncheckedCreateWithoutOrdersInput> = z.strictObject({
   id: z.uuid().optional(),
-  status: z.string(),
+  status: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
   changedAt: z.coerce.date(),
   changedBy: z.string(),
 });
@@ -14802,7 +14845,7 @@ export const OrderCreateManyUserInputSchema: z.ZodType<Prisma.OrderCreateManyUse
 export const OrderStatusHistoryCreateManyUsersInputSchema: z.ZodType<Prisma.OrderStatusHistoryCreateManyUsersInput> = z.strictObject({
   id: z.uuid().optional(),
   orderId: z.string(),
-  status: z.string(),
+  status: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
   changedAt: z.coerce.date(),
 });
 
@@ -15059,7 +15102,7 @@ export const OrderUncheckedUpdateManyWithoutUserInputSchema: z.ZodType<Prisma.Or
 
 export const OrderStatusHistoryUpdateWithoutUsersInputSchema: z.ZodType<Prisma.OrderStatusHistoryUpdateWithoutUsersInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => EnumOrderStatusFieldHistoryFieldUpdateOperationsInputSchema) ]).optional(),
   changedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   orders: z.lazy(() => OrderUpdateOneRequiredWithoutStatusHistoriesNestedInputSchema).optional(),
 });
@@ -15067,14 +15110,14 @@ export const OrderStatusHistoryUpdateWithoutUsersInputSchema: z.ZodType<Prisma.O
 export const OrderStatusHistoryUncheckedUpdateWithoutUsersInputSchema: z.ZodType<Prisma.OrderStatusHistoryUncheckedUpdateWithoutUsersInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => EnumOrderStatusFieldHistoryFieldUpdateOperationsInputSchema) ]).optional(),
   changedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const OrderStatusHistoryUncheckedUpdateManyWithoutUsersInputSchema: z.ZodType<Prisma.OrderStatusHistoryUncheckedUpdateManyWithoutUsersInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => EnumOrderStatusFieldHistoryFieldUpdateOperationsInputSchema) ]).optional(),
   changedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -15602,7 +15645,7 @@ export const OrderItemCreateManyOrderInputSchema: z.ZodType<Prisma.OrderItemCrea
 
 export const OrderStatusHistoryCreateManyOrdersInputSchema: z.ZodType<Prisma.OrderStatusHistoryCreateManyOrdersInput> = z.strictObject({
   id: z.uuid().optional(),
-  status: z.string(),
+  status: z.lazy(() => OrderStatusFieldHistorySchema).optional(),
   changedAt: z.coerce.date(),
   changedBy: z.string(),
 });
@@ -15654,21 +15697,21 @@ export const OrderItemUncheckedUpdateManyWithoutOrderInputSchema: z.ZodType<Pris
 
 export const OrderStatusHistoryUpdateWithoutOrdersInputSchema: z.ZodType<Prisma.OrderStatusHistoryUpdateWithoutOrdersInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => EnumOrderStatusFieldHistoryFieldUpdateOperationsInputSchema) ]).optional(),
   changedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   users: z.lazy(() => UserUpdateOneRequiredWithoutOrderStatusHistoriesNestedInputSchema).optional(),
 });
 
 export const OrderStatusHistoryUncheckedUpdateWithoutOrdersInputSchema: z.ZodType<Prisma.OrderStatusHistoryUncheckedUpdateWithoutOrdersInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => EnumOrderStatusFieldHistoryFieldUpdateOperationsInputSchema) ]).optional(),
   changedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   changedBy: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const OrderStatusHistoryUncheckedUpdateManyWithoutOrdersInputSchema: z.ZodType<Prisma.OrderStatusHistoryUncheckedUpdateManyWithoutOrdersInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => OrderStatusFieldHistorySchema), z.lazy(() => EnumOrderStatusFieldHistoryFieldUpdateOperationsInputSchema) ]).optional(),
   changedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   changedBy: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
 });

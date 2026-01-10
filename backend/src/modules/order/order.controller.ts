@@ -7,10 +7,9 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { OrderService } from "./order.service";
-import { CurrentUser } from "../../common/decorators";
+import { CurrentUser, Roles } from "../../common/decorators";
 import { PermissionGuard } from "../../common/guards";
 import { Order, type User } from "@prisma/client";
-import { Roles } from "@thallesp/nestjs-better-auth";
 import { BadRequestError } from "../../common/exception.filter";
 import { ZodValidationPipe } from "../../common/pipes";
 import { type CreateOrder, CreateOrderSchema } from "./types";

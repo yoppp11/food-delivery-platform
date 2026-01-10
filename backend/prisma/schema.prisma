@@ -290,7 +290,7 @@ model OrderItem {
 model OrderStatusHistory {
   id        String   @id @unique @default(uuid())
   orderId   String
-  status    String
+  status    OrderStatusFieldHistory @default(CREATED)
   changedAt DateTime
   changedBy String
 
@@ -479,6 +479,14 @@ enum OrderStatus {
   ON_DELIVERY
   COMPLETED
   CANCELLED
+}
+
+enum OrderStatusFieldHistory {
+  CREATED
+  PAID
+  COMPLETED
+  ON_DELIVERY
+  PREPARING
 }
 
 enum PaymentStatus {
