@@ -5,11 +5,12 @@ import {
   HttpException,
   HttpStatus,
   Inject,
+  Injectable,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { PrismaService } from "../prisma.service";
 import { Request } from "express";
-import { Merchant, User } from "@prisma/client";
+import { Driver, Merchant, User } from "@prisma/client";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
 
@@ -113,5 +114,43 @@ export class CheckOwnershipGuard implements CanActivate {
       category.merchantId === merchant.id &&
       category.merchant.ownerId === user.id
     );
+  }
+}
+
+@Injectable()
+export class OrderOwnerGuard implements CanActivate {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context
+      .switchToHttp()
+      .getRequest<
+        Request & { currentUser: User & { driver: Driver; merchant: Merchant } }
+      >();
+    const orderId = request.params["id"];
+    const user = request.currentUser;
+
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId },
+    });
+
+    if (!order)
+      throw new HttpException("Order not found", HttpStatus.NOT_FOUND);
+
+    let isOwner: boolean = false;
+
+    if (user.role === "CUSTOMER") isOwner = order.userId === user.id;
+
+    if (user.role === "DRIVER") isOwner = order.driverId === user.driver.id;
+
+    if (user.role === "MERCHANT")
+      isOwner = order.merchantId === user.merchant.id;
+
+    if (!isOwner)
+      throw new HttpException("You dont have access", HttpStatus.FORBIDDEN);
+
+    return true;
+
+    return true;
   }
 }

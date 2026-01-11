@@ -3,8 +3,15 @@ import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
-import { Menu, Order, User } from "@prisma/client";
-import { CreateOrder } from "./types";
+import {
+  CartItem,
+  Menu,
+  MenuVariant,
+  Order,
+  OrderStatusFieldHistory,
+  User,
+} from "@prisma/client";
+import { CreateOrder, OrderStatus } from "./types";
 import { CartService } from "../cart/cart.service";
 
 @Injectable()
@@ -12,7 +19,7 @@ export class OrderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cartService: CartService,
-    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
+    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger
   ) {}
 
   async getOrders(user: User): Promise<Order[]> {
@@ -41,28 +48,20 @@ export class OrderService {
       if (!cart)
         throw new HttpException("Cart not found", HttpStatus.NOT_FOUND);
 
-      const currentMenus: (Menu & { variantId: string; price: number })[] = [];
+      const variantIds = cart.cartItems.map((data) => data.variantId);
 
-      for (const m of cart.cartItems) {
-        const menu = await this.prisma.menu.findFirst({
-          where: { id: m.menuVariant.menuId },
-          include: {
-            menuVariants: true,
+      const variants = await this.prisma.menuVariant.findMany({
+        where: {
+          id: {
+            in: variantIds,
           },
-        });
+        },
+        include: {
+          menu: true,
+        },
+      });
 
-        const variant = await this.prisma.menuVariant.findFirst({
-          where: { id: m.variantId },
-        });
-
-        if (menu && variant && menu.isAvailable) {
-          currentMenus.push({
-            ...menu,
-            price: variant.price,
-            variantId: variant.id,
-          });
-        }
-      }
+      this.validateMenus(cart.cartItems, variants);
 
       const merchant = await this.prisma.merchant.findFirst({
         where: { id: cart.merchantId },
@@ -113,6 +112,124 @@ export class OrderService {
     }
   }
 
+  async getById(id: string) {
+    try {
+      if (!id)
+        throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
+
+      const order = await this.prisma.order.findFirst({
+        where: { id },
+        include: {
+          items: {
+            include: {
+              menuVariant: {
+                include: {
+                  menu: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!order)
+        throw new HttpException("Order not found", HttpStatus.NOT_FOUND);
+
+      return order;
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async editStatus(id: string, status: OrderStatus) {
+    try {
+      if (!id)
+        throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
+
+      const order = await this.prisma.order.findUnique({
+        where: { id },
+      });
+
+      if (!order)
+        throw new HttpException("Order not found", HttpStatus.NOT_FOUND);
+
+      const ORDER_STATUS_FLOW: Record<string, string[]> = {
+        CREATED: ["PAID", "CANCELLED"],
+        PAID: ["PREPARING", "CANCELLED"],
+        PREPARING: ["READY", "CANCELLED"],
+        READY: ["ON_DELIVERY"],
+        ON_DELIVERY: ["COMPLETED", "CANCELLED"],
+        COMPLETED: [],
+        CANCELLED: ["REFUNDED"],
+        REFUNDED: [],
+      };
+
+      const isAllowed = ORDER_STATUS_FLOW[order.status];
+
+      if (!isAllowed || !isAllowed.includes(status))
+        throw new HttpException("You don't have access", HttpStatus.FORBIDDEN);
+
+      return await this.prisma.$transaction(async (tx) => {
+        const order = await tx.order.update({
+          where: { id },
+          data: { status },
+        });
+
+        await tx.orderStatusHistory.updateMany({
+          where: { orderId: id },
+          data: { status: status as OrderStatusFieldHistory },
+        });
+
+        return order;
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async cancelledOrder(id: string, user: User) {
+    try {
+      if (!id)
+        throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
+
+      const order = await this.prisma.order.findUnique({
+        where: { id },
+      });
+
+      if (!order)
+        throw new HttpException("Order not found", HttpStatus.NOT_FOUND);
+
+      if (order.status !== "CREATED" && order.status !== "PAID")
+        throw new HttpException(
+          "Order can't be cancelled",
+          HttpStatus.BAD_REQUEST
+        );
+
+      return await this.prisma.$transaction(async (tx) => {
+        await tx.orderStatusHistory.updateMany({
+          where: { orderId: id },
+          data: {
+            status: "CANCELLED",
+            changedAt: new Date(),
+            changedBy: user.id,
+          },
+        });
+        return await tx.order.update({
+          where: { id },
+          data: {
+            status: "CANCELLED",
+            paymentStatus: order.status === "CREATED" ? "FAILED" : "REFUNDED",
+          },
+        });
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
   private findUserCart(userId: string) {
     return this.prisma.cart.findFirst({
       where: { userId },
@@ -128,5 +245,24 @@ export class OrderService {
         },
       },
     });
+  }
+
+  private validateMenus(
+    cartItems: CartItem[],
+    menuVariants: (MenuVariant & { menu: Menu })[]
+  ) {
+    for (const item of cartItems) {
+      const variant = menuVariants.find((v) => v.id === item.variantId);
+
+      if (!variant)
+        throw new HttpException("Menu Variant not found", HttpStatus.NOT_FOUND);
+      if (!variant.menu.isAvailable)
+        throw new HttpException(
+          "Menu is not available",
+          HttpStatus.BAD_REQUEST
+        );
+      if (item.quantity < 1)
+        throw new HttpException("Invalid quantity", HttpStatus.BAD_REQUEST);
+    }
   }
 }

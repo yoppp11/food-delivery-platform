@@ -2,6 +2,9 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   UseFilters,
   UseGuards,
@@ -12,7 +15,8 @@ import { PermissionGuard } from "../../common/guards";
 import { Order, type User } from "@prisma/client";
 import { BadRequestError } from "../../common/exception.filter";
 import { ZodValidationPipe } from "../../common/pipes";
-import { type CreateOrder, CreateOrderSchema } from "./types";
+import { type CreateOrder, CreateOrderSchema, type OrderStatus } from "./types";
+import { OrderOwnerGuard } from "../../common/guards/check-ownership.guard";
 
 @Controller("orders")
 @UseGuards(PermissionGuard)
@@ -32,5 +36,27 @@ export class OrderController {
     @CurrentUser() user: User,
   ): Promise<Order> {
     return this.service.createOrder(body, user);
+  }
+
+  @Get(":id")
+  async getById(@Param("id", ParseUUIDPipe) id: string) {
+    return await this.service.getById(id);
+  }
+
+  @Patch(":id")
+  @UseGuards(OrderOwnerGuard)
+  @Roles(["CUSTOMER", "MERCHANT", "ADMIN"])
+  async editStatus(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body("status") status: OrderStatus,
+  ) {
+    return await this.service.editStatus(id, status);
+  }
+
+  @Patch(":id/cancelled")
+  @UseGuards(OrderOwnerGuard)
+  @Roles(["CUSTOMER", "MERCHANT", "ADMIN"])
+  async cancelledOrder(@Param("id") id: string, @CurrentUser() user: User) {
+    return this.service.cancelledOrder(id, user);
   }
 }

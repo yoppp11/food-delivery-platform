@@ -159,15 +159,15 @@ export const CartStatusSchema = z.enum(['ACTIVE','CHECKOUT','ORDER_CREATED','EXP
 
 export type CartStatusType = `${z.infer<typeof CartStatusSchema>}`
 
-export const OrderStatusSchema = z.enum(['CREATED','PAID','PREPARING','READY','ON_DELIVERY','COMPLETED','CANCELLED']);
+export const OrderStatusSchema = z.enum(['CREATED','PAID','PREPARING','READY','ON_DELIVERY','COMPLETED','CANCELLED','REFUNDED']);
 
 export type OrderStatusType = `${z.infer<typeof OrderStatusSchema>}`
 
-export const OrderStatusFieldHistorySchema = z.enum(['CREATED','PAID','COMPLETED','ON_DELIVERY','PREPARING']);
+export const OrderStatusFieldHistorySchema = z.enum(['CREATED','PAID','COMPLETED','ON_DELIVERY','PREPARING','REFUNDED','CANCELLED','READY']);
 
 export type OrderStatusFieldHistoryType = `${z.infer<typeof OrderStatusFieldHistorySchema>}`
 
-export const PaymentStatusSchema = z.enum(['PENDING','SUCCESS','FAILED']);
+export const PaymentStatusSchema = z.enum(['PENDING','SUCCESS','FAILED','REFUNDED']);
 
 export type PaymentStatusType = `${z.infer<typeof PaymentStatusSchema>}`
 
