@@ -49,8 +49,9 @@ export class OrderController {
   async editStatus(
     @Param("id", ParseUUIDPipe) id: string,
     @Body("status") status: OrderStatus,
+    @CurrentUser() user: User,
   ) {
-    return await this.service.editStatus(id, status);
+    return await this.service.editStatus(id, status, user);
   }
 
   @Patch(":id/cancelled")

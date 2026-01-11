@@ -142,7 +142,7 @@ export class OrderService {
     }
   }
 
-  async editStatus(id: string, status: OrderStatus) {
+  async editStatus(id: string, status: OrderStatus, user: User) {
     try {
       if (!id)
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
@@ -178,7 +178,11 @@ export class OrderService {
 
         await tx.orderStatusHistory.updateMany({
           where: { orderId: id },
-          data: { status: status as OrderStatusFieldHistory },
+          data: {
+            status: status as OrderStatusFieldHistory,
+            changedAt: new Date(),
+            changedBy: user.id,
+          },
         });
 
         return order;
