@@ -64,7 +64,10 @@ export class OrderService {
       this.validateMenus(cart.cartItems, variants);
 
       const merchant = await this.prisma.merchant.findFirst({
-        where: { id: cart.merchantId },
+        where: { id: body.merchantId },
+        include: {
+          user: true,
+        },
       });
 
       if (!merchant)
@@ -89,12 +92,14 @@ export class OrderService {
           price: item.basePrice,
         }));
 
+        this.logger.info(newOrderItems);
+
         await tx.orderItem.createMany({ data: newOrderItems });
 
         await tx.orderStatusHistory.create({
           data: {
             orderId: order.id,
-            changedBy: merchant.id,
+            changedBy: user.id,
             changedAt: new Date(),
           },
         });
@@ -168,7 +173,10 @@ export class OrderService {
       const isAllowed = ORDER_STATUS_FLOW[order.status];
 
       if (!isAllowed || !isAllowed.includes(status))
-        throw new HttpException("You don't have access", HttpStatus.FORBIDDEN);
+        throw new HttpException(
+          "You don't have access for this transition",
+          HttpStatus.FORBIDDEN,
+        );
 
       return await this.prisma.$transaction(async (tx) => {
         const order = await tx.order.update({

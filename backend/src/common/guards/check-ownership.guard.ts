@@ -32,9 +32,9 @@ export class CheckOwnershipGuard implements CanActivate {
     const request = context
       .switchToHttp()
       .getRequest<Request & { user: User; merchant: Merchant }>();
-    this.logger.info("sebelum reflector")
+    this.logger.info("sebelum reflector");
     const options = this.reflector.get(ResourceType, context.getHandler());
-    this.logger.info("sesudah reflector")
+    this.logger.info("sesudah reflector");
 
     const user = request.user;
     const merchant = request.merchant;
@@ -119,16 +119,31 @@ export class CheckOwnershipGuard implements CanActivate {
 
 @Injectable()
 export class OrderOwnerGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context
       .switchToHttp()
       .getRequest<
-        Request & { currentUser: User & { driver: Driver; merchant: Merchant } }
+        Request & { user: User & { driver: Driver; merchant: Merchant } }
       >();
     const orderId = request.params["id"];
-    const user = request.currentUser;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: request.user.id },
+      include: {
+        merchants: true,
+        drivers: true,
+      }
+    });
+
+    if (!user) throw new HttpException("Unauthorized", HttpStatus.UNAUTHORIZED);
+
+    this.logger.info(user);
+    // this.logger.info(request.user)
 
     const order = await this.prisma.order.findFirst({
       where: { id: orderId },
@@ -141,15 +156,15 @@ export class OrderOwnerGuard implements CanActivate {
 
     if (user.role === "CUSTOMER") isOwner = order.userId === user.id;
 
-    if (user.role === "DRIVER") isOwner = order.driverId === user.driver.id;
+    if (user.role === "DRIVER" && user.drivers) isOwner = order.driverId === user.drivers[0].id;
 
-    if (user.role === "MERCHANT")
-      isOwner = order.merchantId === user.merchant.id;
+    if (user.role === "MERCHANT" && user.merchants)
+      isOwner = order.merchantId === user.merchants[0].id;
+
+    this.logger.info(isOwner)
 
     if (!isOwner)
       throw new HttpException("You dont have access", HttpStatus.FORBIDDEN);
-
-    return true;
 
     return true;
   }
