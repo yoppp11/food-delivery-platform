@@ -101,7 +101,7 @@ export class MenuService {
     try {
       let image: Image | null = null;
 
-      const category = await this.prisma.category.findFirst({
+      const category = await this.prisma.merchantMenuCategory.findFirst({
         where: { id: body.categoryId },
       });
 
@@ -117,7 +117,12 @@ export class MenuService {
         });
       }
 
-      const variants = (body.menuVariants ?? []).map((m) => {
+      const defaultMenuVariant = {
+        name: "Regular",
+        price: body.price
+      }
+
+      const variants = (body.menuVariants ?? [defaultMenuVariant]).map((m) => {
         return {
           name: m.name,
           price: m.price,
@@ -134,7 +139,7 @@ export class MenuService {
           imageId: image?.id ?? null,
           merchantId: user.role === "MERCHANT" ? merchant.id : "",
           menuVariants: {
-            create: variants,
+            create: variants
           },
         },
         include: {

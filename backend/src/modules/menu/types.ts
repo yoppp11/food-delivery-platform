@@ -1,4 +1,4 @@
-import { Category, MenuVariant } from "@prisma/client";
+import { MenuVariant, MerchantMenuCategory } from "@prisma/client";
 import { Merchant } from "../merchant/types";
 
 export interface Menu {
@@ -11,7 +11,7 @@ export interface Menu {
   isAvailable: boolean;
   imageId: string | null;
   createdAt: Date;
-  category?: Category;
+  category?: MerchantMenuCategory;
   menuVariants?: MenuVariant[];
   merchant?: Merchant;
 }

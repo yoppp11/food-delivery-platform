@@ -10,6 +10,7 @@ import { PrismaService } from "../prisma.service";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
 import { Merchant, User } from "@prisma/client";
+import { Request } from "express";
 
 @Injectable()
 export class MerchantGuard implements CanActivate {

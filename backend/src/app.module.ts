@@ -27,6 +27,9 @@ import { MerchantCategoryService } from "./modules/merchant-category/merchant-ca
 import { CartController } from "./modules/cart/cart.controller";
 import { CartModule } from "./modules/cart/cart.module";
 import { CartService } from "./modules/cart/cart.service";
+import { OrderModule } from "./modules/order/order.module";
+import { OrderController } from "./modules/order/order.controller";
+import { OrderService } from "./modules/order/order.service";
 
 @Module({
   imports: [
@@ -59,6 +62,7 @@ import { CartService } from "./modules/cart/cart.service";
     MerchantModule,
     UploadModule,
     CartModule,
+    OrderModule,
   ],
   controllers: [
     UserController,
@@ -67,6 +71,7 @@ import { CartService } from "./modules/cart/cart.service";
     MerchantController,
     UploadController,
     CartController,
+    OrderController,
   ],
   providers: [
     UserService,
@@ -74,6 +79,7 @@ import { CartService } from "./modules/cart/cart.service";
     MenuService,
     MerchantService,
     CartService,
+    OrderService,
   ],
 })
 export class AppModule implements NestModule {

@@ -5,7 +5,7 @@ export const CreateCartSchema = z.object({
   notes: z.string().optional(),
   items: z.array(
     z.object({
-      menuId: z.uuid(),
+      variantId: z.uuid(),
       menuName: z.string(),
       basePrice: z.number().positive(),
       quantity: z.number().positive(),
