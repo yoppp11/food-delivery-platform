@@ -34,6 +34,9 @@ import { PaymentGateway } from "./common/payment-gateway.service";
 import { PaymentModule } from "./modules/payment/payment.module";
 import { PaymentController } from "./modules/payment/payment.controller";
 import { PaymentService } from "./modules/payment/payment.service";
+import { DriverModule } from "./modules/driver/driver.module";
+import { DriverService } from "./modules/driver/driver.service";
+import { DriverController } from "./modules/driver/driver.controller";
 
 @Module({
   imports: [
@@ -68,6 +71,7 @@ import { PaymentService } from "./modules/payment/payment.service";
     CartModule,
     OrderModule,
     PaymentModule,
+    DriverModule,
   ],
   controllers: [
     UserController,
@@ -78,6 +82,7 @@ import { PaymentService } from "./modules/payment/payment.service";
     CartController,
     OrderController,
     PaymentController,
+    DriverController,
   ],
   providers: [
     UserService,
@@ -88,6 +93,7 @@ import { PaymentService } from "./modules/payment/payment.service";
     OrderService,
     PaymentGateway,
     PaymentService,
+    DriverService,
   ],
 })
 export class AppModule implements NestModule {

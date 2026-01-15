@@ -6,14 +6,17 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  UseGuards,
 } from "@nestjs/common";
 import { PaymentService } from "./payment.service";
 import { CurrentUser, Roles } from "../../common/decorators";
 import { Merchant, Order, OrderItem, Payment, type User } from "@prisma/client";
 import { ZodValidationPipe } from "../../common/pipes";
 import { type CreatePayment, CreatePaymentSchema } from "./types";
+import { PermissionGuard } from "../../common/guards";
 
 @Controller("payments")
+@UseGuards(PermissionGuard)
 export class PaymentController {
   constructor(private readonly service: PaymentService) {}
 
