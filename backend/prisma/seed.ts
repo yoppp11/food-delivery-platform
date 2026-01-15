@@ -1268,6 +1268,8 @@ async function main() {
     data: {
       id: uuid(),
       orderId: order1.id,
+      customerId: customerUser.id,
+      merchantId: merchant1.id,
       provider: "MIDTRANS",
       paymentType: "gopay",
       transactionId: "TXN-001-" + Date.now(),
@@ -1280,6 +1282,8 @@ async function main() {
     data: {
       id: uuid(),
       orderId: order2.id,
+      customerId: customerUser.id,
+      merchantId: merchant2.id,
       provider: "MIDTRANS",
       paymentType: "bank_transfer",
       transactionId: "TXN-002-" + Date.now(),
@@ -1292,6 +1296,8 @@ async function main() {
     data: {
       id: uuid(),
       orderId: order3.id,
+      customerId: customerUser.id,
+      merchantId: merchant1.id,
       provider: "MIDTRANS",
       paymentType: "credit_card",
       transactionId: "TXN-003-" + Date.now(),
@@ -1304,6 +1310,8 @@ async function main() {
     data: {
       id: uuid(),
       orderId: order4.id,
+      customerId: customerUser.id,
+      merchantId: merchant2.id,
       provider: "XENDIT",
       paymentType: "ovo",
       transactionId: "TXN-004-" + Date.now(),
