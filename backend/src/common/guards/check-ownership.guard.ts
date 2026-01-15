@@ -13,6 +13,7 @@ import { Request } from "express";
 import { Driver, Merchant, User } from "@prisma/client";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
+import { Observable } from "rxjs";
 
 export interface ResourceTypeOwnership {
   resourceType: "menu" | "category";
@@ -169,3 +170,4 @@ export class OrderOwnerGuard implements CanActivate {
     return true;
   }
 }
+

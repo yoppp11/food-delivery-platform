@@ -51,6 +51,7 @@ model User {
   driverReviews        DriverReview[]
   notifications        Notification[]
   carts                Cart[]
+  payments             Payment[]
 
   @@map("user")
 }
@@ -155,6 +156,7 @@ model Merchant {
   merchantReviews          MerchantReview[]
   merchantCategories       MerchantMenuCategory[]
   carts                    Cart[]
+  payments                 Payment[]
 
   @@map("merchants")
 }
@@ -288,7 +290,7 @@ model OrderItem {
 }
 
 model OrderStatusHistory {
-  id        String   @id @unique @default(uuid())
+  id        String                  @id @unique @default(uuid())
   orderId   String
   status    OrderStatusFieldHistory @default(CREATED)
   changedAt DateTime
@@ -303,7 +305,9 @@ model OrderStatusHistory {
 model Payment {
   id            String        @id @unique @default(uuid())
   orderId       String
-  provider      Provider      @default(MIDTRANS)
+  customerId    String
+  merchantId    String
+  provider      Provider      @default(PAKASIR)
   paymentType   String
   transactionId String
   amount        Int
@@ -312,7 +316,9 @@ model Payment {
 
   paymentCallbacks PaymentCallback[]
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
   @@map("payments")
 }
@@ -495,6 +501,7 @@ enum OrderStatusFieldHistory {
 
 enum PaymentStatus {
   PENDING
+  CANCEL
   SUCCESS
   FAILED
   REFUNDED
@@ -503,6 +510,7 @@ enum PaymentStatus {
 enum Provider {
   MIDTRANS
   XENDIT
+  PAKASIR
 }
 
 enum DiscountType {
