@@ -64,6 +64,9 @@ importers:
       nest-winston:
         specifier: ^1.10.2
         version: 1.10.2(@nestjs/common@11.1.9(reflect-metadata@0.2.2)(rxjs@7.8.2))(winston@3.19.0)
+      pakasir-sdk:
+        specifier: ^1.0.5
+        version: 1.0.5
       pg:
         specifier: ^8.16.3
         version: 8.16.3
@@ -4727,6 +4730,10 @@ packages:
 
   package-json-from-dist@1.0.1:
     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
+
+  pakasir-sdk@1.0.5:
+    resolution: {integrity: sha512-yepul2qe3t5sCQs4+zzFv0xvrmodIXVuaGo382yoT4oByE7GhvFNYnTRI3W1EUAwLDbMh4WaCXomaNuPjK5dkA==}
+    engines: {node: '>=20.0.0'}
 
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
@@ -10514,6 +10521,8 @@ snapshots:
   p-try@2.2.0: {}
 
   package-json-from-dist@1.0.1: {}
+
+  pakasir-sdk@1.0.5: {}
 
   parent-module@1.0.1:
     dependencies:

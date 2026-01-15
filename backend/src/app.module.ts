@@ -30,6 +30,10 @@ import { CartService } from "./modules/cart/cart.service";
 import { OrderModule } from "./modules/order/order.module";
 import { OrderController } from "./modules/order/order.controller";
 import { OrderService } from "./modules/order/order.service";
+import { PaymentGateway } from "./common/payment-gateway.service";
+import { PaymentModule } from "./modules/payment/payment.module";
+import { PaymentController } from "./modules/payment/payment.controller";
+import { PaymentService } from "./modules/payment/payment.service";
 
 @Module({
   imports: [
@@ -63,6 +67,7 @@ import { OrderService } from "./modules/order/order.service";
     UploadModule,
     CartModule,
     OrderModule,
+    PaymentModule,
   ],
   controllers: [
     UserController,
@@ -72,6 +77,7 @@ import { OrderService } from "./modules/order/order.service";
     UploadController,
     CartController,
     OrderController,
+    PaymentController,
   ],
   providers: [
     UserService,
@@ -80,6 +86,8 @@ import { OrderService } from "./modules/order/order.service";
     MerchantService,
     CartService,
     OrderService,
+    PaymentGateway,
+    PaymentService,
   ],
 })
 export class AppModule implements NestModule {
