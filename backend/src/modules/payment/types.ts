@@ -18,7 +18,6 @@ export const PaymentMethodEnum = [
 export const PaymentMethodSchema = z.enum(PaymentMethodEnum);
 
 export const CreatePaymentSchema = z.object({
-//   amount: z.number().positive(),
   paymentMethod: PaymentMethodSchema,
 });
 
