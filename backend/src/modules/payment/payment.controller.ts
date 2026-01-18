@@ -54,7 +54,7 @@ export class PaymentController {
   }
 
   @Post(":id/success")
-  @Roles(["ADMIN", "MERCHANT"])
+  @Roles(["ADMIN", "MERCHANT", "CUSTOMER"])
   async paymentSuccess(
     @Param("id", ParseUUIDPipe) id: string,
     @CurrentUser() user: User

@@ -13,6 +13,39 @@ export class DriverService {
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger
   ) {}
 
+  async getDrivers() {
+    try {
+      const drivers = await this.prisma.driver.findMany();
+
+      if (!drivers)
+        throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
+
+      return drivers;
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async getDriver(id: string) {
+    try {
+      if (!id)
+        throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
+
+      const driver = await this.prisma.driver.findUnique({
+        where: { id },
+      });
+
+      if (!driver)
+        throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
+
+      return driver;
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
   private toRad(value: number): number {
     return (value * Math.PI) / 180;
   }
@@ -91,32 +124,38 @@ export class DriverService {
     }
   }
 
-  async updateLocation(id: string, location: Coordinate): Promise<DriverLocation> {
+  async updateLocation(
+    user: User,
+    location: Coordinate
+  ): Promise<DriverLocation> {
     try {
-      if (!id)
-        throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
+      if (!user)
+        throw new HttpException("User not found", HttpStatus.NOT_FOUND);
 
       const driver = await this.prisma.driver.findFirst({
-        where: { id },
+        where: { userId: user.id },
       });
 
       if (!driver)
         throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
 
       const driverLocation = await this.prisma.driverLocation.findFirst({
-        where: { driverId: id },
+        where: { driverId: driver.id },
       });
 
       if (!driverLocation)
-        throw new HttpException("Driver location not found", HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          "Driver location not found",
+          HttpStatus.NOT_FOUND
+        );
 
       return await this.prisma.driverLocation.update({
         where: { id: driverLocation.id },
         data: {
-            latitude: new Prisma.Decimal(location.latitude),
-            longitude: new Prisma.Decimal(location.longitude)
-        }
-      })
+          latitude: new Prisma.Decimal(location.latitude),
+          longitude: new Prisma.Decimal(location.longitude),
+        },
+      });
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -133,6 +172,30 @@ export class DriverService {
         throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
 
       return driver;
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async toggleAvailability(user: User, isAvailable: boolean) {
+    try {
+      if (!user)
+        throw new HttpException("User not found", HttpStatus.NOT_FOUND);
+
+      const driver = await this.prisma.driver.findFirst({
+        where: { userId: user.id },
+      });
+
+      if (!driver)
+        throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
+
+      const updatedDriver = await this.prisma.driver.update({
+        where: { id: driver.id },
+        data: { isAvailable },
+      });
+
+      return updatedDriver;
     } catch (error) {
       this.logger.error(error);
       throw error;

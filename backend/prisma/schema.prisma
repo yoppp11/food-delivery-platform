@@ -228,6 +228,7 @@ model Cart {
   id         String     @id @unique @default(uuid())
   merchantId String
   userId     String
+  orderId    String?
   status     CartStatus @default(ACTIVE)
   subtotal   Int
   notes      String?
