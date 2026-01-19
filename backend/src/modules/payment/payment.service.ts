@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
@@ -125,6 +126,8 @@ export class PaymentService {
         },
       });
 
+      this.logger.info(prevPayment);
+
       if (prevPayment) return prevPayment;
 
       return await this.prisma.$transaction(async (tx) => {
@@ -165,7 +168,7 @@ export class PaymentService {
         throw new HttpException("Payment not found", HttpStatus.NOT_FOUND);
 
       const paymentSuccess = await this.pakasir.processPayment(
-        id,
+        payment.orderId,
         payment.amount
       );
 
@@ -197,18 +200,30 @@ export class PaymentService {
           },
         });
 
-        await tx.order.update({
+        const order = await tx.order.update({
           where: { id: payment.orderId },
           data: { paymentStatus: "SUCCESS", status: "PAID" },
         });
 
-        await tx.orderStatusHistory.update({
-          where: { id: payment.orderId },
+        await tx.orderStatusHistory.updateMany({
+          where: { orderId: payment.orderId },
           data: {
             changedAt: new Date(),
             changedBy: user.id,
             status: "PAID",
           },
+        });
+
+        const cart = await tx.cart.findFirst({
+          where: { orderId: order.id },
+        });
+        
+        if (!cart)
+          throw new HttpException("Something went wrong", HttpStatus.NOT_FOUND);
+
+        await tx.cart.updateMany({
+          where: { id: cart.id },
+          data: { status: "ORDER_CREATED" },
         });
 
         return result;

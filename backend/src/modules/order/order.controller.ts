@@ -24,6 +24,7 @@ export class OrderController {
   constructor(private readonly service: OrderService) {}
 
   @Get()
+  @Roles(["CUSTOMER"])
   async getOrders(@CurrentUser() user: User): Promise<Order[]> {
     return this.service.getOrders(user);
   }

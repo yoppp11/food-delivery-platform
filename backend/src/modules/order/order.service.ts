@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-for-in-array */
 import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
@@ -48,7 +49,11 @@ export class OrderService {
       if (!cart)
         throw new HttpException("Cart not found", HttpStatus.NOT_FOUND);
 
+      this.logger.info(cart);
+
       const variantIds = cart.cartItems.map((data) => data.variantId);
+
+      this.logger.info(variantIds);
 
       const variants = await this.prisma.menuVariant.findMany({
         where: {
@@ -60,6 +65,8 @@ export class OrderService {
           menu: true,
         },
       });
+
+      this.logger.info(variants);
 
       this.validateMenus(cart.cartItems, variants);
 
@@ -82,6 +89,13 @@ export class OrderService {
             userId: user.id,
             totalPrice: cart.subtotal,
             merchantId: body.merchantId,
+          },
+          include: {
+            items: {
+              include: {
+                menuVariant: true,
+              },
+            },
           },
         });
 
@@ -106,7 +120,7 @@ export class OrderService {
 
         await tx.cart.update({
           where: { id: cart.id },
-          data: { status: "CHECKOUT" },
+          data: { status: "CHECKOUT", orderId: order.id },
         });
 
         return order;
@@ -175,7 +189,7 @@ export class OrderService {
       if (!isAllowed || !isAllowed.includes(status))
         throw new HttpException(
           "You don't have access for this transition",
-          HttpStatus.FORBIDDEN,
+          HttpStatus.FORBIDDEN
         );
 
       return await this.prisma.$transaction(async (tx) => {
@@ -244,7 +258,7 @@ export class OrderService {
 
   private findUserCart(userId: string) {
     return this.prisma.cart.findFirst({
-      where: { userId },
+      where: { userId, status: "ACTIVE" },
       include: {
         cartItems: {
           include: {
