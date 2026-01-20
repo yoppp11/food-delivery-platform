@@ -1,8 +1,3 @@
-/* eslint-disable prettier/prettier */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { Merchant, MerchantMenuCategory, User } from "@prisma/client";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
@@ -14,7 +9,7 @@ import { PrismaService } from "../../common/prisma.service";
 export class MerchantCategoryService {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger
+    @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
   ) {}
 
   async getAllCategory(): Promise<MerchantMenuCategory[]> {
@@ -45,10 +40,10 @@ export class MerchantCategoryService {
   async createCategory(
     body: CreateCategory,
     user: User,
-    merchant: Merchant
+    merchant: Merchant,
   ): Promise<MerchantMenuCategory> {
     try {
-      this.logger.info(body)
+      this.logger.info(body);
 
       const category = await this.prisma.merchantMenuCategory.create({
         data: {
@@ -67,7 +62,7 @@ export class MerchantCategoryService {
   async updateCategory(
     id: string,
     body: UpdateCategory,
-    merchant: Merchant
+    merchant: Merchant,
   ): Promise<MerchantMenuCategory> {
     try {
       if (!id)
@@ -94,10 +89,10 @@ export class MerchantCategoryService {
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
 
       await this.prisma.merchantMenuCategory.delete({
-        where: { id }
-      })
+        where: { id },
+      });
 
-      return "Menu category successfully deleted"
+      return "Menu category successfully deleted";
     } catch (error) {
       this.logger.error(error);
       throw error;

@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
 import { Coordinate } from "./types";
@@ -10,7 +9,7 @@ import { Driver, DriverLocation, Prisma, User } from "@prisma/client";
 export class DriverService {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger
+    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
   async getDrivers() {
@@ -73,7 +72,7 @@ export class DriverService {
       if (!merchantId)
         throw new HttpException(
           "Merchant ID is required",
-          HttpStatus.BAD_REQUEST
+          HttpStatus.BAD_REQUEST,
         );
 
       const merchant = await this.prisma.merchant.findUnique({
@@ -105,7 +104,7 @@ export class DriverService {
             {
               latitude: Number(driverLocation.latitude),
               longitude: Number(driverLocation.longitude),
-            }
+            },
           );
 
           return {
@@ -126,7 +125,7 @@ export class DriverService {
 
   async updateLocation(
     user: User,
-    location: Coordinate
+    location: Coordinate,
   ): Promise<DriverLocation> {
     try {
       if (!user)
@@ -146,7 +145,7 @@ export class DriverService {
       if (!driverLocation)
         throw new HttpException(
           "Driver location not found",
-          HttpStatus.NOT_FOUND
+          HttpStatus.NOT_FOUND,
         );
 
       return await this.prisma.driverLocation.update({
@@ -196,6 +195,182 @@ export class DriverService {
       });
 
       return updatedDriver;
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async registerDriver(
+    user: User,
+    body: { plateNumber: string; latitude: number; longitude: number },
+  ): Promise<Driver> {
+    try {
+      const existingDriver = await this.prisma.driver.findFirst({
+        where: { userId: user.id },
+      });
+
+      if (existingDriver)
+        throw new HttpException(
+          "User is already registered as a driver",
+          HttpStatus.BAD_REQUEST,
+        );
+
+      return await this.prisma.$transaction(async (tx) => {
+        const driver = await tx.driver.create({
+          data: {
+            userId: user.id,
+            plateNumber: body.plateNumber,
+            isAvailable: true,
+          },
+        });
+
+        await tx.driverLocation.create({
+          data: {
+            driverId: driver.id,
+            latitude: new Prisma.Decimal(body.latitude),
+            longitude: new Prisma.Decimal(body.longitude),
+            recordedAt: new Date(),
+          },
+        });
+
+        await tx.user.update({
+          where: { id: user.id },
+          data: { role: "DRIVER" },
+        });
+
+        return driver;
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async updateDriverProfile(
+    user: User,
+    body: { plateNumber?: string },
+  ): Promise<Driver> {
+    try {
+      const driver = await this.prisma.driver.findFirst({
+        where: { userId: user.id },
+      });
+
+      if (!driver)
+        throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
+
+      return await this.prisma.driver.update({
+        where: { id: driver.id },
+        data: body,
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async getEarnings(user: User) {
+    try {
+      const driver = await this.prisma.driver.findFirst({
+        where: { userId: user.id },
+      });
+
+      if (!driver)
+        throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
+
+      const now = new Date();
+      const startOfDay = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+      );
+      const startOfWeek = new Date(startOfDay);
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const deliveries = await this.prisma.delivery.findMany({
+        where: { driverId: driver.id },
+        include: {
+          order: true,
+        },
+      });
+
+      const DELIVERY_FEE_PER_KM = 2000;
+
+      const todayDeliveries = deliveries.filter(
+        (d) => d.deliveredAt && new Date(d.deliveredAt) >= startOfDay,
+      );
+      const weekDeliveries = deliveries.filter(
+        (d) => d.deliveredAt && new Date(d.deliveredAt) >= startOfWeek,
+      );
+      const monthDeliveries = deliveries.filter(
+        (d) => d.deliveredAt && new Date(d.deliveredAt) >= startOfMonth,
+      );
+
+      const calculateEarnings = (dels: typeof deliveries) =>
+        dels.reduce(
+          (sum, d) => sum + Number(d.distanceKm || 0) * DELIVERY_FEE_PER_KM,
+          0,
+        );
+
+      return {
+        today: calculateEarnings(todayDeliveries),
+        thisWeek: calculateEarnings(weekDeliveries),
+        thisMonth: calculateEarnings(monthDeliveries),
+        totalDeliveries: deliveries.length,
+      };
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async getEarningsHistory(user: User, page: number = 1, limit: number = 20) {
+    try {
+      const driver = await this.prisma.driver.findFirst({
+        where: { userId: user.id },
+      });
+
+      if (!driver)
+        throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
+
+      const skip = (page - 1) * limit;
+
+      const [deliveries, total] = await this.prisma.$transaction([
+        this.prisma.delivery.findMany({
+          where: { driverId: driver.id },
+          include: {
+            order: {
+              include: {
+                merchant: true,
+              },
+            },
+          },
+          orderBy: { deliveredAt: "desc" },
+          take: limit,
+          skip,
+        }),
+        this.prisma.delivery.count({ where: { driverId: driver.id } }),
+      ]);
+
+      const DELIVERY_FEE_PER_KM = 2000;
+
+      const data = deliveries.map((d) => ({
+        id: d.id,
+        orderId: d.orderId,
+        merchantName: d.order.merchant.name,
+        distanceKm: Number(d.distanceKm || 0),
+        earnings: Number(d.distanceKm || 0) * DELIVERY_FEE_PER_KM,
+        deliveredAt: d.deliveredAt,
+      }));
+
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
     } catch (error) {
       this.logger.error(error);
       throw error;

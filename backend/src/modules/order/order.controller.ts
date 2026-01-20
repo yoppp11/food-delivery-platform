@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseFilters,
   UseGuards,
 } from "@nestjs/common";
@@ -29,6 +30,22 @@ export class OrderController {
     return this.service.getOrders(user);
   }
 
+  @Get("active")
+  @Roles(["CUSTOMER"])
+  async getActiveOrders(@CurrentUser() user: User): Promise<Order[]> {
+    return this.service.getActiveOrders(user);
+  }
+
+  @Get("history")
+  @Roles(["CUSTOMER"])
+  async getOrderHistory(
+    @CurrentUser() user: User,
+    @Query("page") page?: number,
+    @Query("limit") limit?: number,
+  ) {
+    return this.service.getOrderHistory(user, page, limit);
+  }
+
   @Post()
   @UseFilters(BadRequestError)
   @Roles(["CUSTOMER", "ADMIN"])
@@ -42,6 +59,25 @@ export class OrderController {
   @Get(":id")
   async getById(@Param("id", ParseUUIDPipe) id: string) {
     return await this.service.getById(id);
+  }
+
+  @Get(":id/track")
+  async getOrderTracking(@Param("id", ParseUUIDPipe) id: string) {
+    return await this.service.getOrderTracking(id);
+  }
+
+  @Get(":id/status-history")
+  async getStatusHistory(@Param("id", ParseUUIDPipe) id: string) {
+    return await this.service.getStatusHistory(id);
+  }
+
+  @Post(":id/reorder")
+  @Roles(["CUSTOMER"])
+  async reorder(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ): Promise<Order> {
+    return await this.service.reorder(id, user);
   }
 
   @Patch(":id")
@@ -60,5 +96,84 @@ export class OrderController {
   @Roles(["CUSTOMER", "MERCHANT", "ADMIN"])
   async cancelledOrder(@Param("id") id: string, @CurrentUser() user: User) {
     return this.service.cancelledOrder(id, user);
+  }
+}
+
+@Controller("merchants/orders")
+@UseGuards(PermissionGuard)
+export class MerchantOrderController {
+  constructor(private readonly service: OrderService) {}
+
+  @Get()
+  @Roles(["MERCHANT"])
+  async getMerchantOrders(
+    @CurrentUser() user: User,
+    @Query("page") page?: number,
+    @Query("limit") limit?: number,
+  ) {
+    return this.service.getMerchantOrders(user, page, limit);
+  }
+
+  @Get("pending")
+  @Roles(["MERCHANT"])
+  async getMerchantPendingOrders(@CurrentUser() user: User) {
+    return this.service.getMerchantPendingOrders(user);
+  }
+
+  @Patch(":id/accept")
+  @Roles(["MERCHANT"])
+  async acceptOrder(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ): Promise<Order> {
+    return this.service.acceptOrder(id, user);
+  }
+
+  @Patch(":id/reject")
+  @Roles(["MERCHANT"])
+  async rejectOrder(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ): Promise<Order> {
+    return this.service.rejectOrder(id, user);
+  }
+}
+
+@Controller("drivers/orders")
+@UseGuards(PermissionGuard)
+export class DriverOrderController {
+  constructor(private readonly service: OrderService) {}
+
+  @Get("available")
+  @Roles(["DRIVER"])
+  async getAvailableOrdersForDriver(@CurrentUser() user: User) {
+    return this.service.getAvailableOrdersForDriver(user);
+  }
+
+  @Post(":id/accept")
+  @Roles(["DRIVER"])
+  async acceptDelivery(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ): Promise<Order> {
+    return this.service.acceptDelivery(id, user);
+  }
+
+  @Patch(":id/pickup")
+  @Roles(["DRIVER"])
+  async markOrderPickedUp(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ): Promise<Order> {
+    return this.service.markOrderPickedUp(id, user);
+  }
+
+  @Patch(":id/deliver")
+  @Roles(["DRIVER"])
+  async markOrderDelivered(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ): Promise<Order> {
+    return this.service.markOrderDelivered(id, user);
   }
 }

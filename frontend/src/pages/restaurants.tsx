@@ -1,14 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   Search,
   Filter,
-  Star,
-  Clock,
-  MapPin,
   SlidersHorizontal,
   X,
 } from 'lucide-react';
@@ -28,7 +24,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { merchantApi, categoryApi } from '@/services/api';
+import { MerchantCard } from '@/components/features/merchant-card';
+import { useMerchants } from '@/hooks/use-merchants';
+import { useCategories } from '@/hooks/use-categories';
 import type { Merchant, Category } from '@/types';
 
 const containerVariants = {
@@ -39,26 +37,6 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: { type: 'spring' as const, stiffness: 100 },
-  },
-};
-
-const merchantImages = [
-  'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400',
-  'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400',
-  'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400',
-  'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400',
-  'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400',
-  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400',
-  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400',
-  'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400',
-];
-
 export function RestaurantsPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
@@ -67,15 +45,10 @@ export function RestaurantsPage() {
   const [showOpenOnly, setShowOpenOnly] = useState(false);
   const [sortBy, setSortBy] = useState<'rating' | 'distance' | 'name'>('rating');
 
-  const { data: merchants, isLoading: merchantsLoading } = useQuery({
-    queryKey: ['merchants'],
-    queryFn: merchantApi.getAll,
-  });
+  const { data: merchantsResponse, isLoading: merchantsLoading } = useMerchants({ search: searchQuery });
+  const merchants = merchantsResponse?.data;
 
-  const { data: categories, isLoading: categoriesLoading } = useQuery({
-    queryKey: ['categories'],
-    queryFn: categoryApi.getAll,
-  });
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
 
   // Filter and sort merchants
   const filteredMerchants = merchants
@@ -283,11 +256,10 @@ export function RestaurantsPage() {
                 animate="visible"
                 className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
               >
-                {filteredMerchants?.map((merchant: Merchant, index: number) => (
+                {filteredMerchants?.map((merchant: Merchant) => (
                   <MerchantCard
                     key={merchant.id}
                     merchant={merchant}
-                    image={merchantImages[index % merchantImages.length]}
                   />
                 ))}
               </motion.div>
@@ -367,71 +339,3 @@ function FilterContent({
   );
 }
 
-// Merchant Card Component
-function MerchantCard({
-  merchant,
-  image,
-}: {
-  merchant: Merchant;
-  image: string;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <motion.div variants={itemVariants}>
-      <Link to={`/restaurants/${merchant.id}`}>
-        <Card className="overflow-hidden group cursor-pointer h-full hover:shadow-lg transition-all duration-300">
-          <div className="relative h-48 overflow-hidden">
-            <motion.img
-              whileHover={{ scale: 1.05 }}
-              transition={{ duration: 0.3 }}
-              src={image}
-              alt={merchant.name}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <div className="absolute top-3 left-3">
-              <Badge variant={merchant.isOpen ? 'success' : 'secondary'}>
-                {merchant.isOpen ? t('merchant.open') : t('merchant.closed')}
-              </Badge>
-            </div>
-            {merchant.rating && (
-              <div className="absolute top-3 right-3 bg-background/90 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-medium">{merchant.rating.toString()}</span>
-              </div>
-            )}
-            <div className="absolute bottom-3 left-3 right-3">
-              <h3 className="font-semibold text-lg text-white group-hover:text-primary transition-colors">
-                {merchant.name}
-              </h3>
-            </div>
-          </div>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              {merchant.description}
-            </p>
-            <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                <span>25-35 min</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                <span>1.2 km</span>
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                {t('merchant.deliveryFee')}: Rp 15.000
-              </span>
-              <Button size="sm" variant="ghost" className="text-primary">
-                View Menu
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </Link>
-    </motion.div>
-  );
-}

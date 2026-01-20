@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import {
   Body,
   Controller,
@@ -20,7 +19,12 @@ import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
 import { PermissionGuard } from "../../common/guards";
 import { ZodValidationPipe } from "../../common/pipes";
-import { type CreateCart, CreateCartSchema, type DeleteType, type EditType } from "./types";
+import {
+  type CreateCart,
+  CreateCartSchema,
+  type DeleteType,
+  type EditType,
+} from "./types";
 import { BadRequestError } from "../../common/exception.filter";
 
 @Controller("carts")
@@ -28,7 +32,7 @@ import { BadRequestError } from "../../common/exception.filter";
 export class CartController {
   constructor(
     private readonly service: CartService,
-    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger
+    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
   @Get()
@@ -43,7 +47,7 @@ export class CartController {
   @Roles(["CUSTOMER"])
   async createCart(
     @Body(new ZodValidationPipe(CreateCartSchema)) body: CreateCart,
-    @CurrentUser() user: User
+    @CurrentUser() user: User,
   ) {
     return this.service.postCart(body, user);
   }
@@ -52,7 +56,7 @@ export class CartController {
   @Roles(["CUSTOMER"])
   async deleteCart(
     @Param("id", ParseUUIDPipe) id: string,
-    @Query("type") type: DeleteType
+    @Query("type") type: DeleteType,
   ) {
     return this.service.clearCart(id, type);
   }
@@ -62,7 +66,7 @@ export class CartController {
   async editQuantity(
     @Param("id", ParseUUIDPipe) id: string,
     @Query("type") type: EditType,
-    @Body("quantity") quantity: number
+    @Body("quantity") quantity: number,
   ) {
     return await this.service.editQuantity(id, type, quantity);
   }

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell,
@@ -15,6 +14,7 @@ import {
   ChevronRight,
   Filter,
   Clock,
+  CreditCard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +27,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { notificationApi } from '@/services/api';
+import {
+  useNotifications,
+  useMarkNotificationAsRead,
+  useMarkAllNotificationsAsRead,
+  useDeleteNotification,
+} from '@/hooks/use-notifications';
 import { cn, formatRelativeTime } from '@/lib/utils';
 import type { NotificationType } from '@/types';
 
@@ -52,6 +57,7 @@ const notificationIcons: Record<NotificationType, typeof Bell> = {
   PROMO: Tag,
   SYSTEM: Info,
   MESSAGE: MessageCircle,
+  PAYMENT: CreditCard,
 };
 
 const notificationColors: Record<NotificationType, string> = {
@@ -59,39 +65,20 @@ const notificationColors: Record<NotificationType, string> = {
   PROMO: 'bg-green-500/10 text-green-500',
   SYSTEM: 'bg-yellow-500/10 text-yellow-500',
   MESSAGE: 'bg-purple-500/10 text-purple-500',
+  PAYMENT: 'bg-emerald-500/10 text-emerald-500',
 };
 
 export function NotificationsPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('all');
   const [filter, setFilter] = useState<NotificationType | 'all'>('all');
 
-  const { data: notifications, isLoading } = useQuery({
-    queryKey: ['notifications'],
-    queryFn: notificationApi.getAll,
-  });
+  const { data: notificationsResponse, isLoading } = useNotifications();
+  const notifications = notificationsResponse?.data;
 
-  const markAsReadMutation = useMutation({
-    mutationFn: notificationApi.markAsRead,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    },
-  });
-
-  const markAllAsReadMutation = useMutation({
-    mutationFn: notificationApi.markAllAsRead,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: notificationApi.delete,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    },
-  });
+  const markAsReadMutation = useMarkNotificationAsRead();
+  const markAllAsReadMutation = useMarkAllNotificationsAsRead();
+  const deleteMutation = useDeleteNotification();
 
   const filteredNotifications = notifications?.filter((n) => {
     if (activeTab === 'unread') return !n.isRead;

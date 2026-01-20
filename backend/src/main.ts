@@ -21,7 +21,7 @@ async function bootstrap() {
   const prisma = new PrismaService();
 
   app.enableCors({
-    origin: "http://localhost:4000",
+    origin: ["http://localhost:4000", "http://localhost:5173"],
     credentials: true,
   });
   app.useLogger(logger);

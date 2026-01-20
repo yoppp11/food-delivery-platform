@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   User,
@@ -17,6 +18,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { useSignIn, useSignUp, useForgotPassword } from '@/hooks/use-auth';
+import type { ApiError } from '@/lib/api-client';
 
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -37,27 +40,31 @@ const itemVariants = {
 
 export function LoginPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     remember: false,
   });
 
+  const signIn = useSignIn();
+  const from = location.state?.from || '/';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    // For demo, always succeed
-    setIsLoading(false);
-    window.location.href = '/';
+    signIn.mutate(
+      { email: formData.email, password: formData.password },
+      {
+        onSuccess: () => {
+          navigate(from, { replace: true });
+        },
+      }
+    );
   };
+
+  const error = signIn.error as ApiError | null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background flex items-center justify-center p-4">
@@ -87,9 +94,9 @@ export function LoginPage() {
         <motion.div variants={itemVariants}>
           <Card className="border-2">
             <CardHeader className="text-center pb-2">
-              <CardTitle className="text-2xl">{t('auth.welcomeBack')}</CardTitle>
+              <CardTitle className="text-2xl">{t('auth.login.title')}</CardTitle>
               <CardDescription>
-                Sign in to your account to continue
+                {t('auth.login.subtitle')}
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4">
@@ -101,12 +108,12 @@ export function LoginPage() {
                     className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm flex items-center gap-2"
                   >
                     <AlertCircle className="h-4 w-4" />
-                    {error}
+                    {error.message || 'An error occurred'}
                   </motion.div>
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">{t('auth.email')}</Label>
+                  <Label htmlFor="email">{t('auth.login.email')}</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -125,12 +132,12 @@ export function LoginPage() {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="password">{t('auth.password')}</Label>
+                    <Label htmlFor="password">{t('auth.login.password')}</Label>
                     <a
                       href="/forgot-password"
                       className="text-sm text-primary hover:underline"
                     >
-                      {t('auth.forgotPassword')}
+                      {t('auth.login.forgotPassword')}
                     </a>
                   </div>
                   <div className="relative">
@@ -169,16 +176,16 @@ export function LoginPage() {
                     }
                   />
                   <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
-                    {t('auth.rememberMe')}
+                    {t('auth.login.rememberMe')}
                   </Label>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
+                <Button type="submit" className="w-full" disabled={signIn.isPending}>
+                  {signIn.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <>
-                      {t('auth.login')}
+                      {t('auth.login.submit')}
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </>
                   )}
@@ -228,9 +235,9 @@ export function LoginPage() {
 
         {/* Register Link */}
         <motion.p variants={itemVariants} className="text-center mt-6 text-sm">
-          {t('auth.noAccount')}{' '}
+          {t('auth.login.noAccount')}{' '}
           <a href="/register" className="text-primary font-medium hover:underline">
-            {t('auth.register')}
+            {t('auth.login.signUp')}
           </a>
         </motion.p>
       </motion.div>
@@ -240,8 +247,8 @@ export function LoginPage() {
 
 export function RegisterPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -249,27 +256,35 @@ export function RegisterPage() {
     confirmPassword: '',
     terms: false,
   });
-  const [error, setError] = useState('');
+  const [validationError, setValidationError] = useState('');
+
+  const signUp = useSignUp();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setValidationError('');
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setValidationError('Passwords do not match');
       return;
     }
 
     if (!formData.terms) {
-      setError('Please accept the terms and conditions');
+      setValidationError('Please accept the terms and conditions');
       return;
     }
 
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    window.location.href = '/';
+    signUp.mutate(
+      { email: formData.email, password: formData.password, name: formData.name },
+      {
+        onSuccess: () => {
+          navigate('/', { replace: true });
+        },
+      }
+    );
   };
+
+  const error = (signUp.error as ApiError | null) || (validationError ? { message: validationError } : null);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background flex items-center justify-center p-4">
@@ -299,9 +314,9 @@ export function RegisterPage() {
         <motion.div variants={itemVariants}>
           <Card className="border-2">
             <CardHeader className="text-center pb-2">
-              <CardTitle className="text-2xl">{t('auth.createAccount')}</CardTitle>
+              <CardTitle className="text-2xl">{t('auth.register.title')}</CardTitle>
               <CardDescription>
-                Sign up to start ordering your favorite food
+                {t('auth.register.subtitle')}
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4">
@@ -313,12 +328,12 @@ export function RegisterPage() {
                     className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm flex items-center gap-2"
                   >
                     <AlertCircle className="h-4 w-4" />
-                    {error}
+                    {error.message || 'An error occurred'}
                   </motion.div>
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="name">{t('auth.name')}</Label>
+                  <Label htmlFor="name">{t('auth.register.fullName')}</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -335,7 +350,7 @@ export function RegisterPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">{t('auth.email')}</Label>
+                  <Label htmlFor="email">{t('auth.register.email')}</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -353,7 +368,7 @@ export function RegisterPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">{t('auth.password')}</Label>
+                  <Label htmlFor="password">{t('auth.register.password')}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -382,7 +397,7 @@ export function RegisterPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">{t('auth.confirmPassword')}</Label>
+                  <Label htmlFor="confirmPassword">{t('auth.register.confirmPassword')}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -419,12 +434,12 @@ export function RegisterPage() {
                   </Label>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
+                <Button type="submit" className="w-full" disabled={signUp.isPending}>
+                  {signUp.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <>
-                      {t('auth.register')}
+                      {t('auth.register.submit')}
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </>
                   )}
@@ -474,9 +489,9 @@ export function RegisterPage() {
 
         {/* Login Link */}
         <motion.p variants={itemVariants} className="text-center mt-6 text-sm">
-          {t('auth.haveAccount')}{' '}
+          {t('auth.register.hasAccount')}{' '}
           <a href="/login" className="text-primary font-medium hover:underline">
-            {t('auth.login')}
+            {t('auth.register.signIn')}
           </a>
         </motion.p>
       </motion.div>
@@ -486,16 +501,17 @@ export function RegisterPage() {
 
 export function ForgotPasswordPage() {
   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [email, setEmail] = useState('');
+  const forgotPassword = useForgotPassword();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    setSubmitted(true);
+    forgotPassword.mutate(email, {
+      onSuccess: () => {
+        setSubmitted(true);
+      },
+    });
   };
 
   return (
@@ -525,11 +541,11 @@ export function ForgotPasswordPage() {
         <motion.div variants={itemVariants}>
           <Card className="border-2">
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl">{t('auth.forgotPassword')}</CardTitle>
+              <CardTitle className="text-2xl">{t('auth.forgotPassword.title')}</CardTitle>
               <CardDescription>
                 {submitted
-                  ? 'Check your email for reset instructions'
-                  : "Enter your email and we'll send you a reset link"}
+                  ? t('auth.forgotPassword.checkEmail')
+                  : t('auth.forgotPassword.subtitle')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -543,16 +559,16 @@ export function ForgotPasswordPage() {
                     <Mail className="h-8 w-8" />
                   </div>
                   <p className="text-muted-foreground mb-4">
-                    We've sent a password reset link to <strong>{email}</strong>
+                    {t('auth.forgotPassword.emailSent')}
                   </p>
                   <Button variant="outline" asChild>
-                    <a href="/login">Back to Login</a>
+                    <a href="/login">{t('auth.forgotPassword.backToLogin')}</a>
                   </Button>
                 </motion.div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">{t('auth.email')}</Label>
+                    <Label htmlFor="email">{t('auth.forgotPassword.email')}</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -567,11 +583,11 @@ export function ForgotPasswordPage() {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
+                  <Button type="submit" className="w-full" disabled={forgotPassword.isPending}>
+                    {forgotPassword.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      'Send Reset Link'
+                      t('auth.forgotPassword.submit')
                     )}
                   </Button>
                 </form>

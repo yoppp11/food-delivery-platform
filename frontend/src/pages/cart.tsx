@@ -126,7 +126,7 @@ export function CartPage() {
                       <div className="flex items-center gap-4 py-4">
                         <div className="h-20 w-20 rounded-lg overflow-hidden bg-muted">
                           <img
-                            src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=100"
+                            src={item.menu.imageUrl || item.menu.image?.imageUrl || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=100'}
                             alt={item.menu.name}
                             className="w-full h-full object-cover"
                           />

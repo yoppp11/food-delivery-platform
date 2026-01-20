@@ -1,5 +1,5 @@
 import { MenuVariant, MerchantMenuCategory } from "@prisma/client";
-import { Merchant } from "../merchant/types";
+import { MerchantResponse } from "../merchant/types";
 
 export interface Menu {
   id: string;
@@ -13,7 +13,7 @@ export interface Menu {
   createdAt: Date;
   category?: MerchantMenuCategory;
   menuVariants?: MenuVariant[];
-  merchant?: Merchant;
+  merchant?: MerchantResponse;
 }
 
 export interface MenuApiResponse {

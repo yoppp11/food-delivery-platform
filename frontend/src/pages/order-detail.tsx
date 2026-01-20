@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Package,
@@ -21,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { orderApi } from '@/services/api';
+import { useOrderTracking } from '@/hooks/use-orders';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { OrderStatus } from '@/types';
 
@@ -38,12 +37,7 @@ export function OrderDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
 
-  const { data: order, isLoading } = useQuery({
-    queryKey: ['order', id],
-    queryFn: () => orderApi.getById(id!),
-    enabled: !!id,
-    refetchInterval: 10000, // Refresh every 10 seconds for live tracking
-  });
+  const { data: order, isLoading } = useOrderTracking(id!);
 
   if (isLoading) {
     return <OrderDetailSkeleton />;

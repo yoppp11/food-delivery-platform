@@ -28,7 +28,11 @@ import { CartController } from "./modules/cart/cart.controller";
 import { CartModule } from "./modules/cart/cart.module";
 import { CartService } from "./modules/cart/cart.service";
 import { OrderModule } from "./modules/order/order.module";
-import { OrderController } from "./modules/order/order.controller";
+import {
+  OrderController,
+  MerchantOrderController,
+  DriverOrderController,
+} from "./modules/order/order.controller";
 import { OrderService } from "./modules/order/order.service";
 import { PaymentGateway } from "./common/payment-gateway.service";
 import { PaymentModule } from "./modules/payment/payment.module";
@@ -37,6 +41,30 @@ import { PaymentService } from "./modules/payment/payment.service";
 import { DriverModule } from "./modules/driver/driver.module";
 import { DriverService } from "./modules/driver/driver.service";
 import { DriverController } from "./modules/driver/driver.controller";
+import { GlobalCategoryModule } from "./modules/category/category.module";
+import { CategoryController } from "./modules/category/category.controller";
+import { CategoryService } from "./modules/category/category.service";
+import { AddressModule } from "./modules/address/address.module";
+import { AddressController } from "./modules/address/address.controller";
+import { AddressService } from "./modules/address/address.service";
+import { NotificationModule } from "./modules/notification/notification.module";
+import { NotificationController } from "./modules/notification/notification.controller";
+import { NotificationService } from "./modules/notification/notification.service";
+import { PromotionModule } from "./modules/promotion/promotion.module";
+import { PromotionController } from "./modules/promotion/promotion.controller";
+import { PromotionService } from "./modules/promotion/promotion.service";
+import { ReviewModule } from "./modules/review/review.module";
+import { ReviewController } from "./modules/review/review.controller";
+import { ReviewService } from "./modules/review/review.service";
+import { DeliveryModule } from "./modules/delivery/delivery.module";
+import {
+  DeliveryController,
+  DriverDeliveryController,
+} from "./modules/delivery/delivery.controller";
+import { DeliveryService } from "./modules/delivery/delivery.service";
+import { AdminModule } from "./modules/admin/admin.module";
+import { AdminController } from "./modules/admin/admin.controller";
+import { AdminService } from "./modules/admin/admin.service";
 
 @Module({
   imports: [
@@ -47,7 +75,7 @@ import { DriverController } from "./modules/driver/driver.controller";
         winston.format.timestamp({ format: "HH:mm:ss" }),
         winston.format.printf(({ level, message, timestamp }) => {
           return `[${timestamp}] ${level}: ${JSON.stringify(message)}`;
-        })
+        }),
       ),
       transports: [new winston.transports.Console()],
     }),
@@ -72,6 +100,13 @@ import { DriverController } from "./modules/driver/driver.controller";
     OrderModule,
     PaymentModule,
     DriverModule,
+    GlobalCategoryModule,
+    AddressModule,
+    NotificationModule,
+    PromotionModule,
+    ReviewModule,
+    DeliveryModule,
+    AdminModule,
   ],
   controllers: [
     UserController,
@@ -81,8 +116,18 @@ import { DriverController } from "./modules/driver/driver.controller";
     UploadController,
     CartController,
     OrderController,
+    MerchantOrderController,
+    DriverOrderController,
     PaymentController,
     DriverController,
+    CategoryController,
+    AddressController,
+    NotificationController,
+    PromotionController,
+    ReviewController,
+    DeliveryController,
+    DriverDeliveryController,
+    AdminController,
   ],
   providers: [
     UserService,
@@ -94,13 +139,31 @@ import { DriverController } from "./modules/driver/driver.controller";
     PaymentGateway,
     PaymentService,
     DriverService,
+    CategoryService,
+    AddressService,
+    NotificationService,
+    PromotionService,
+    ReviewService,
+    DeliveryService,
+    AdminService,
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(AuthenticationMiddleware).forRoutes({
-      path: "api/*",
-      method: RequestMethod.ALL,
-    });
+    consumer
+      .apply(AuthenticationMiddleware)
+      .exclude(
+        { path: "api/auth/(.*)", method: RequestMethod.ALL },
+        { path: "api/merchants", method: RequestMethod.GET },
+        { path: "api/merchants/(.*)", method: RequestMethod.GET },
+        { path: "api/categories", method: RequestMethod.GET },
+        { path: "api/categories/(.*)", method: RequestMethod.GET },
+        { path: "api/menus", method: RequestMethod.GET },
+        { path: "api/menus/(.*)", method: RequestMethod.GET },
+      )
+      .forRoutes({
+        path: "api/*",
+        method: RequestMethod.ALL,
+      });
   }
 }

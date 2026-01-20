@@ -44,8 +44,12 @@ export interface Merchant {
   longitude: number;
   isOpen: boolean;
   rating?: number | null;
+  imageUrl?: string | null;
+  reviewCount?: number;
+  distance?: number | null;
   createdAt: Date;
   menus?: Menu[];
+  merchantCategories?: MerchantMenuCategory[];
   operationalHours?: MerchantOperationalHour[];
   reviews?: MerchantReview[];
 }
@@ -67,6 +71,13 @@ export interface Category {
   menus?: Menu[];
 }
 
+export interface MerchantMenuCategory {
+  id: string;
+  name: string;
+  merchantId: string;
+  menus?: Menu[];
+}
+
 // Menu types
 export interface Menu {
   id: string;
@@ -77,11 +88,13 @@ export interface Menu {
   price: number;
   isAvailable: boolean;
   imageId?: string | null;
+  imageUrl?: string | null;
   createdAt: Date;
   merchant?: Merchant;
-  category?: Category;
+  category?: MerchantMenuCategory;
   image?: Image | null;
   variants?: MenuVariant[];
+  menuVariants?: MenuVariant[];
 }
 
 export interface MenuVariant {
@@ -220,7 +233,7 @@ export interface DriverReview {
 }
 
 // Notification types
-export type NotificationType = 'ORDER' | 'Payment' | 'PROMO';
+export type NotificationType = 'ORDER' | 'PAYMENT' | 'PROMO' | 'SYSTEM' | 'MESSAGE';
 
 export interface Notification {
   id: string;

@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import {
   Body,
   Controller,
@@ -23,7 +22,10 @@ import { CurrentMerchant, CurrentUser, Roles } from "../../common/decorators";
 import { MerchantCategoryService } from "./merchant-category.service";
 import { ZodValidationPipe } from "../../common/pipes";
 import { MerchantGuard, PermissionGuard } from "../../common/guards";
-import { CheckOwnershipGuard, ResourceType } from "../../common/guards/check-ownership.guard";
+import {
+  CheckOwnershipGuard,
+  ResourceType,
+} from "../../common/guards/check-ownership.guard";
 
 @Controller("merchant-categories")
 @UseGuards(PermissionGuard)
@@ -35,9 +37,9 @@ export class MerchantCategoryController {
     return await this.services.getAllCategory();
   }
 
-  @Get(':id')
+  @Get(":id")
   async getById(
-    @Param("id", ParseUUIDPipe) id: string
+    @Param("id", ParseUUIDPipe) id: string,
   ): Promise<MerchantMenuCategory> {
     return await this.services.getById(id);
   }
@@ -49,12 +51,12 @@ export class MerchantCategoryController {
   async createCategory(
     @Body(new ZodValidationPipe(CreateMenuCategorySchema)) body: CreateCategory,
     @CurrentUser() user: User,
-    @CurrentMerchant() merchant: Merchant
+    @CurrentMerchant() merchant: Merchant,
   ): Promise<MerchantMenuCategory> {
     return this.services.createCategory(body, user, merchant);
   }
 
-  @Put(':id')
+  @Put(":id")
   @UseFilters(BadRequestError)
   @UseGuards(MerchantGuard, CheckOwnershipGuard)
   @Roles(["ADMIN", "MERCHANT"])
@@ -62,20 +64,16 @@ export class MerchantCategoryController {
   async updateCategory(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(UpdateMenuCategorySchema)) body: UpdateCategory,
-    @CurrentMerchant() merchant: Merchant
+    @CurrentMerchant() merchant: Merchant,
   ): Promise<MerchantMenuCategory> {
-    return await this.services.updateCategory(id, body, merchant)
+    return await this.services.updateCategory(id, body, merchant);
   }
 
   @Delete(":id")
   @UseGuards(MerchantGuard, CheckOwnershipGuard)
   @Roles(["ADMIN", "MERCHANT"])
   @ResourceType({ resourceType: "category" })
-  async deleteCategory(
-    @Param("id", ParseUUIDPipe) id: string
-  ) {
-    return await this.services.deleteCategory(id)
+  async deleteCategory(@Param("id", ParseUUIDPipe) id: string) {
+    return await this.services.deleteCategory(id);
   }
-
-  
 }

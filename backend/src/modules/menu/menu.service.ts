@@ -1,6 +1,5 @@
-/* eslint-disable prettier/prettier */
 /* eslint-disable no-case-declarations */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
@@ -14,13 +13,13 @@ import { DeleteMenuResponse, Menu, MenuApiResponse } from "./types";
 export class MenuService {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
-    private prisma: PrismaService
+    private prisma: PrismaService,
   ) {}
 
   async getAllMenus(
     user: User,
     search: string = "",
-    page: number = 1
+    page: number = 1,
   ): Promise<MenuApiResponse> {
     const where: Record<string, unknown> = {};
 
@@ -96,7 +95,7 @@ export class MenuService {
     user: User,
     merchant: Merchant,
     body: CreateMenu,
-    file: Express.Multer.File
+    file: Express.Multer.File,
   ): Promise<Menu> {
     try {
       let image: Image | null = null;
@@ -119,8 +118,8 @@ export class MenuService {
 
       const defaultMenuVariant = {
         name: "Regular",
-        price: body.price
-      }
+        price: body.price,
+      };
 
       const variants = (body.menuVariants ?? [defaultMenuVariant]).map((m) => {
         return {
@@ -139,7 +138,7 @@ export class MenuService {
           imageId: image?.id ?? null,
           merchantId: user.role === "MERCHANT" ? merchant.id : "",
           menuVariants: {
-            create: variants
+            create: variants,
           },
         },
         include: {

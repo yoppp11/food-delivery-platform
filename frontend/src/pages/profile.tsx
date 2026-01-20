@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User,
@@ -39,7 +38,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { userApi } from '@/services/api';
+import { useSession, useUpdateUser } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 
 const containerVariants = {
@@ -59,16 +58,14 @@ const itemVariants = {
 
 export function ProfilePage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('personal');
   const [isEditing, setIsEditing] = useState(false);
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [editingAddress, setEditingAddress] = useState<any>(null);
 
-  const { data: user, isLoading } = useQuery({
-    queryKey: ['profile'],
-    queryFn: userApi.getProfile,
-  });
+  const { data: session, isLoading } = useSession();
+  const user = session?.user;
+  const updateUser = useUpdateUser();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -76,27 +73,25 @@ export function ProfilePage() {
     phone: '',
   });
 
-  // Update form data when user loads
-  useState(() => {
+  useEffect(() => {
     if (user) {
       setFormData({
         name: user.name,
         email: user.email,
-        phone: user.phone || '',
+        phone: '',
       });
     }
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (data: any) => userApi.updateProfile(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-      setIsEditing(false);
-    },
-  });
+  }, [user]);
 
   const handleSave = () => {
-    updateMutation.mutate(formData);
+    updateUser.mutate(
+      { name: formData.name },
+      {
+        onSuccess: () => {
+          setIsEditing(false);
+        },
+      }
+    );
   };
 
   if (isLoading) {
@@ -162,7 +157,7 @@ export function ProfilePage() {
                   <div className="flex gap-2">
                     {isEditing ? (
                       <>
-                        <Button onClick={handleSave} disabled={updateMutation.isPending}>
+                        <Button onClick={handleSave} disabled={updateUser.isPending}>
                           <Save className="h-4 w-4 mr-2" />
                           {t('common.save')}
                         </Button>

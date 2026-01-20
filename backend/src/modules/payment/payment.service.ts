@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable prettier/prettier */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
 import { Merchant, Order, OrderItem, Payment, User } from "@prisma/client";
@@ -14,11 +11,11 @@ export class PaymentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pakasir: PaymentGateway,
-    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger
+    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
   async getPayments(
-    user: User
+    user: User,
   ): Promise<(Payment & { order: Order & { items: OrderItem[] } })[]> {
     try {
       let where = {};
@@ -46,7 +43,7 @@ export class PaymentService {
 
   async getPaymentById(
     id: string,
-    user: User
+    user: User,
   ): Promise<
     Payment & {
       customer: User;
@@ -105,7 +102,7 @@ export class PaymentService {
       const result = await this.pakasir.createPayment(
         id,
         order.totalPrice,
-        body.paymentMethod
+        body.paymentMethod,
       );
 
       this.logger.info(result);
@@ -169,7 +166,7 @@ export class PaymentService {
 
       const paymentSuccess = await this.pakasir.processPayment(
         payment.orderId,
-        payment.amount
+        payment.amount,
       );
 
       this.logger.info(paymentSuccess);
@@ -177,7 +174,7 @@ export class PaymentService {
       if (!paymentSuccess)
         throw new HttpException(
           "Something went wrong",
-          HttpStatus.PAYMENT_REQUIRED
+          HttpStatus.PAYMENT_REQUIRED,
         );
 
       return await this.prisma.$transaction(async (tx) => {
@@ -217,7 +214,7 @@ export class PaymentService {
         const cart = await tx.cart.findFirst({
           where: { orderId: order.id },
         });
-        
+
         if (!cart)
           throw new HttpException("Something went wrong", HttpStatus.NOT_FOUND);
 
@@ -249,13 +246,13 @@ export class PaymentService {
       if (payment.status === "SUCCESS")
         throw new HttpException(
           "Cannot cancel succesful payment",
-          HttpStatus.BAD_REQUEST
+          HttpStatus.BAD_REQUEST,
         );
 
       if (payment.status === "CANCEL")
         throw new HttpException(
           "Payment already cancelled",
-          HttpStatus.BAD_REQUEST
+          HttpStatus.BAD_REQUEST,
         );
 
       return await this.prisma.$transaction(async (tx) => {

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,7 +12,6 @@ import {
   Plus,
   Minus,
   ShoppingCart,
-  ChevronDown,
   Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,7 +21,6 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Dialog,
   DialogContent,
@@ -33,26 +30,13 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { merchantApi, menuApi, reviewApi } from '@/services/api';
+import { MenuCard } from '@/components/features/menu-card';
+import { ReviewCard } from '@/components/features/review-card';
+import { useMerchant, useMerchantMenus, useMerchantReviews } from '@/hooks/use-merchants';
 import { useCart } from '@/providers/cart-provider';
-import { formatCurrency, formatDate, getInitials } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
+import { getBannerImage, getMenuImage } from '@/constants/images';
 import type { Menu, MenuVariant, MerchantReview } from '@/types';
-
-const menuImages = [
-  'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300',
-  'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=300',
-  'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=300',
-  'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300',
-  'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=300',
-  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300',
-];
-
-const bannerImages = [
-  'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200',
-  'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=1200',
-  'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200',
-];
 
 export function RestaurantDetailPage() {
   const { t } = useTranslation();
@@ -64,34 +48,27 @@ export function RestaurantDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const { data: merchant, isLoading: merchantLoading } = useQuery({
-    queryKey: ['merchant', id],
-    queryFn: () => merchantApi.getById(id!),
-    enabled: !!id,
-  });
+  const { data: merchant, isLoading: merchantLoading } = useMerchant(id!);
 
-  const { data: menus, isLoading: menusLoading } = useQuery({
-    queryKey: ['menus', id],
-    queryFn: () => menuApi.getByMerchant(id!),
-    enabled: !!id,
-  });
+  const { data: menus, isLoading: menusLoading } = useMerchantMenus(id!);
 
-  const { data: reviews } = useQuery({
-    queryKey: ['reviews', id],
-    queryFn: () => reviewApi.getByMerchant(id!),
-    enabled: !!id,
-  });
+  const { data: reviewsResponse } = useMerchantReviews(id!);
+  const reviews = reviewsResponse?.data;
 
   const filteredMenus = menus?.filter((menu: Menu) =>
     menu.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Group menus by category (simulated)
-  const menuCategories = [
-    { name: 'Popular', menus: filteredMenus?.slice(0, 3) || [] },
-    { name: 'Main Course', menus: filteredMenus?.slice(0, 4) || [] },
-    { name: 'Beverages', menus: filteredMenus?.slice(-2) || [] },
-  ];
+  const categoryMap = new Map<string, { name: string; menus: Menu[] }>();
+  filteredMenus?.forEach((menu: Menu) => {
+    const categoryName = menu.category?.name || 'Other';
+    const categoryId = menu.category?.id || 'other';
+    if (!categoryMap.has(categoryId)) {
+      categoryMap.set(categoryId, { name: categoryName, menus: [] });
+    }
+    categoryMap.get(categoryId)!.menus.push(menu);
+  });
+  const menuCategories = Array.from(categoryMap.values());
 
   const handleAddToCart = () => {
     if (selectedMenu && merchant) {
@@ -103,9 +80,12 @@ export function RestaurantDetailPage() {
     }
   };
 
+  const getMenuVariants = (menu: Menu) => menu.variants || menu.menuVariants || [];
+
   const openMenuDialog = (menu: Menu) => {
     setSelectedMenu(menu);
-    setSelectedVariant(menu.variants?.[0] || null);
+    const variants = getMenuVariants(menu);
+    setSelectedVariant(variants[0] || null);
     setQuantity(1);
     setIsDialogOpen(true);
   };
@@ -132,7 +112,7 @@ export function RestaurantDetailPage() {
     );
   }
 
-  const bannerImage = bannerImages[parseInt(merchant.id) % bannerImages.length];
+  const bannerImage = getBannerImage(merchant.id);
 
   return (
     <div className="min-h-screen">
@@ -231,11 +211,10 @@ export function RestaurantDetailPage() {
                   <div key={idx}>
                     <h2 className="text-xl font-semibold mb-4">{category.name}</h2>
                     <div className="grid md:grid-cols-2 gap-4">
-                      {category.menus.map((menu: Menu, menuIdx: number) => (
+                      {category.menus.map((menu: Menu) => (
                         <MenuCard
                           key={menu.id}
                           menu={menu}
-                          image={menuImages[menuIdx % menuImages.length]}
                           onAdd={() => openMenuDialog(menu)}
                         />
                       ))}
@@ -334,41 +313,7 @@ export function RestaurantDetailPage() {
               {/* Reviews List */}
               <div className="space-y-4">
                 {reviews?.map((review: MerchantReview) => (
-                  <Card key={review.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        <Avatar>
-                          <AvatarImage src={`https://i.pravatar.cc/150?u=${review.userId}`} />
-                          <AvatarFallback>
-                            {getInitials(`User ${review.userId}`)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">User {review.userId}</p>
-                              <div className="flex items-center gap-1 mt-1">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`h-3 w-3 ${
-                                      i < review.rating
-                                        ? 'fill-yellow-400 text-yellow-400'
-                                        : 'text-muted'
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                            <span className="text-sm text-muted-foreground">
-                              {formatDate(review.createdAt)}
-                            </span>
-                          </div>
-                          <p className="mt-2 text-muted-foreground">{review.comment}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <ReviewCard key={review.id} review={review} />
                 ))}
               </div>
             </div>
@@ -424,7 +369,7 @@ export function RestaurantDetailPage() {
           {selectedMenu && (
             <div className="space-y-4">
               <img
-                src={menuImages[0]}
+                src={selectedMenu.imageUrl || selectedMenu.image?.imageUrl || getMenuImage(selectedMenu.id)}
                 alt={selectedMenu.name}
                 className="w-full h-48 object-cover rounded-lg"
               />
@@ -443,11 +388,11 @@ export function RestaurantDetailPage() {
               </div>
 
               {/* Variants */}
-              {selectedMenu.variants && selectedMenu.variants.length > 0 && (
+              {getMenuVariants(selectedMenu).length > 0 && (
                 <div>
                   <Label className="mb-2 block">{t('menu.variant')}</Label>
                   <div className="grid grid-cols-3 gap-2">
-                    {selectedMenu.variants.map((variant) => (
+                    {getMenuVariants(selectedMenu).map((variant) => (
                       <Button
                         key={variant.id}
                         variant={
@@ -523,64 +468,6 @@ export function RestaurantDetailPage() {
   );
 }
 
-// Menu Card Component
-function MenuCard({
-  menu,
-  image,
-  onAdd,
-}: {
-  menu: Menu;
-  image: string;
-  onAdd: () => void;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ scale: 1.02 }}
-      transition={{ duration: 0.2 }}
-    >
-      <Card className="overflow-hidden cursor-pointer" onClick={onAdd}>
-        <CardContent className="p-0">
-          <div className="flex">
-            <div className="flex-1 p-4">
-              <h3 className="font-semibold">{menu.name}</h3>
-              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                {menu.description}
-              </p>
-              <div className="flex items-center justify-between mt-3">
-                <span className="font-semibold text-primary">
-                  {formatCurrency(menu.price)}
-                </span>
-                {!menu.isAvailable && (
-                  <Badge variant="secondary">{t('menu.unavailable')}</Badge>
-                )}
-              </div>
-            </div>
-            <div className="relative w-32 h-32">
-              <img
-                src={image}
-                alt={menu.name}
-                className="w-full h-full object-cover"
-              />
-              <Button
-                size="icon"
-                className="absolute bottom-2 right-2 h-8 w-8 rounded-full shadow-lg"
-                disabled={!menu.isAvailable}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-}
-
-// Skeleton Components
 function RestaurantDetailSkeleton() {
   return (
     <div className="min-h-screen">

@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import {
   Body,
   Controller,
@@ -23,7 +22,7 @@ export class PaymentController {
   @Get()
   @Roles(["ADMIN", "CUSTOMER", "MERCHANT"])
   async getPayments(
-    @CurrentUser() user: User
+    @CurrentUser() user: User,
   ): Promise<(Payment & { order: Order & { items: OrderItem[] } })[]> {
     return await this.service.getPayments(user);
   }
@@ -32,7 +31,7 @@ export class PaymentController {
   @Roles(["ADMIN", "MERCHANT", "CUSTOMER"])
   async getPaymentById(
     @Param("id", ParseUUIDPipe) id: string,
-    @CurrentUser() user: User
+    @CurrentUser() user: User,
   ): Promise<
     Payment & {
       customer: User;
@@ -48,7 +47,7 @@ export class PaymentController {
   async createPayment(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(CreatePaymentSchema)) body: CreatePayment,
-    @CurrentUser() user: User
+    @CurrentUser() user: User,
   ) {
     return await this.service.createPayment(id, body, user);
   }
@@ -57,7 +56,7 @@ export class PaymentController {
   @Roles(["ADMIN", "MERCHANT", "CUSTOMER"])
   async paymentSuccess(
     @Param("id", ParseUUIDPipe) id: string,
-    @CurrentUser() user: User
+    @CurrentUser() user: User,
   ) {
     return await this.service.paymentSuccess(id, user);
   }
@@ -66,7 +65,7 @@ export class PaymentController {
   @Roles(["ADMIN", "CUSTOMER", "MERCHANT"])
   async cancelPayment(
     @Param("id", ParseUUIDPipe) id: string,
-    @CurrentUser() user: User
+    @CurrentUser() user: User,
   ) {
     return await this.service.cancelPayment(id, user);
   }

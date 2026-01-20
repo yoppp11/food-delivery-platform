@@ -16,10 +16,14 @@ export class Auth {
         enabled: true,
         requireEmailVerification: false,
       },
-      basePath: "/auth",
+      basePath: "/api/auth",
       secret: process.env.BETTER_AUTH_SECRET!,
-      baseURL: process.env.BETTER_AUTH_URL || "http://localhost:4000",
-      trustedOrigins: ["http://localhost:4000", "http://localhost:5173"],
+      baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+      trustedOrigins: [
+        "http://localhost:4000",
+        "http://localhost:5173",
+        "http://localhost:3000",
+      ],
     });
   }
 }

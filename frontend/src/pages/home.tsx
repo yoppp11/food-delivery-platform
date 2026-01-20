@@ -1,10 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
   Clock,
-  MapPin,
   Star,
   ChevronRight,
   Utensils,
@@ -16,11 +14,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { categoryApi, merchantApi, promotionApi } from '@/services/api';
+import { MerchantCard } from '@/components/features/merchant-card';
+import { useCategories } from '@/hooks/use-categories';
+import { useFeaturedMerchants } from '@/hooks/use-merchants';
+import { useActivePromotions } from '@/hooks/use-promotions';
 import { formatCurrency } from '@/lib/utils';
+import { getCategoryIcon } from '@/constants/images';
 import type { Category, Merchant, Promotion } from '@/types';
 
-// Animation variants
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -43,35 +44,14 @@ const itemVariants = {
   },
 };
 
-// Category icons mapping
-const categoryIcons: Record<string, string> = {
-  'Fast Food': '🍔',
-  Pizza: '🍕',
-  Asian: '🍜',
-  Desserts: '🍰',
-  Beverages: '🥤',
-  Healthy: '🥗',
-  Indonesian: '🍛',
-  Japanese: '🍣',
-};
-
 export function HomePage() {
   const { t } = useTranslation();
 
-  const { data: categories, isLoading: categoriesLoading } = useQuery({
-    queryKey: ['categories'],
-    queryFn: categoryApi.getAll,
-  });
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
 
-  const { data: merchants, isLoading: merchantsLoading } = useQuery({
-    queryKey: ['merchants', 'featured'],
-    queryFn: merchantApi.getFeatured,
-  });
+  const { data: merchants, isLoading: merchantsLoading } = useFeaturedMerchants(6);
 
-  const { data: promotions, isLoading: promotionsLoading } = useQuery({
-    queryKey: ['promotions', 'active'],
-    queryFn: promotionApi.getActive,
-  });
+  const { data: promotions, isLoading: promotionsLoading } = useActivePromotions();
 
   return (
     <div className="min-h-screen">
@@ -229,7 +209,7 @@ export function HomePage() {
                           whileHover={{ scale: 1.1, rotate: 5 }}
                           className="text-4xl mb-2"
                         >
-                          {categoryIcons[category.name] || '🍽️'}
+                          {getCategoryIcon(category.name)}
                         </motion.div>
                         <p className="text-sm font-medium group-hover:text-primary transition-colors">
                           {category.name}
@@ -446,65 +426,4 @@ export function HomePage() {
   );
 }
 
-// Merchant Card Component
-function MerchantCard({ merchant }: { merchant: Merchant }) {
-  const { t } = useTranslation();
 
-  const images = [
-    'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400',
-    'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400',
-    'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400',
-    'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400',
-    'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400',
-    'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400',
-  ];
-
-  const imageIndex = parseInt(merchant.id) % images.length;
-
-  return (
-    <motion.div variants={itemVariants}>
-      <Link to={`/restaurants/${merchant.id}`}>
-        <Card className="overflow-hidden group cursor-pointer h-full">
-          <div className="relative h-48 overflow-hidden">
-            <motion.img
-              whileHover={{ scale: 1.05 }}
-              transition={{ duration: 0.3 }}
-              src={images[imageIndex]}
-              alt={merchant.name}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute top-3 left-3">
-              <Badge variant={merchant.isOpen ? 'success' : 'secondary'}>
-                {merchant.isOpen ? t('merchant.open') : t('merchant.closed')}
-              </Badge>
-            </div>
-            {merchant.rating && (
-              <div className="absolute top-3 right-3 bg-background/90 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-medium">{merchant.rating.toString()}</span>
-              </div>
-            )}
-          </div>
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
-              {merchant.name}
-            </h3>
-            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-              {merchant.description}
-            </p>
-            <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                <span>25-35 min</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                <span>1.2 km</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </Link>
-    </motion.div>
-  );
-}

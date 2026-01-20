@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -29,7 +28,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useCart } from '@/providers/cart-provider';
-import { addressApi } from '@/services/api';
+import { useAddresses } from '@/hooks/use-addresses';
+import { useCreateOrder } from '@/hooks/use-orders';
 import { formatCurrency } from '@/lib/utils';
 import type { UserAddress } from '@/types';
 
@@ -46,10 +46,8 @@ export function CheckoutPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
 
-  const { data: addresses } = useQuery({
-    queryKey: ['addresses'],
-    queryFn: addressApi.getAll,
-  });
+  const { data: addresses } = useAddresses();
+  const createOrder = useCreateOrder();
 
   // Set default address
   if (!selectedAddress && addresses?.length) {
@@ -69,12 +67,33 @@ export function CheckoutPage() {
   ];
 
   const handlePlaceOrder = async () => {
+    if (!cart) return;
+    
     setIsProcessing(true);
-    // Simulate order processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setOrderId(`ORD-${Date.now()}`);
-    setIsProcessing(false);
-    setIsSuccess(true);
+    const orderItems = cart.items.map((item) => ({
+      variantId: item.variant?.id || item.menu.id,
+      quantity: item.quantity,
+      price: item.variant?.price || item.menu.price,
+    }));
+    
+    createOrder.mutate(
+      {
+        merchantId: cart.merchantId,
+        items: orderItems,
+        totalPrice: total,
+        deliveryFee,
+      },
+      {
+        onSuccess: (order) => {
+          setOrderId(order.id);
+          setIsProcessing(false);
+          setIsSuccess(true);
+        },
+        onError: () => {
+          setIsProcessing(false);
+        },
+      }
+    );
   };
 
   const handleContinue = () => {

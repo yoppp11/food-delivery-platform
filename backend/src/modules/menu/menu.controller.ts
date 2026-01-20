@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import {
   Body,
   Controller,
@@ -40,14 +39,14 @@ import {
 export class MenuController {
   constructor(
     private service: MenuService,
-    @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger
+    @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
   ) {}
 
   @Get()
   async getAllMenus(
     @Query("search") search: string,
     @Query("page") page: number,
-    @CurrentUser() user: User
+    @CurrentUser() user: User,
   ): Promise<MenuApiResponse> {
     this.logger.info(user);
     return await this.service.getAllMenus(user, search, page);
@@ -59,14 +58,14 @@ export class MenuController {
   @UseInterceptors(
     FileInterceptor("image", {
       storage: CloudinaryStorageService,
-    })
+    }),
   )
   @Roles(["ADMIN", "MERCHANT"])
   async createMenus(
     @Body(new ZodValidationPipe(CreateMenuSchema)) body: CreateMenu,
     @CurrentUser() user: User,
     @CurrentMerchant() merchant: Merchant,
-    @UploadedFile() file: Express.Multer.File
+    @UploadedFile() file: Express.Multer.File,
   ) {
     return await this.service.createMenu(user, merchant, body, file);
   }

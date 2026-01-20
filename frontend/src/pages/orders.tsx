@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -19,7 +18,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { orderApi } from '@/services/api';
+import { useOrders } from '@/hooks/use-orders';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Order, OrderStatus } from '@/types';
 
@@ -52,10 +51,8 @@ const itemVariants = {
 export function OrdersPage() {
   const { t } = useTranslation();
 
-  const { data: orders, isLoading } = useQuery({
-    queryKey: ['orders'],
-    queryFn: orderApi.getAll,
-  });
+  const { data: ordersResponse, isLoading } = useOrders();
+  const orders = ordersResponse?.data;
 
   const activeOrders = orders?.filter((order: Order) =>
     ['CREATED', 'PAID', 'PREPARING', 'READY', 'ON_DELIVERY'].includes(order.status)
