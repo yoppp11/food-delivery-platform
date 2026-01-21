@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   Body,
   Controller,
@@ -20,6 +22,28 @@ import type { Delivery, User } from "@prisma/client";
 @Controller("deliveries")
 export class DeliveryController {
   constructor(private readonly service: DeliveryService) {}
+
+  @Get("drivers/active")
+  @UseGuards(PermissionGuard)
+  @Roles(["DRIVER"])
+  async getDriverActiveOrder(@CurrentUser() user: User) {
+    return await this.service.getDriverActiveOrder(user);
+  }
+
+  @Get("drivers")
+  @UseGuards(PermissionGuard)
+  @Roles(["DRIVER"])
+  async getDriverDeliveryHistory(
+    @CurrentUser() user: User,
+    @Query("page") page?: number,
+    @Query("limit") limit?: number,
+  ) {
+    return await this.service.getDriverDeliveryHistory(
+      user,
+      page ? Number(page) : undefined,
+      limit ? Number(limit) : undefined,
+    );
+  }
 
   @Get(":orderId")
   async getDeliveryByOrderId(
@@ -63,21 +87,5 @@ export class DeliveryController {
     @CurrentUser() user: User,
   ): Promise<Delivery> {
     return await this.service.markAsCompleted(orderId, user);
-  }
-}
-
-@Controller("drivers/deliveries")
-@UseGuards(PermissionGuard)
-export class DriverDeliveryController {
-  constructor(private readonly service: DeliveryService) {}
-
-  @Get()
-  @Roles(["DRIVER"])
-  async getDriverDeliveryHistory(
-    @CurrentUser() user: User,
-    @Query("page") page?: number,
-    @Query("limit") limit?: number,
-  ) {
-    return await this.service.getDriverDeliveryHistory(user, page, limit);
   }
 }

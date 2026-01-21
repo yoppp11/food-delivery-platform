@@ -8,12 +8,19 @@ import {
   GetNotificationsQuery,
   NotificationListResponse,
 } from "./types";
+import { CacheService, CacheInvalidationService } from "../../common/cache";
+
+const CACHE_TTL = {
+  NOTIFICATIONS: 60000,
+};
 
 @Injectable()
 export class NotificationService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
+    private cacheService: CacheService,
+    private cacheInvalidation: CacheInvalidationService,
   ) {}
 
   async getNotifications(
@@ -22,6 +29,10 @@ export class NotificationService {
   ): Promise<NotificationListResponse> {
     try {
       const { type, isRead, page, limit } = query;
+
+      const cacheKey = this.cacheService.generateHashKey(`notifications:user:${user.id}`, query);
+      const cached = await this.cacheService.get<NotificationListResponse>(cacheKey);
+      if (cached) return cached;
 
       const where: Record<string, unknown> = { userId: user.id };
 
@@ -49,13 +60,17 @@ export class NotificationService {
           }),
         ]);
 
-      return {
+      const result = {
         data: notifications,
         unreadCount,
         total,
         page,
         limit,
       };
+
+      await this.cacheService.set(cacheKey, result, CACHE_TTL.NOTIFICATIONS);
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -99,10 +114,14 @@ export class NotificationService {
       if (!notification)
         throw new HttpException("Notification not found", HttpStatus.NOT_FOUND);
 
-      return await this.prisma.notification.update({
+      const result = await this.prisma.notification.update({
         where: { id },
         data: { isRead: true },
       });
+
+      await this.cacheInvalidation.invalidateNotificationCache(user.id);
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -115,6 +134,8 @@ export class NotificationService {
         where: { userId: user.id, isRead: false },
         data: { isRead: true },
       });
+
+      await this.cacheInvalidation.invalidateNotificationCache(user.id);
 
       return { count: result.count };
     } catch (error) {

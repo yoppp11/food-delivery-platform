@@ -73,11 +73,8 @@ export function useSignIn() {
   return useMutation({
     mutationFn: (credentials: SignInCredentials) =>
       apiClient.post<AuthResponse>('/auth/sign-in/email', credentials),
-    onSuccess: (data) => {
-      queryClient.setQueryData(queryKeys.auth.session(), {
-        user: data.user,
-        session: data.session,
-      });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.auth.session() });
       queryClient.invalidateQueries({ queryKey: queryKeys.cart.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });

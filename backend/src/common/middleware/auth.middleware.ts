@@ -13,6 +13,7 @@ import { User } from "@prisma/client";
 import { Auth } from "../auth.service";
 import { PrismaService } from "../prisma.service";
 import { UnauthorizedError } from "../exception.filter";
+import { fromNodeHeaders } from "better-auth/node";
 
 @Injectable()
 export class AuthenticationMiddleware implements NestMiddleware<
@@ -30,9 +31,12 @@ export class AuthenticationMiddleware implements NestMiddleware<
     res: Response,
     next: (error?: any) => void,
   ) {
-    const session = await this.auth.auth().api.getSession();
+    const session = await this.auth.auth().api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
 
     if (!session) {
+      this.logger.error("AuthMiddleware - No session found");
       throw new UnauthorizedError();
     }
 
@@ -47,7 +51,6 @@ export class AuthenticationMiddleware implements NestMiddleware<
     }
 
     req.user = user;
-    this.logger.info("=====>", user);
 
     next();
   }

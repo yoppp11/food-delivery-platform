@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useTheme } from '@/providers/theme-provider';
 import { useCart } from '@/providers/cart-provider';
+import { useSession, useSignOut } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 
 export function Header() {
@@ -39,10 +40,23 @@ export function Header() {
   const { theme, setTheme } = useTheme();
   const { getItemCount } = useCart();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+  const { data: session } = useSession();
+  const signOutMutation = useSignOut();
+  const user = session?.user;
+
   const itemCount = getItemCount();
+
+  const handleSignOut = () => {
+    signOutMutation.mutate(undefined, {
+      onSuccess: () => {
+        navigate('/login', { replace: true });
+      },
+    });
+  };
 
   const navLinks = [
     { href: '/', label: t('nav.home'), icon: Home },
@@ -172,17 +186,17 @@ export function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150" />
-                    <AvatarFallback>JD</AvatarFallback>
+                    <AvatarImage src={user?.image || undefined} />
+                    <AvatarFallback>{user?.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">John Doe</p>
+                    <p className="text-sm font-medium leading-none">{user?.email}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      john@example.com
+                      {user?.role}
                     </p>
                   </div>
                 </DropdownMenuLabel>
@@ -206,7 +220,10 @@ export function Header() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive cursor-pointer">
+                <DropdownMenuItem 
+                  className="text-destructive cursor-pointer"
+                  onClick={handleSignOut}
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>{t('common.logout')}</span>
                 </DropdownMenuItem>

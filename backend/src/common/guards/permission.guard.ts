@@ -28,9 +28,14 @@ export class PermissionGuard implements CanActivate {
       .getRequest<Request & { user: User; session: any }>();
 
     const user = await this.prisma.user.findFirst({
-      where: { id: request.user.id },
+      where: { id: request.user?.id },
     });
-    const roles = this.reflector.get(Roles, context.getHandler());
+
+    const roles = this.reflector.getAllAndOverride(Roles, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
     if (!roles)
       throw new HttpException("Forbidden access", HttpStatus.FORBIDDEN);
 

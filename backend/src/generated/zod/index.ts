@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import Decimal from 'decimal.js';
 
 /////////////////////////////////////////
 // HELPER FUNCTIONS
@@ -89,7 +90,7 @@ export const SessionScalarFieldEnumSchema = z.enum(['id','userId','expiresAt','i
 
 export const VerificationScalarFieldEnumSchema = z.enum(['id','identifier','value','expiresAt','createdAt','updatedAt']);
 
-export const MerchantScalarFieldEnumSchema = z.enum(['id','ownerId','name','description','latitude','longitude','isOpen','rating','createdAt']);
+export const MerchantScalarFieldEnumSchema = z.enum(['id','ownerId','name','description','latitude','longitude','isOpen','rating','approvalStatus','createdAt']);
 
 export const MerchantOperationalHourScalarFieldEnumSchema = z.enum(['id','merchantId','dayOfWeek','openTime','closeTime']);
 
@@ -115,7 +116,7 @@ export const PaymentScalarFieldEnumSchema = z.enum(['id','orderId','customerId',
 
 export const PaymentCallbackScalarFieldEnumSchema = z.enum(['id','paymentId','payload','receivedAt']);
 
-export const DriverScalarFieldEnumSchema = z.enum(['id','userId','plateNumber','isAvailable']);
+export const DriverScalarFieldEnumSchema = z.enum(['id','userId','plateNumber','isAvailable','rating','approvalStatus']);
 
 export const DriverLocationScalarFieldEnumSchema = z.enum(['id','driverId','latitude','longitude','recordedAt']);
 
@@ -127,11 +128,17 @@ export const OrderPromotionScalarFieldEnumSchema = z.enum(['id','orderId','promo
 
 export const MerchantReviewScalarFieldEnumSchema = z.enum(['id','userId','merchantId','rating','comment','createdAt']);
 
-export const DriverReviewScalarFieldEnumSchema = z.enum(['id','userId','driverId','rating','comment']);
+export const DriverReviewScalarFieldEnumSchema = z.enum(['id','userId','driverId','rating','comment','createdAt']);
 
 export const NotificationScalarFieldEnumSchema = z.enum(['id','userId','type','message','isRead','createdAt']);
 
 export const ImageScalarFieldEnumSchema = z.enum(['id','imageUrl','createdAt']);
+
+export const ChatRoomScalarFieldEnumSchema = z.enum(['id','orderId','type','createdAt','updatedAt']);
+
+export const ChatParticipantScalarFieldEnumSchema = z.enum(['id','chatRoomId','userId','role','joinedAt']);
+
+export const ChatMessageScalarFieldEnumSchema = z.enum(['id','chatRoomId','senderId','content','type','isRead','createdAt']);
 
 export const SortOrderSchema = z.enum(['asc','desc']);
 
@@ -142,6 +149,18 @@ export const QueryModeSchema = z.enum(['default','insensitive']);
 export const NullsOrderSchema = z.enum(['first','last']);
 
 export const JsonNullValueFilterSchema = z.enum(['DbNull','JsonNull','AnyNull',]).transform((value) => value === 'JsonNull' ? Prisma.JsonNull : value === 'DbNull' ? Prisma.DbNull : value === 'AnyNull' ? Prisma.AnyNull : value);
+
+export const ChatRoomTypeSchema = z.enum(['CUSTOMER_MERCHANT','CUSTOMER_DRIVER','CUSTOMER_SUPPORT']);
+
+export type ChatRoomTypeType = `${z.infer<typeof ChatRoomTypeSchema>}`
+
+export const ChatRoleSchema = z.enum(['CUSTOMER','MERCHANT','DRIVER','SUPPORT']);
+
+export type ChatRoleType = `${z.infer<typeof ChatRoleSchema>}`
+
+export const MessageTypeSchema = z.enum(['TEXT','IMAGE','LOCATION','SYSTEM']);
+
+export type MessageTypeType = `${z.infer<typeof MessageTypeSchema>}`
 
 export const UserStatusSchema = z.enum(['ACTIVE','SUSPENDED','DELETED']);
 
@@ -154,6 +173,10 @@ export type RoleType = `${z.infer<typeof RoleSchema>}`
 export const StatusSchema = z.enum(['ACTIVE','SUSPENDED','DELETED']);
 
 export type StatusType = `${z.infer<typeof StatusSchema>}`
+
+export const ApprovalStatusSchema = z.enum(['PENDING','APPROVED','REJECTED']);
+
+export type ApprovalStatusType = `${z.infer<typeof ApprovalStatusSchema>}`
 
 export const CartStatusSchema = z.enum(['ACTIVE','CHECKOUT','ORDER_CREATED','EXPIRED']);
 
@@ -410,6 +433,7 @@ export type VerificationOptionalDefaults = z.infer<typeof VerificationOptionalDe
 /////////////////////////////////////////
 
 export const MerchantSchema = z.object({
+  approvalStatus: ApprovalStatusSchema,
   id: z.uuid(),
   ownerId: z.string(),
   name: z.string(),
@@ -435,6 +459,7 @@ export type MerchantPartial = z.infer<typeof MerchantPartialSchema>
 //------------------------------------------------------
 
 export const MerchantOptionalDefaultsSchema = MerchantSchema.merge(z.object({
+  approvalStatus: ApprovalStatusSchema.optional(),
   id: z.uuid().optional(),
   isOpen: z.boolean().optional(),
   createdAt: z.coerce.date().optional(),
@@ -841,10 +866,12 @@ export type PaymentCallbackOptionalDefaults = z.infer<typeof PaymentCallbackOpti
 /////////////////////////////////////////
 
 export const DriverSchema = z.object({
+  approvalStatus: ApprovalStatusSchema,
   id: z.uuid(),
   userId: z.string(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.instanceof(Prisma.Decimal, { message: "Field 'rating' must be a Decimal. Location: ['Models', 'Driver']"}).nullish(),
 })
 
 export type Driver = z.infer<typeof DriverSchema>
@@ -861,6 +888,7 @@ export type DriverPartial = z.infer<typeof DriverPartialSchema>
 //------------------------------------------------------
 
 export const DriverOptionalDefaultsSchema = DriverSchema.merge(z.object({
+  approvalStatus: ApprovalStatusSchema.optional(),
   id: z.uuid().optional(),
 }))
 
@@ -1035,6 +1063,7 @@ export const DriverReviewSchema = z.object({
   driverId: z.string(),
   rating: z.number().int(),
   comment: z.string(),
+  createdAt: z.coerce.date(),
 })
 
 export type DriverReview = z.infer<typeof DriverReviewSchema>
@@ -1052,6 +1081,7 @@ export type DriverReviewPartial = z.infer<typeof DriverReviewPartialSchema>
 
 export const DriverReviewOptionalDefaultsSchema = DriverReviewSchema.merge(z.object({
   id: z.uuid().optional(),
+  createdAt: z.coerce.date().optional(),
 }))
 
 export type DriverReviewOptionalDefaults = z.infer<typeof DriverReviewOptionalDefaultsSchema>
@@ -1121,6 +1151,107 @@ export const ImageOptionalDefaultsSchema = ImageSchema.merge(z.object({
 export type ImageOptionalDefaults = z.infer<typeof ImageOptionalDefaultsSchema>
 
 /////////////////////////////////////////
+// CHAT ROOM SCHEMA
+/////////////////////////////////////////
+
+export const ChatRoomSchema = z.object({
+  type: ChatRoomTypeSchema,
+  id: z.uuid(),
+  orderId: z.string(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+})
+
+export type ChatRoom = z.infer<typeof ChatRoomSchema>
+
+/////////////////////////////////////////
+// CHAT ROOM PARTIAL SCHEMA
+/////////////////////////////////////////
+
+export const ChatRoomPartialSchema = ChatRoomSchema.partial()
+
+export type ChatRoomPartial = z.infer<typeof ChatRoomPartialSchema>
+
+// CHAT ROOM OPTIONAL DEFAULTS SCHEMA
+//------------------------------------------------------
+
+export const ChatRoomOptionalDefaultsSchema = ChatRoomSchema.merge(z.object({
+  id: z.uuid().optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+}))
+
+export type ChatRoomOptionalDefaults = z.infer<typeof ChatRoomOptionalDefaultsSchema>
+
+/////////////////////////////////////////
+// CHAT PARTICIPANT SCHEMA
+/////////////////////////////////////////
+
+export const ChatParticipantSchema = z.object({
+  role: ChatRoleSchema,
+  id: z.uuid(),
+  chatRoomId: z.string(),
+  userId: z.string(),
+  joinedAt: z.coerce.date(),
+})
+
+export type ChatParticipant = z.infer<typeof ChatParticipantSchema>
+
+/////////////////////////////////////////
+// CHAT PARTICIPANT PARTIAL SCHEMA
+/////////////////////////////////////////
+
+export const ChatParticipantPartialSchema = ChatParticipantSchema.partial()
+
+export type ChatParticipantPartial = z.infer<typeof ChatParticipantPartialSchema>
+
+// CHAT PARTICIPANT OPTIONAL DEFAULTS SCHEMA
+//------------------------------------------------------
+
+export const ChatParticipantOptionalDefaultsSchema = ChatParticipantSchema.merge(z.object({
+  id: z.uuid().optional(),
+  joinedAt: z.coerce.date().optional(),
+}))
+
+export type ChatParticipantOptionalDefaults = z.infer<typeof ChatParticipantOptionalDefaultsSchema>
+
+/////////////////////////////////////////
+// CHAT MESSAGE SCHEMA
+/////////////////////////////////////////
+
+export const ChatMessageSchema = z.object({
+  type: MessageTypeSchema,
+  id: z.uuid(),
+  chatRoomId: z.string(),
+  senderId: z.string(),
+  content: z.string(),
+  isRead: z.boolean(),
+  createdAt: z.coerce.date(),
+})
+
+export type ChatMessage = z.infer<typeof ChatMessageSchema>
+
+/////////////////////////////////////////
+// CHAT MESSAGE PARTIAL SCHEMA
+/////////////////////////////////////////
+
+export const ChatMessagePartialSchema = ChatMessageSchema.partial()
+
+export type ChatMessagePartial = z.infer<typeof ChatMessagePartialSchema>
+
+// CHAT MESSAGE OPTIONAL DEFAULTS SCHEMA
+//------------------------------------------------------
+
+export const ChatMessageOptionalDefaultsSchema = ChatMessageSchema.merge(z.object({
+  type: MessageTypeSchema.optional(),
+  id: z.uuid().optional(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+}))
+
+export type ChatMessageOptionalDefaults = z.infer<typeof ChatMessageOptionalDefaultsSchema>
+
+/////////////////////////////////////////
 // SELECT & INCLUDE
 /////////////////////////////////////////
 
@@ -1141,6 +1272,8 @@ export const UserIncludeSchema: z.ZodType<Prisma.UserInclude> = z.object({
   notifications: z.union([z.boolean(),z.lazy(() => NotificationFindManyArgsSchema)]).optional(),
   carts: z.union([z.boolean(),z.lazy(() => CartFindManyArgsSchema)]).optional(),
   payments: z.union([z.boolean(),z.lazy(() => PaymentFindManyArgsSchema)]).optional(),
+  chatParticipants: z.union([z.boolean(),z.lazy(() => ChatParticipantFindManyArgsSchema)]).optional(),
+  chatMessages: z.union([z.boolean(),z.lazy(() => ChatMessageFindManyArgsSchema)]).optional(),
   _count: z.union([z.boolean(),z.lazy(() => UserCountOutputTypeArgsSchema)]).optional(),
 }).strict();
 
@@ -1167,6 +1300,8 @@ export const UserCountOutputTypeSelectSchema: z.ZodType<Prisma.UserCountOutputTy
   notifications: z.boolean().optional(),
   carts: z.boolean().optional(),
   payments: z.boolean().optional(),
+  chatParticipants: z.boolean().optional(),
+  chatMessages: z.boolean().optional(),
 }).strict();
 
 export const UserSelectSchema: z.ZodType<Prisma.UserSelect> = z.object({
@@ -1192,6 +1327,8 @@ export const UserSelectSchema: z.ZodType<Prisma.UserSelect> = z.object({
   notifications: z.union([z.boolean(),z.lazy(() => NotificationFindManyArgsSchema)]).optional(),
   carts: z.union([z.boolean(),z.lazy(() => CartFindManyArgsSchema)]).optional(),
   payments: z.union([z.boolean(),z.lazy(() => PaymentFindManyArgsSchema)]).optional(),
+  chatParticipants: z.union([z.boolean(),z.lazy(() => ChatParticipantFindManyArgsSchema)]).optional(),
+  chatMessages: z.union([z.boolean(),z.lazy(() => ChatMessageFindManyArgsSchema)]).optional(),
   _count: z.union([z.boolean(),z.lazy(() => UserCountOutputTypeArgsSchema)]).optional(),
 }).strict()
 
@@ -1351,6 +1488,7 @@ export const MerchantSelectSchema: z.ZodType<Prisma.MerchantSelect> = z.object({
   longitude: z.boolean().optional(),
   isOpen: z.boolean().optional(),
   rating: z.boolean().optional(),
+  approvalStatus: z.boolean().optional(),
   createdAt: z.boolean().optional(),
   user: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
   merchantOperationalHours: z.union([z.boolean(),z.lazy(() => MerchantOperationalHourFindManyArgsSchema)]).optional(),
@@ -1573,6 +1711,7 @@ export const OrderIncludeSchema: z.ZodType<Prisma.OrderInclude> = z.object({
   payments: z.union([z.boolean(),z.lazy(() => PaymentFindManyArgsSchema)]).optional(),
   deliveries: z.union([z.boolean(),z.lazy(() => DeliveryFindManyArgsSchema)]).optional(),
   orderPromotions: z.union([z.boolean(),z.lazy(() => OrderPromotionFindManyArgsSchema)]).optional(),
+  chatRooms: z.union([z.boolean(),z.lazy(() => ChatRoomFindManyArgsSchema)]).optional(),
   merchant: z.union([z.boolean(),z.lazy(() => MerchantArgsSchema)]).optional(),
   user: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
   driver: z.union([z.boolean(),z.lazy(() => DriverArgsSchema)]).optional(),
@@ -1594,6 +1733,7 @@ export const OrderCountOutputTypeSelectSchema: z.ZodType<Prisma.OrderCountOutput
   payments: z.boolean().optional(),
   deliveries: z.boolean().optional(),
   orderPromotions: z.boolean().optional(),
+  chatRooms: z.boolean().optional(),
 }).strict();
 
 export const OrderSelectSchema: z.ZodType<Prisma.OrderSelect> = z.object({
@@ -1610,6 +1750,7 @@ export const OrderSelectSchema: z.ZodType<Prisma.OrderSelect> = z.object({
   payments: z.union([z.boolean(),z.lazy(() => PaymentFindManyArgsSchema)]).optional(),
   deliveries: z.union([z.boolean(),z.lazy(() => DeliveryFindManyArgsSchema)]).optional(),
   orderPromotions: z.union([z.boolean(),z.lazy(() => OrderPromotionFindManyArgsSchema)]).optional(),
+  chatRooms: z.union([z.boolean(),z.lazy(() => ChatRoomFindManyArgsSchema)]).optional(),
   merchant: z.union([z.boolean(),z.lazy(() => MerchantArgsSchema)]).optional(),
   user: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
   driver: z.union([z.boolean(),z.lazy(() => DriverArgsSchema)]).optional(),
@@ -1757,6 +1898,8 @@ export const DriverSelectSchema: z.ZodType<Prisma.DriverSelect> = z.object({
   userId: z.boolean().optional(),
   plateNumber: z.boolean().optional(),
   isAvailable: z.boolean().optional(),
+  rating: z.boolean().optional(),
+  approvalStatus: z.boolean().optional(),
   orders: z.union([z.boolean(),z.lazy(() => OrderFindManyArgsSchema)]).optional(),
   driverLocations: z.union([z.boolean(),z.lazy(() => DriverLocationFindManyArgsSchema)]).optional(),
   deliveries: z.union([z.boolean(),z.lazy(() => DeliveryFindManyArgsSchema)]).optional(),
@@ -1907,6 +2050,7 @@ export const DriverReviewSelectSchema: z.ZodType<Prisma.DriverReviewSelect> = z.
   driverId: z.boolean().optional(),
   rating: z.boolean().optional(),
   comment: z.boolean().optional(),
+  createdAt: z.boolean().optional(),
   user: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
   driver: z.union([z.boolean(),z.lazy(() => DriverArgsSchema)]).optional(),
 }).strict()
@@ -1965,6 +2109,90 @@ export const ImageSelectSchema: z.ZodType<Prisma.ImageSelect> = z.object({
   _count: z.union([z.boolean(),z.lazy(() => ImageCountOutputTypeArgsSchema)]).optional(),
 }).strict()
 
+// CHAT ROOM
+//------------------------------------------------------
+
+export const ChatRoomIncludeSchema: z.ZodType<Prisma.ChatRoomInclude> = z.object({
+  order: z.union([z.boolean(),z.lazy(() => OrderArgsSchema)]).optional(),
+  participants: z.union([z.boolean(),z.lazy(() => ChatParticipantFindManyArgsSchema)]).optional(),
+  messages: z.union([z.boolean(),z.lazy(() => ChatMessageFindManyArgsSchema)]).optional(),
+  _count: z.union([z.boolean(),z.lazy(() => ChatRoomCountOutputTypeArgsSchema)]).optional(),
+}).strict();
+
+export const ChatRoomArgsSchema: z.ZodType<Prisma.ChatRoomDefaultArgs> = z.object({
+  select: z.lazy(() => ChatRoomSelectSchema).optional(),
+  include: z.lazy(() => ChatRoomIncludeSchema).optional(),
+}).strict();
+
+export const ChatRoomCountOutputTypeArgsSchema: z.ZodType<Prisma.ChatRoomCountOutputTypeDefaultArgs> = z.object({
+  select: z.lazy(() => ChatRoomCountOutputTypeSelectSchema).nullish(),
+}).strict();
+
+export const ChatRoomCountOutputTypeSelectSchema: z.ZodType<Prisma.ChatRoomCountOutputTypeSelect> = z.object({
+  participants: z.boolean().optional(),
+  messages: z.boolean().optional(),
+}).strict();
+
+export const ChatRoomSelectSchema: z.ZodType<Prisma.ChatRoomSelect> = z.object({
+  id: z.boolean().optional(),
+  orderId: z.boolean().optional(),
+  type: z.boolean().optional(),
+  createdAt: z.boolean().optional(),
+  updatedAt: z.boolean().optional(),
+  order: z.union([z.boolean(),z.lazy(() => OrderArgsSchema)]).optional(),
+  participants: z.union([z.boolean(),z.lazy(() => ChatParticipantFindManyArgsSchema)]).optional(),
+  messages: z.union([z.boolean(),z.lazy(() => ChatMessageFindManyArgsSchema)]).optional(),
+  _count: z.union([z.boolean(),z.lazy(() => ChatRoomCountOutputTypeArgsSchema)]).optional(),
+}).strict()
+
+// CHAT PARTICIPANT
+//------------------------------------------------------
+
+export const ChatParticipantIncludeSchema: z.ZodType<Prisma.ChatParticipantInclude> = z.object({
+  chatRoom: z.union([z.boolean(),z.lazy(() => ChatRoomArgsSchema)]).optional(),
+  user: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
+}).strict();
+
+export const ChatParticipantArgsSchema: z.ZodType<Prisma.ChatParticipantDefaultArgs> = z.object({
+  select: z.lazy(() => ChatParticipantSelectSchema).optional(),
+  include: z.lazy(() => ChatParticipantIncludeSchema).optional(),
+}).strict();
+
+export const ChatParticipantSelectSchema: z.ZodType<Prisma.ChatParticipantSelect> = z.object({
+  id: z.boolean().optional(),
+  chatRoomId: z.boolean().optional(),
+  userId: z.boolean().optional(),
+  role: z.boolean().optional(),
+  joinedAt: z.boolean().optional(),
+  chatRoom: z.union([z.boolean(),z.lazy(() => ChatRoomArgsSchema)]).optional(),
+  user: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
+}).strict()
+
+// CHAT MESSAGE
+//------------------------------------------------------
+
+export const ChatMessageIncludeSchema: z.ZodType<Prisma.ChatMessageInclude> = z.object({
+  chatRoom: z.union([z.boolean(),z.lazy(() => ChatRoomArgsSchema)]).optional(),
+  sender: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
+}).strict();
+
+export const ChatMessageArgsSchema: z.ZodType<Prisma.ChatMessageDefaultArgs> = z.object({
+  select: z.lazy(() => ChatMessageSelectSchema).optional(),
+  include: z.lazy(() => ChatMessageIncludeSchema).optional(),
+}).strict();
+
+export const ChatMessageSelectSchema: z.ZodType<Prisma.ChatMessageSelect> = z.object({
+  id: z.boolean().optional(),
+  chatRoomId: z.boolean().optional(),
+  senderId: z.boolean().optional(),
+  content: z.boolean().optional(),
+  type: z.boolean().optional(),
+  isRead: z.boolean().optional(),
+  createdAt: z.boolean().optional(),
+  chatRoom: z.union([z.boolean(),z.lazy(() => ChatRoomArgsSchema)]).optional(),
+  sender: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
+}).strict()
+
 
 /////////////////////////////////////////
 // INPUT TYPES
@@ -1996,6 +2224,8 @@ export const UserWhereInputSchema: z.ZodType<Prisma.UserWhereInput> = z.strictOb
   notifications: z.lazy(() => NotificationListRelationFilterSchema).optional(),
   carts: z.lazy(() => CartListRelationFilterSchema).optional(),
   payments: z.lazy(() => PaymentListRelationFilterSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantListRelationFilterSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageListRelationFilterSchema).optional(),
 });
 
 export const UserOrderByWithRelationInputSchema: z.ZodType<Prisma.UserOrderByWithRelationInput> = z.strictObject({
@@ -2021,6 +2251,8 @@ export const UserOrderByWithRelationInputSchema: z.ZodType<Prisma.UserOrderByWit
   notifications: z.lazy(() => NotificationOrderByRelationAggregateInputSchema).optional(),
   carts: z.lazy(() => CartOrderByRelationAggregateInputSchema).optional(),
   payments: z.lazy(() => PaymentOrderByRelationAggregateInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantOrderByRelationAggregateInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageOrderByRelationAggregateInputSchema).optional(),
 });
 
 export const UserWhereUniqueInputSchema: z.ZodType<Prisma.UserWhereUniqueInput> = z.union([
@@ -2061,6 +2293,8 @@ export const UserWhereUniqueInputSchema: z.ZodType<Prisma.UserWhereUniqueInput> 
   notifications: z.lazy(() => NotificationListRelationFilterSchema).optional(),
   carts: z.lazy(() => CartListRelationFilterSchema).optional(),
   payments: z.lazy(() => PaymentListRelationFilterSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantListRelationFilterSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageListRelationFilterSchema).optional(),
 }));
 
 export const UserOrderByWithAggregationInputSchema: z.ZodType<Prisma.UserOrderByWithAggregationInput> = z.strictObject({
@@ -2166,8 +2400,8 @@ export const UserAddresWhereInputSchema: z.ZodType<Prisma.UserAddresWhereInput> 
   id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   label: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
-  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
-  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   address: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   isDefault: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
   user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
@@ -2194,8 +2428,8 @@ export const UserAddresWhereUniqueInputSchema: z.ZodType<Prisma.UserAddresWhereU
   NOT: z.union([ z.lazy(() => UserAddresWhereInputSchema), z.lazy(() => UserAddresWhereInputSchema).array() ]).optional(),
   userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   label: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
-  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
-  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   address: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   isDefault: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
   user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
@@ -2223,8 +2457,8 @@ export const UserAddresScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.Us
   id: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   userId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   label: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
-  latitude: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
-  longitude: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  latitude: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  longitude: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   address: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   isDefault: z.union([ z.lazy(() => BoolWithAggregatesFilterSchema), z.boolean() ]).optional(),
 });
@@ -2492,10 +2726,11 @@ export const MerchantWhereInputSchema: z.ZodType<Prisma.MerchantWhereInput> = z.
   ownerId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   name: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   description: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
-  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
-  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   isOpen: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
-  rating: z.union([ z.lazy(() => DecimalNullableFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional().nullable(),
+  rating: z.union([ z.lazy(() => DecimalNullableFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => EnumApprovalStatusFilterSchema), z.lazy(() => ApprovalStatusSchema) ]).optional(),
   createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourListRelationFilterSchema).optional(),
@@ -2516,6 +2751,7 @@ export const MerchantOrderByWithRelationInputSchema: z.ZodType<Prisma.MerchantOr
   longitude: z.lazy(() => SortOrderSchema).optional(),
   isOpen: z.lazy(() => SortOrderSchema).optional(),
   rating: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  approvalStatus: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
   user: z.lazy(() => UserOrderByWithRelationInputSchema).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourOrderByRelationAggregateInputSchema).optional(),
@@ -2538,10 +2774,11 @@ export const MerchantWhereUniqueInputSchema: z.ZodType<Prisma.MerchantWhereUniqu
   ownerId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   name: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   description: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
-  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
-  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   isOpen: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
-  rating: z.union([ z.lazy(() => DecimalNullableFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional().nullable(),
+  rating: z.union([ z.lazy(() => DecimalNullableFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => EnumApprovalStatusFilterSchema), z.lazy(() => ApprovalStatusSchema) ]).optional(),
   createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourListRelationFilterSchema).optional(),
@@ -2562,6 +2799,7 @@ export const MerchantOrderByWithAggregationInputSchema: z.ZodType<Prisma.Merchan
   longitude: z.lazy(() => SortOrderSchema).optional(),
   isOpen: z.lazy(() => SortOrderSchema).optional(),
   rating: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  approvalStatus: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
   _count: z.lazy(() => MerchantCountOrderByAggregateInputSchema).optional(),
   _avg: z.lazy(() => MerchantAvgOrderByAggregateInputSchema).optional(),
@@ -2578,10 +2816,11 @@ export const MerchantScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.Merc
   ownerId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   name: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   description: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema), z.string() ]).optional().nullable(),
-  latitude: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
-  longitude: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  latitude: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  longitude: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   isOpen: z.union([ z.lazy(() => BoolWithAggregatesFilterSchema), z.boolean() ]).optional(),
-  rating: z.union([ z.lazy(() => DecimalNullableWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional().nullable(),
+  rating: z.union([ z.lazy(() => DecimalNullableWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => EnumApprovalStatusWithAggregatesFilterSchema), z.lazy(() => ApprovalStatusSchema) ]).optional(),
   createdAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
 });
 
@@ -3067,6 +3306,7 @@ export const OrderWhereInputSchema: z.ZodType<Prisma.OrderWhereInput> = z.strict
   payments: z.lazy(() => PaymentListRelationFilterSchema).optional(),
   deliveries: z.lazy(() => DeliveryListRelationFilterSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionListRelationFilterSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomListRelationFilterSchema).optional(),
   merchant: z.union([ z.lazy(() => MerchantScalarRelationFilterSchema), z.lazy(() => MerchantWhereInputSchema) ]).optional(),
   user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
   driver: z.union([ z.lazy(() => DriverNullableScalarRelationFilterSchema), z.lazy(() => DriverWhereInputSchema) ]).optional().nullable(),
@@ -3086,6 +3326,7 @@ export const OrderOrderByWithRelationInputSchema: z.ZodType<Prisma.OrderOrderByW
   payments: z.lazy(() => PaymentOrderByRelationAggregateInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryOrderByRelationAggregateInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionOrderByRelationAggregateInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomOrderByRelationAggregateInputSchema).optional(),
   merchant: z.lazy(() => MerchantOrderByWithRelationInputSchema).optional(),
   user: z.lazy(() => UserOrderByWithRelationInputSchema).optional(),
   driver: z.lazy(() => DriverOrderByWithRelationInputSchema).optional(),
@@ -3111,6 +3352,7 @@ export const OrderWhereUniqueInputSchema: z.ZodType<Prisma.OrderWhereUniqueInput
   payments: z.lazy(() => PaymentListRelationFilterSchema).optional(),
   deliveries: z.lazy(() => DeliveryListRelationFilterSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionListRelationFilterSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomListRelationFilterSchema).optional(),
   merchant: z.union([ z.lazy(() => MerchantScalarRelationFilterSchema), z.lazy(() => MerchantWhereInputSchema) ]).optional(),
   user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
   driver: z.union([ z.lazy(() => DriverNullableScalarRelationFilterSchema), z.lazy(() => DriverWhereInputSchema) ]).optional().nullable(),
@@ -3425,6 +3667,8 @@ export const DriverWhereInputSchema: z.ZodType<Prisma.DriverWhereInput> = z.stri
   userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   plateNumber: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   isAvailable: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
+  rating: z.union([ z.lazy(() => DecimalNullableFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => EnumApprovalStatusFilterSchema), z.lazy(() => ApprovalStatusSchema) ]).optional(),
   orders: z.lazy(() => OrderListRelationFilterSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationListRelationFilterSchema).optional(),
   deliveries: z.lazy(() => DeliveryListRelationFilterSchema).optional(),
@@ -3437,6 +3681,8 @@ export const DriverOrderByWithRelationInputSchema: z.ZodType<Prisma.DriverOrderB
   userId: z.lazy(() => SortOrderSchema).optional(),
   plateNumber: z.lazy(() => SortOrderSchema).optional(),
   isAvailable: z.lazy(() => SortOrderSchema).optional(),
+  rating: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  approvalStatus: z.lazy(() => SortOrderSchema).optional(),
   orders: z.lazy(() => OrderOrderByRelationAggregateInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationOrderByRelationAggregateInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryOrderByRelationAggregateInputSchema).optional(),
@@ -3455,6 +3701,8 @@ export const DriverWhereUniqueInputSchema: z.ZodType<Prisma.DriverWhereUniqueInp
   userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   plateNumber: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   isAvailable: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
+  rating: z.union([ z.lazy(() => DecimalNullableFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => EnumApprovalStatusFilterSchema), z.lazy(() => ApprovalStatusSchema) ]).optional(),
   orders: z.lazy(() => OrderListRelationFilterSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationListRelationFilterSchema).optional(),
   deliveries: z.lazy(() => DeliveryListRelationFilterSchema).optional(),
@@ -3467,9 +3715,13 @@ export const DriverOrderByWithAggregationInputSchema: z.ZodType<Prisma.DriverOrd
   userId: z.lazy(() => SortOrderSchema).optional(),
   plateNumber: z.lazy(() => SortOrderSchema).optional(),
   isAvailable: z.lazy(() => SortOrderSchema).optional(),
+  rating: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  approvalStatus: z.lazy(() => SortOrderSchema).optional(),
   _count: z.lazy(() => DriverCountOrderByAggregateInputSchema).optional(),
+  _avg: z.lazy(() => DriverAvgOrderByAggregateInputSchema).optional(),
   _max: z.lazy(() => DriverMaxOrderByAggregateInputSchema).optional(),
   _min: z.lazy(() => DriverMinOrderByAggregateInputSchema).optional(),
+  _sum: z.lazy(() => DriverSumOrderByAggregateInputSchema).optional(),
 });
 
 export const DriverScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.DriverScalarWhereWithAggregatesInput> = z.strictObject({
@@ -3480,6 +3732,8 @@ export const DriverScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.Driver
   userId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   plateNumber: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   isAvailable: z.union([ z.lazy(() => BoolWithAggregatesFilterSchema), z.boolean() ]).optional(),
+  rating: z.union([ z.lazy(() => DecimalNullableWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => EnumApprovalStatusWithAggregatesFilterSchema), z.lazy(() => ApprovalStatusSchema) ]).optional(),
 });
 
 export const DriverLocationWhereInputSchema: z.ZodType<Prisma.DriverLocationWhereInput> = z.strictObject({
@@ -3488,8 +3742,8 @@ export const DriverLocationWhereInputSchema: z.ZodType<Prisma.DriverLocationWher
   NOT: z.union([ z.lazy(() => DriverLocationWhereInputSchema), z.lazy(() => DriverLocationWhereInputSchema).array() ]).optional(),
   id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   driverId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
-  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
-  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   recordedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   driver: z.union([ z.lazy(() => DriverScalarRelationFilterSchema), z.lazy(() => DriverWhereInputSchema) ]).optional(),
 });
@@ -3512,8 +3766,8 @@ export const DriverLocationWhereUniqueInputSchema: z.ZodType<Prisma.DriverLocati
   OR: z.lazy(() => DriverLocationWhereInputSchema).array().optional(),
   NOT: z.union([ z.lazy(() => DriverLocationWhereInputSchema), z.lazy(() => DriverLocationWhereInputSchema).array() ]).optional(),
   driverId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
-  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
-  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   recordedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   driver: z.union([ z.lazy(() => DriverScalarRelationFilterSchema), z.lazy(() => DriverWhereInputSchema) ]).optional(),
 }));
@@ -3537,8 +3791,8 @@ export const DriverLocationScalarWhereWithAggregatesInputSchema: z.ZodType<Prism
   NOT: z.union([ z.lazy(() => DriverLocationScalarWhereWithAggregatesInputSchema), z.lazy(() => DriverLocationScalarWhereWithAggregatesInputSchema).array() ]).optional(),
   id: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   driverId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
-  latitude: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
-  longitude: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  latitude: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  longitude: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   recordedAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
 });
 
@@ -3551,7 +3805,7 @@ export const DeliveryWhereInputSchema: z.ZodType<Prisma.DeliveryWhereInput> = z.
   driverId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   pickedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   deliveredAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
-  distanceKm: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  distanceKm: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   order: z.union([ z.lazy(() => OrderScalarRelationFilterSchema), z.lazy(() => OrderWhereInputSchema) ]).optional(),
   driver: z.union([ z.lazy(() => DriverScalarRelationFilterSchema), z.lazy(() => DriverWhereInputSchema) ]).optional(),
 });
@@ -3579,7 +3833,7 @@ export const DeliveryWhereUniqueInputSchema: z.ZodType<Prisma.DeliveryWhereUniqu
   driverId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   pickedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   deliveredAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
-  distanceKm: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  distanceKm: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   order: z.union([ z.lazy(() => OrderScalarRelationFilterSchema), z.lazy(() => OrderWhereInputSchema) ]).optional(),
   driver: z.union([ z.lazy(() => DriverScalarRelationFilterSchema), z.lazy(() => DriverWhereInputSchema) ]).optional(),
 }));
@@ -3607,7 +3861,7 @@ export const DeliveryScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.Deli
   driverId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   pickedAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
   deliveredAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
-  distanceKm: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  distanceKm: z.union([ z.lazy(() => DecimalWithAggregatesFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
 });
 
 export const PromotionWhereInputSchema: z.ZodType<Prisma.PromotionWhereInput> = z.strictObject({
@@ -3819,6 +4073,7 @@ export const DriverReviewWhereInputSchema: z.ZodType<Prisma.DriverReviewWhereInp
   driverId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   rating: z.union([ z.lazy(() => IntFilterSchema), z.number() ]).optional(),
   comment: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
   driver: z.union([ z.lazy(() => DriverScalarRelationFilterSchema), z.lazy(() => DriverWhereInputSchema) ]).optional(),
 });
@@ -3829,6 +4084,7 @@ export const DriverReviewOrderByWithRelationInputSchema: z.ZodType<Prisma.Driver
   driverId: z.lazy(() => SortOrderSchema).optional(),
   rating: z.lazy(() => SortOrderSchema).optional(),
   comment: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
   user: z.lazy(() => UserOrderByWithRelationInputSchema).optional(),
   driver: z.lazy(() => DriverOrderByWithRelationInputSchema).optional(),
 });
@@ -3845,6 +4101,7 @@ export const DriverReviewWhereUniqueInputSchema: z.ZodType<Prisma.DriverReviewWh
   driverId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   rating: z.union([ z.lazy(() => IntFilterSchema), z.number() ]).optional(),
   comment: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
   driver: z.union([ z.lazy(() => DriverScalarRelationFilterSchema), z.lazy(() => DriverWhereInputSchema) ]).optional(),
 }));
@@ -3855,6 +4112,7 @@ export const DriverReviewOrderByWithAggregationInputSchema: z.ZodType<Prisma.Dri
   driverId: z.lazy(() => SortOrderSchema).optional(),
   rating: z.lazy(() => SortOrderSchema).optional(),
   comment: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
   _count: z.lazy(() => DriverReviewCountOrderByAggregateInputSchema).optional(),
   _avg: z.lazy(() => DriverReviewAvgOrderByAggregateInputSchema).optional(),
   _max: z.lazy(() => DriverReviewMaxOrderByAggregateInputSchema).optional(),
@@ -3871,6 +4129,7 @@ export const DriverReviewScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.
   driverId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   rating: z.union([ z.lazy(() => IntWithAggregatesFilterSchema), z.number() ]).optional(),
   comment: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  createdAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
 });
 
 export const NotificationWhereInputSchema: z.ZodType<Prisma.NotificationWhereInput> = z.strictObject({
@@ -3987,6 +4246,212 @@ export const ImageScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.ImageSc
   createdAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
 });
 
+export const ChatRoomWhereInputSchema: z.ZodType<Prisma.ChatRoomWhereInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => ChatRoomWhereInputSchema), z.lazy(() => ChatRoomWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => ChatRoomWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => ChatRoomWhereInputSchema), z.lazy(() => ChatRoomWhereInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  orderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  type: z.union([ z.lazy(() => EnumChatRoomTypeFilterSchema), z.lazy(() => ChatRoomTypeSchema) ]).optional(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  updatedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  order: z.union([ z.lazy(() => OrderScalarRelationFilterSchema), z.lazy(() => OrderWhereInputSchema) ]).optional(),
+  participants: z.lazy(() => ChatParticipantListRelationFilterSchema).optional(),
+  messages: z.lazy(() => ChatMessageListRelationFilterSchema).optional(),
+});
+
+export const ChatRoomOrderByWithRelationInputSchema: z.ZodType<Prisma.ChatRoomOrderByWithRelationInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  orderId: z.lazy(() => SortOrderSchema).optional(),
+  type: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
+  order: z.lazy(() => OrderOrderByWithRelationInputSchema).optional(),
+  participants: z.lazy(() => ChatParticipantOrderByRelationAggregateInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageOrderByRelationAggregateInputSchema).optional(),
+});
+
+export const ChatRoomWhereUniqueInputSchema: z.ZodType<Prisma.ChatRoomWhereUniqueInput> = z.object({
+  id: z.uuid(),
+})
+.and(z.strictObject({
+  id: z.uuid().optional(),
+  AND: z.union([ z.lazy(() => ChatRoomWhereInputSchema), z.lazy(() => ChatRoomWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => ChatRoomWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => ChatRoomWhereInputSchema), z.lazy(() => ChatRoomWhereInputSchema).array() ]).optional(),
+  orderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  type: z.union([ z.lazy(() => EnumChatRoomTypeFilterSchema), z.lazy(() => ChatRoomTypeSchema) ]).optional(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  updatedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  order: z.union([ z.lazy(() => OrderScalarRelationFilterSchema), z.lazy(() => OrderWhereInputSchema) ]).optional(),
+  participants: z.lazy(() => ChatParticipantListRelationFilterSchema).optional(),
+  messages: z.lazy(() => ChatMessageListRelationFilterSchema).optional(),
+}));
+
+export const ChatRoomOrderByWithAggregationInputSchema: z.ZodType<Prisma.ChatRoomOrderByWithAggregationInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  orderId: z.lazy(() => SortOrderSchema).optional(),
+  type: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
+  _count: z.lazy(() => ChatRoomCountOrderByAggregateInputSchema).optional(),
+  _max: z.lazy(() => ChatRoomMaxOrderByAggregateInputSchema).optional(),
+  _min: z.lazy(() => ChatRoomMinOrderByAggregateInputSchema).optional(),
+});
+
+export const ChatRoomScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.ChatRoomScalarWhereWithAggregatesInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => ChatRoomScalarWhereWithAggregatesInputSchema), z.lazy(() => ChatRoomScalarWhereWithAggregatesInputSchema).array() ]).optional(),
+  OR: z.lazy(() => ChatRoomScalarWhereWithAggregatesInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => ChatRoomScalarWhereWithAggregatesInputSchema), z.lazy(() => ChatRoomScalarWhereWithAggregatesInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  orderId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  type: z.union([ z.lazy(() => EnumChatRoomTypeWithAggregatesFilterSchema), z.lazy(() => ChatRoomTypeSchema) ]).optional(),
+  createdAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
+  updatedAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
+});
+
+export const ChatParticipantWhereInputSchema: z.ZodType<Prisma.ChatParticipantWhereInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => ChatParticipantWhereInputSchema), z.lazy(() => ChatParticipantWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => ChatParticipantWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => ChatParticipantWhereInputSchema), z.lazy(() => ChatParticipantWhereInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  chatRoomId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  role: z.union([ z.lazy(() => EnumChatRoleFilterSchema), z.lazy(() => ChatRoleSchema) ]).optional(),
+  joinedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  chatRoom: z.union([ z.lazy(() => ChatRoomScalarRelationFilterSchema), z.lazy(() => ChatRoomWhereInputSchema) ]).optional(),
+  user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
+});
+
+export const ChatParticipantOrderByWithRelationInputSchema: z.ZodType<Prisma.ChatParticipantOrderByWithRelationInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  chatRoomId: z.lazy(() => SortOrderSchema).optional(),
+  userId: z.lazy(() => SortOrderSchema).optional(),
+  role: z.lazy(() => SortOrderSchema).optional(),
+  joinedAt: z.lazy(() => SortOrderSchema).optional(),
+  chatRoom: z.lazy(() => ChatRoomOrderByWithRelationInputSchema).optional(),
+  user: z.lazy(() => UserOrderByWithRelationInputSchema).optional(),
+});
+
+export const ChatParticipantWhereUniqueInputSchema: z.ZodType<Prisma.ChatParticipantWhereUniqueInput> = z.union([
+  z.object({
+    id: z.uuid(),
+    chatRoomId_userId: z.lazy(() => ChatParticipantChatRoomIdUserIdCompoundUniqueInputSchema),
+  }),
+  z.object({
+    id: z.uuid(),
+  }),
+  z.object({
+    chatRoomId_userId: z.lazy(() => ChatParticipantChatRoomIdUserIdCompoundUniqueInputSchema),
+  }),
+])
+.and(z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId_userId: z.lazy(() => ChatParticipantChatRoomIdUserIdCompoundUniqueInputSchema).optional(),
+  AND: z.union([ z.lazy(() => ChatParticipantWhereInputSchema), z.lazy(() => ChatParticipantWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => ChatParticipantWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => ChatParticipantWhereInputSchema), z.lazy(() => ChatParticipantWhereInputSchema).array() ]).optional(),
+  chatRoomId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  role: z.union([ z.lazy(() => EnumChatRoleFilterSchema), z.lazy(() => ChatRoleSchema) ]).optional(),
+  joinedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  chatRoom: z.union([ z.lazy(() => ChatRoomScalarRelationFilterSchema), z.lazy(() => ChatRoomWhereInputSchema) ]).optional(),
+  user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
+}));
+
+export const ChatParticipantOrderByWithAggregationInputSchema: z.ZodType<Prisma.ChatParticipantOrderByWithAggregationInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  chatRoomId: z.lazy(() => SortOrderSchema).optional(),
+  userId: z.lazy(() => SortOrderSchema).optional(),
+  role: z.lazy(() => SortOrderSchema).optional(),
+  joinedAt: z.lazy(() => SortOrderSchema).optional(),
+  _count: z.lazy(() => ChatParticipantCountOrderByAggregateInputSchema).optional(),
+  _max: z.lazy(() => ChatParticipantMaxOrderByAggregateInputSchema).optional(),
+  _min: z.lazy(() => ChatParticipantMinOrderByAggregateInputSchema).optional(),
+});
+
+export const ChatParticipantScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.ChatParticipantScalarWhereWithAggregatesInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => ChatParticipantScalarWhereWithAggregatesInputSchema), z.lazy(() => ChatParticipantScalarWhereWithAggregatesInputSchema).array() ]).optional(),
+  OR: z.lazy(() => ChatParticipantScalarWhereWithAggregatesInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => ChatParticipantScalarWhereWithAggregatesInputSchema), z.lazy(() => ChatParticipantScalarWhereWithAggregatesInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  chatRoomId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  userId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  role: z.union([ z.lazy(() => EnumChatRoleWithAggregatesFilterSchema), z.lazy(() => ChatRoleSchema) ]).optional(),
+  joinedAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
+});
+
+export const ChatMessageWhereInputSchema: z.ZodType<Prisma.ChatMessageWhereInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => ChatMessageWhereInputSchema), z.lazy(() => ChatMessageWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => ChatMessageWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => ChatMessageWhereInputSchema), z.lazy(() => ChatMessageWhereInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  chatRoomId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  senderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  content: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  type: z.union([ z.lazy(() => EnumMessageTypeFilterSchema), z.lazy(() => MessageTypeSchema) ]).optional(),
+  isRead: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  chatRoom: z.union([ z.lazy(() => ChatRoomScalarRelationFilterSchema), z.lazy(() => ChatRoomWhereInputSchema) ]).optional(),
+  sender: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
+});
+
+export const ChatMessageOrderByWithRelationInputSchema: z.ZodType<Prisma.ChatMessageOrderByWithRelationInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  chatRoomId: z.lazy(() => SortOrderSchema).optional(),
+  senderId: z.lazy(() => SortOrderSchema).optional(),
+  content: z.lazy(() => SortOrderSchema).optional(),
+  type: z.lazy(() => SortOrderSchema).optional(),
+  isRead: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+  chatRoom: z.lazy(() => ChatRoomOrderByWithRelationInputSchema).optional(),
+  sender: z.lazy(() => UserOrderByWithRelationInputSchema).optional(),
+});
+
+export const ChatMessageWhereUniqueInputSchema: z.ZodType<Prisma.ChatMessageWhereUniqueInput> = z.object({
+  id: z.uuid(),
+})
+.and(z.strictObject({
+  id: z.uuid().optional(),
+  AND: z.union([ z.lazy(() => ChatMessageWhereInputSchema), z.lazy(() => ChatMessageWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => ChatMessageWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => ChatMessageWhereInputSchema), z.lazy(() => ChatMessageWhereInputSchema).array() ]).optional(),
+  chatRoomId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  senderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  content: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  type: z.union([ z.lazy(() => EnumMessageTypeFilterSchema), z.lazy(() => MessageTypeSchema) ]).optional(),
+  isRead: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  chatRoom: z.union([ z.lazy(() => ChatRoomScalarRelationFilterSchema), z.lazy(() => ChatRoomWhereInputSchema) ]).optional(),
+  sender: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
+}));
+
+export const ChatMessageOrderByWithAggregationInputSchema: z.ZodType<Prisma.ChatMessageOrderByWithAggregationInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  chatRoomId: z.lazy(() => SortOrderSchema).optional(),
+  senderId: z.lazy(() => SortOrderSchema).optional(),
+  content: z.lazy(() => SortOrderSchema).optional(),
+  type: z.lazy(() => SortOrderSchema).optional(),
+  isRead: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+  _count: z.lazy(() => ChatMessageCountOrderByAggregateInputSchema).optional(),
+  _max: z.lazy(() => ChatMessageMaxOrderByAggregateInputSchema).optional(),
+  _min: z.lazy(() => ChatMessageMinOrderByAggregateInputSchema).optional(),
+});
+
+export const ChatMessageScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.ChatMessageScalarWhereWithAggregatesInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => ChatMessageScalarWhereWithAggregatesInputSchema), z.lazy(() => ChatMessageScalarWhereWithAggregatesInputSchema).array() ]).optional(),
+  OR: z.lazy(() => ChatMessageScalarWhereWithAggregatesInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => ChatMessageScalarWhereWithAggregatesInputSchema), z.lazy(() => ChatMessageScalarWhereWithAggregatesInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  chatRoomId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  senderId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  content: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  type: z.union([ z.lazy(() => EnumMessageTypeWithAggregatesFilterSchema), z.lazy(() => MessageTypeSchema) ]).optional(),
+  isRead: z.union([ z.lazy(() => BoolWithAggregatesFilterSchema), z.boolean() ]).optional(),
+  createdAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
+});
+
 export const UserCreateInputSchema: z.ZodType<Prisma.UserCreateInput> = z.strictObject({
   id: z.uuid().optional(),
   email: z.string(),
@@ -4010,6 +4475,8 @@ export const UserCreateInputSchema: z.ZodType<Prisma.UserCreateInput> = z.strict
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateInputSchema: z.ZodType<Prisma.UserUncheckedCreateInput> = z.strictObject({
@@ -4035,6 +4502,8 @@ export const UserUncheckedCreateInputSchema: z.ZodType<Prisma.UserUncheckedCreat
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUpdateInputSchema: z.ZodType<Prisma.UserUpdateInput> = z.strictObject({
@@ -4060,6 +4529,8 @@ export const UserUpdateInputSchema: z.ZodType<Prisma.UserUpdateInput> = z.strict
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateInputSchema: z.ZodType<Prisma.UserUncheckedUpdateInput> = z.strictObject({
@@ -4085,6 +4556,8 @@ export const UserUncheckedUpdateInputSchema: z.ZodType<Prisma.UserUncheckedUpdat
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserCreateManyInputSchema: z.ZodType<Prisma.UserCreateManyInput> = z.strictObject({
@@ -4187,8 +4660,8 @@ export const UserProfileUncheckedUpdateManyInputSchema: z.ZodType<Prisma.UserPro
 export const UserAddresCreateInputSchema: z.ZodType<Prisma.UserAddresCreateInput> = z.strictObject({
   id: z.uuid().optional(),
   label: z.string(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   address: z.string(),
   isDefault: z.boolean(),
   user: z.lazy(() => UserCreateNestedOneWithoutUserAddressesInputSchema),
@@ -4198,8 +4671,8 @@ export const UserAddresUncheckedCreateInputSchema: z.ZodType<Prisma.UserAddresUn
   id: z.uuid().optional(),
   userId: z.string(),
   label: z.string(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   address: z.string(),
   isDefault: z.boolean(),
 });
@@ -4207,8 +4680,8 @@ export const UserAddresUncheckedCreateInputSchema: z.ZodType<Prisma.UserAddresUn
 export const UserAddresUpdateInputSchema: z.ZodType<Prisma.UserAddresUpdateInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   address: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isDefault: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutUserAddressesNestedInputSchema).optional(),
@@ -4218,8 +4691,8 @@ export const UserAddresUncheckedUpdateInputSchema: z.ZodType<Prisma.UserAddresUn
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   address: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isDefault: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
@@ -4228,8 +4701,8 @@ export const UserAddresCreateManyInputSchema: z.ZodType<Prisma.UserAddresCreateM
   id: z.uuid().optional(),
   userId: z.string(),
   label: z.string(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   address: z.string(),
   isDefault: z.boolean(),
 });
@@ -4237,8 +4710,8 @@ export const UserAddresCreateManyInputSchema: z.ZodType<Prisma.UserAddresCreateM
 export const UserAddresUpdateManyMutationInputSchema: z.ZodType<Prisma.UserAddresUpdateManyMutationInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   address: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isDefault: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
@@ -4247,8 +4720,8 @@ export const UserAddresUncheckedUpdateManyInputSchema: z.ZodType<Prisma.UserAddr
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   address: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isDefault: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
@@ -4514,10 +4987,11 @@ export const MerchantCreateInputSchema: z.ZodType<Prisma.MerchantCreateInput> = 
   id: z.uuid().optional(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutMerchantsInputSchema),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -4534,10 +5008,11 @@ export const MerchantUncheckedCreateInputSchema: z.ZodType<Prisma.MerchantUnchec
   ownerId: z.string(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -4552,10 +5027,11 @@ export const MerchantUpdateInputSchema: z.ZodType<Prisma.MerchantUpdateInput> = 
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutMerchantsNestedInputSchema).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -4572,10 +5048,11 @@ export const MerchantUncheckedUpdateInputSchema: z.ZodType<Prisma.MerchantUnchec
   ownerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -4591,10 +5068,11 @@ export const MerchantCreateManyInputSchema: z.ZodType<Prisma.MerchantCreateManyI
   ownerId: z.string(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
 });
 
@@ -4602,10 +5080,11 @@ export const MerchantUpdateManyMutationInputSchema: z.ZodType<Prisma.MerchantUpd
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -4614,10 +5093,11 @@ export const MerchantUncheckedUpdateManyInputSchema: z.ZodType<Prisma.MerchantUn
   ownerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -5069,6 +5549,7 @@ export const OrderCreateInputSchema: z.ZodType<Prisma.OrderCreateInput> = z.stri
   payments: z.lazy(() => PaymentCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomCreateNestedManyWithoutOrderInputSchema).optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutOrdersInputSchema),
   user: z.lazy(() => UserCreateNestedOneWithoutOrdersInputSchema),
   driver: z.lazy(() => DriverCreateNestedOneWithoutOrdersInputSchema).optional(),
@@ -5088,6 +5569,7 @@ export const OrderUncheckedCreateInputSchema: z.ZodType<Prisma.OrderUncheckedCre
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
 });
 
 export const OrderUpdateInputSchema: z.ZodType<Prisma.OrderUpdateInput> = z.strictObject({
@@ -5101,6 +5583,7 @@ export const OrderUpdateInputSchema: z.ZodType<Prisma.OrderUpdateInput> = z.stri
   payments: z.lazy(() => PaymentUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUpdateManyWithoutOrderNestedInputSchema).optional(),
   merchant: z.lazy(() => MerchantUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   driver: z.lazy(() => DriverUpdateOneWithoutOrdersNestedInputSchema).optional(),
@@ -5120,6 +5603,7 @@ export const OrderUncheckedUpdateInputSchema: z.ZodType<Prisma.OrderUncheckedUpd
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
 });
 
 export const OrderCreateManyInputSchema: z.ZodType<Prisma.OrderCreateManyInput> = z.strictObject({
@@ -5404,6 +5888,8 @@ export const DriverCreateInputSchema: z.ZodType<Prisma.DriverCreateInput> = z.st
   id: z.uuid().optional(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   orders: z.lazy(() => OrderCreateNestedManyWithoutDriverInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationCreateNestedManyWithoutDriverInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutDriverInputSchema).optional(),
@@ -5416,6 +5902,8 @@ export const DriverUncheckedCreateInputSchema: z.ZodType<Prisma.DriverUncheckedC
   userId: z.string(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   orders: z.lazy(() => OrderUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
@@ -5426,6 +5914,8 @@ export const DriverUpdateInputSchema: z.ZodType<Prisma.DriverUpdateInput> = z.st
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   orders: z.lazy(() => OrderUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUpdateManyWithoutDriverNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutDriverNestedInputSchema).optional(),
@@ -5438,6 +5928,8 @@ export const DriverUncheckedUpdateInputSchema: z.ZodType<Prisma.DriverUncheckedU
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   orders: z.lazy(() => OrderUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
@@ -5449,12 +5941,16 @@ export const DriverCreateManyInputSchema: z.ZodType<Prisma.DriverCreateManyInput
   userId: z.string(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
 });
 
 export const DriverUpdateManyMutationInputSchema: z.ZodType<Prisma.DriverUpdateManyMutationInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DriverUncheckedUpdateManyInputSchema: z.ZodType<Prisma.DriverUncheckedUpdateManyInput> = z.strictObject({
@@ -5462,12 +5958,14 @@ export const DriverUncheckedUpdateManyInputSchema: z.ZodType<Prisma.DriverUnchec
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DriverLocationCreateInputSchema: z.ZodType<Prisma.DriverLocationCreateInput> = z.strictObject({
   id: z.uuid().optional(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   recordedAt: z.coerce.date(),
   driver: z.lazy(() => DriverCreateNestedOneWithoutDriverLocationsInputSchema),
 });
@@ -5475,15 +5973,15 @@ export const DriverLocationCreateInputSchema: z.ZodType<Prisma.DriverLocationCre
 export const DriverLocationUncheckedCreateInputSchema: z.ZodType<Prisma.DriverLocationUncheckedCreateInput> = z.strictObject({
   id: z.uuid().optional(),
   driverId: z.string(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   recordedAt: z.coerce.date(),
 });
 
 export const DriverLocationUpdateInputSchema: z.ZodType<Prisma.DriverLocationUpdateInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   recordedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   driver: z.lazy(() => DriverUpdateOneRequiredWithoutDriverLocationsNestedInputSchema).optional(),
 });
@@ -5491,31 +5989,31 @@ export const DriverLocationUpdateInputSchema: z.ZodType<Prisma.DriverLocationUpd
 export const DriverLocationUncheckedUpdateInputSchema: z.ZodType<Prisma.DriverLocationUncheckedUpdateInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   driverId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   recordedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DriverLocationCreateManyInputSchema: z.ZodType<Prisma.DriverLocationCreateManyInput> = z.strictObject({
   id: z.uuid().optional(),
   driverId: z.string(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   recordedAt: z.coerce.date(),
 });
 
 export const DriverLocationUpdateManyMutationInputSchema: z.ZodType<Prisma.DriverLocationUpdateManyMutationInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   recordedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DriverLocationUncheckedUpdateManyInputSchema: z.ZodType<Prisma.DriverLocationUncheckedUpdateManyInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   driverId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   recordedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -5523,7 +6021,7 @@ export const DeliveryCreateInputSchema: z.ZodType<Prisma.DeliveryCreateInput> = 
   id: z.uuid().optional(),
   pickedAt: z.coerce.date(),
   deliveredAt: z.coerce.date(),
-  distanceKm: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  distanceKm: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   order: z.lazy(() => OrderCreateNestedOneWithoutDeliveriesInputSchema),
   driver: z.lazy(() => DriverCreateNestedOneWithoutDeliveriesInputSchema),
 });
@@ -5534,14 +6032,14 @@ export const DeliveryUncheckedCreateInputSchema: z.ZodType<Prisma.DeliveryUnchec
   driverId: z.string(),
   pickedAt: z.coerce.date(),
   deliveredAt: z.coerce.date(),
-  distanceKm: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  distanceKm: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
 });
 
 export const DeliveryUpdateInputSchema: z.ZodType<Prisma.DeliveryUpdateInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   pickedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   deliveredAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   order: z.lazy(() => OrderUpdateOneRequiredWithoutDeliveriesNestedInputSchema).optional(),
   driver: z.lazy(() => DriverUpdateOneRequiredWithoutDeliveriesNestedInputSchema).optional(),
 });
@@ -5552,7 +6050,7 @@ export const DeliveryUncheckedUpdateInputSchema: z.ZodType<Prisma.DeliveryUnchec
   driverId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   pickedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   deliveredAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DeliveryCreateManyInputSchema: z.ZodType<Prisma.DeliveryCreateManyInput> = z.strictObject({
@@ -5561,14 +6059,14 @@ export const DeliveryCreateManyInputSchema: z.ZodType<Prisma.DeliveryCreateManyI
   driverId: z.string(),
   pickedAt: z.coerce.date(),
   deliveredAt: z.coerce.date(),
-  distanceKm: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  distanceKm: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
 });
 
 export const DeliveryUpdateManyMutationInputSchema: z.ZodType<Prisma.DeliveryUpdateManyMutationInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   pickedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   deliveredAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DeliveryUncheckedUpdateManyInputSchema: z.ZodType<Prisma.DeliveryUncheckedUpdateManyInput> = z.strictObject({
@@ -5577,7 +6075,7 @@ export const DeliveryUncheckedUpdateManyInputSchema: z.ZodType<Prisma.DeliveryUn
   driverId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   pickedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   deliveredAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const PromotionCreateInputSchema: z.ZodType<Prisma.PromotionCreateInput> = z.strictObject({
@@ -5759,6 +6257,7 @@ export const DriverReviewCreateInputSchema: z.ZodType<Prisma.DriverReviewCreateI
   id: z.uuid().optional(),
   rating: z.number(),
   comment: z.string(),
+  createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutDriverReviewsInputSchema),
   driver: z.lazy(() => DriverCreateNestedOneWithoutDriverReviewsInputSchema),
 });
@@ -5769,12 +6268,14 @@ export const DriverReviewUncheckedCreateInputSchema: z.ZodType<Prisma.DriverRevi
   driverId: z.string(),
   rating: z.number(),
   comment: z.string(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const DriverReviewUpdateInputSchema: z.ZodType<Prisma.DriverReviewUpdateInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   rating: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   comment: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutDriverReviewsNestedInputSchema).optional(),
   driver: z.lazy(() => DriverUpdateOneRequiredWithoutDriverReviewsNestedInputSchema).optional(),
 });
@@ -5785,6 +6286,7 @@ export const DriverReviewUncheckedUpdateInputSchema: z.ZodType<Prisma.DriverRevi
   driverId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   rating: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   comment: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DriverReviewCreateManyInputSchema: z.ZodType<Prisma.DriverReviewCreateManyInput> = z.strictObject({
@@ -5793,12 +6295,14 @@ export const DriverReviewCreateManyInputSchema: z.ZodType<Prisma.DriverReviewCre
   driverId: z.string(),
   rating: z.number(),
   comment: z.string(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const DriverReviewUpdateManyMutationInputSchema: z.ZodType<Prisma.DriverReviewUpdateManyMutationInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   rating: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   comment: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DriverReviewUncheckedUpdateManyInputSchema: z.ZodType<Prisma.DriverReviewUncheckedUpdateManyInput> = z.strictObject({
@@ -5807,6 +6311,7 @@ export const DriverReviewUncheckedUpdateManyInputSchema: z.ZodType<Prisma.Driver
   driverId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   rating: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   comment: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const NotificationCreateInputSchema: z.ZodType<Prisma.NotificationCreateInput> = z.strictObject({
@@ -5918,6 +6423,191 @@ export const ImageUpdateManyMutationInputSchema: z.ZodType<Prisma.ImageUpdateMan
 export const ImageUncheckedUpdateManyInputSchema: z.ZodType<Prisma.ImageUncheckedUpdateManyInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   imageUrl: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatRoomCreateInputSchema: z.ZodType<Prisma.ChatRoomCreateInput> = z.strictObject({
+  id: z.uuid().optional(),
+  type: z.lazy(() => ChatRoomTypeSchema),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  order: z.lazy(() => OrderCreateNestedOneWithoutChatRoomsInputSchema),
+  participants: z.lazy(() => ChatParticipantCreateNestedManyWithoutChatRoomInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageCreateNestedManyWithoutChatRoomInputSchema).optional(),
+});
+
+export const ChatRoomUncheckedCreateInputSchema: z.ZodType<Prisma.ChatRoomUncheckedCreateInput> = z.strictObject({
+  id: z.uuid().optional(),
+  orderId: z.string(),
+  type: z.lazy(() => ChatRoomTypeSchema),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  participants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutChatRoomInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutChatRoomInputSchema).optional(),
+});
+
+export const ChatRoomUpdateInputSchema: z.ZodType<Prisma.ChatRoomUpdateInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  order: z.lazy(() => OrderUpdateOneRequiredWithoutChatRoomsNestedInputSchema).optional(),
+  participants: z.lazy(() => ChatParticipantUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+});
+
+export const ChatRoomUncheckedUpdateInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  participants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+});
+
+export const ChatRoomCreateManyInputSchema: z.ZodType<Prisma.ChatRoomCreateManyInput> = z.strictObject({
+  id: z.uuid().optional(),
+  orderId: z.string(),
+  type: z.lazy(() => ChatRoomTypeSchema),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+});
+
+export const ChatRoomUpdateManyMutationInputSchema: z.ZodType<Prisma.ChatRoomUpdateManyMutationInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatRoomUncheckedUpdateManyInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateManyInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatParticipantCreateInputSchema: z.ZodType<Prisma.ChatParticipantCreateInput> = z.strictObject({
+  id: z.uuid().optional(),
+  role: z.lazy(() => ChatRoleSchema),
+  joinedAt: z.coerce.date().optional(),
+  chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutParticipantsInputSchema),
+  user: z.lazy(() => UserCreateNestedOneWithoutChatParticipantsInputSchema),
+});
+
+export const ChatParticipantUncheckedCreateInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedCreateInput> = z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId: z.string(),
+  userId: z.string(),
+  role: z.lazy(() => ChatRoleSchema),
+  joinedAt: z.coerce.date().optional(),
+});
+
+export const ChatParticipantUpdateInputSchema: z.ZodType<Prisma.ChatParticipantUpdateInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoom: z.lazy(() => ChatRoomUpdateOneRequiredWithoutParticipantsNestedInputSchema).optional(),
+  user: z.lazy(() => UserUpdateOneRequiredWithoutChatParticipantsNestedInputSchema).optional(),
+});
+
+export const ChatParticipantUncheckedUpdateInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedUpdateInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatParticipantCreateManyInputSchema: z.ZodType<Prisma.ChatParticipantCreateManyInput> = z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId: z.string(),
+  userId: z.string(),
+  role: z.lazy(() => ChatRoleSchema),
+  joinedAt: z.coerce.date().optional(),
+});
+
+export const ChatParticipantUpdateManyMutationInputSchema: z.ZodType<Prisma.ChatParticipantUpdateManyMutationInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatParticipantUncheckedUpdateManyInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedUpdateManyInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatMessageCreateInputSchema: z.ZodType<Prisma.ChatMessageCreateInput> = z.strictObject({
+  id: z.uuid().optional(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+  chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutMessagesInputSchema),
+  sender: z.lazy(() => UserCreateNestedOneWithoutChatMessagesInputSchema),
+});
+
+export const ChatMessageUncheckedCreateInputSchema: z.ZodType<Prisma.ChatMessageUncheckedCreateInput> = z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId: z.string(),
+  senderId: z.string(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+});
+
+export const ChatMessageUpdateInputSchema: z.ZodType<Prisma.ChatMessageUpdateInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoom: z.lazy(() => ChatRoomUpdateOneRequiredWithoutMessagesNestedInputSchema).optional(),
+  sender: z.lazy(() => UserUpdateOneRequiredWithoutChatMessagesNestedInputSchema).optional(),
+});
+
+export const ChatMessageUncheckedUpdateInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  senderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatMessageCreateManyInputSchema: z.ZodType<Prisma.ChatMessageCreateManyInput> = z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId: z.string(),
+  senderId: z.string(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+});
+
+export const ChatMessageUpdateManyMutationInputSchema: z.ZodType<Prisma.ChatMessageUpdateManyMutationInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatMessageUncheckedUpdateManyInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateManyInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  senderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -6059,6 +6749,18 @@ export const PaymentListRelationFilterSchema: z.ZodType<Prisma.PaymentListRelati
   none: z.lazy(() => PaymentWhereInputSchema).optional(),
 });
 
+export const ChatParticipantListRelationFilterSchema: z.ZodType<Prisma.ChatParticipantListRelationFilter> = z.strictObject({
+  every: z.lazy(() => ChatParticipantWhereInputSchema).optional(),
+  some: z.lazy(() => ChatParticipantWhereInputSchema).optional(),
+  none: z.lazy(() => ChatParticipantWhereInputSchema).optional(),
+});
+
+export const ChatMessageListRelationFilterSchema: z.ZodType<Prisma.ChatMessageListRelationFilter> = z.strictObject({
+  every: z.lazy(() => ChatMessageWhereInputSchema).optional(),
+  some: z.lazy(() => ChatMessageWhereInputSchema).optional(),
+  none: z.lazy(() => ChatMessageWhereInputSchema).optional(),
+});
+
 export const SortOrderInputSchema: z.ZodType<Prisma.SortOrderInput> = z.strictObject({
   sort: z.lazy(() => SortOrderSchema),
   nulls: z.lazy(() => NullsOrderSchema).optional(),
@@ -6113,6 +6815,14 @@ export const CartOrderByRelationAggregateInputSchema: z.ZodType<Prisma.CartOrder
 });
 
 export const PaymentOrderByRelationAggregateInputSchema: z.ZodType<Prisma.PaymentOrderByRelationAggregateInput> = z.strictObject({
+  _count: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const ChatParticipantOrderByRelationAggregateInputSchema: z.ZodType<Prisma.ChatParticipantOrderByRelationAggregateInput> = z.strictObject({
+  _count: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const ChatMessageOrderByRelationAggregateInputSchema: z.ZodType<Prisma.ChatMessageOrderByRelationAggregateInput> = z.strictObject({
   _count: z.lazy(() => SortOrderSchema).optional(),
 });
 
@@ -6268,14 +6978,14 @@ export const UserProfileMinOrderByAggregateInputSchema: z.ZodType<Prisma.UserPro
 });
 
 export const DecimalFilterSchema: z.ZodType<Prisma.DecimalFilter> = z.strictObject({
-  equals: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  in: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
-  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
-  lt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  lte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalFilterSchema) ]).optional(),
+  equals: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  in: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
+  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
+  lt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  lte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalFilterSchema) ]).optional(),
 });
 
 export const UserAddresCountOrderByAggregateInputSchema: z.ZodType<Prisma.UserAddresCountOrderByAggregateInput> = z.strictObject({
@@ -6319,14 +7029,14 @@ export const UserAddresSumOrderByAggregateInputSchema: z.ZodType<Prisma.UserAddr
 });
 
 export const DecimalWithAggregatesFilterSchema: z.ZodType<Prisma.DecimalWithAggregatesFilter> = z.strictObject({
-  equals: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  in: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
-  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
-  lt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  lte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalWithAggregatesFilterSchema) ]).optional(),
+  equals: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  in: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
+  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
+  lt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  lte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalWithAggregatesFilterSchema) ]).optional(),
   _count: z.lazy(() => NestedIntFilterSchema).optional(),
   _avg: z.lazy(() => NestedDecimalFilterSchema).optional(),
   _sum: z.lazy(() => NestedDecimalFilterSchema).optional(),
@@ -6476,14 +7186,21 @@ export const VerificationMinOrderByAggregateInputSchema: z.ZodType<Prisma.Verifi
 });
 
 export const DecimalNullableFilterSchema: z.ZodType<Prisma.DecimalNullableFilter> = z.strictObject({
-  equals: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
-  in: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
-  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
-  lt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  lte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalNullableFilterSchema) ]).optional().nullable(),
+  equals: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  in: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
+  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
+  lt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  lte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalNullableFilterSchema) ]).optional().nullable(),
+});
+
+export const EnumApprovalStatusFilterSchema: z.ZodType<Prisma.EnumApprovalStatusFilter> = z.strictObject({
+  equals: z.lazy(() => ApprovalStatusSchema).optional(),
+  in: z.lazy(() => ApprovalStatusSchema).array().optional(),
+  notIn: z.lazy(() => ApprovalStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => NestedEnumApprovalStatusFilterSchema) ]).optional(),
 });
 
 export const MerchantOperationalHourListRelationFilterSchema: z.ZodType<Prisma.MerchantOperationalHourListRelationFilter> = z.strictObject({
@@ -6525,6 +7242,7 @@ export const MerchantCountOrderByAggregateInputSchema: z.ZodType<Prisma.Merchant
   longitude: z.lazy(() => SortOrderSchema).optional(),
   isOpen: z.lazy(() => SortOrderSchema).optional(),
   rating: z.lazy(() => SortOrderSchema).optional(),
+  approvalStatus: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
 });
 
@@ -6543,6 +7261,7 @@ export const MerchantMaxOrderByAggregateInputSchema: z.ZodType<Prisma.MerchantMa
   longitude: z.lazy(() => SortOrderSchema).optional(),
   isOpen: z.lazy(() => SortOrderSchema).optional(),
   rating: z.lazy(() => SortOrderSchema).optional(),
+  approvalStatus: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
 });
 
@@ -6555,6 +7274,7 @@ export const MerchantMinOrderByAggregateInputSchema: z.ZodType<Prisma.MerchantMi
   longitude: z.lazy(() => SortOrderSchema).optional(),
   isOpen: z.lazy(() => SortOrderSchema).optional(),
   rating: z.lazy(() => SortOrderSchema).optional(),
+  approvalStatus: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
 });
 
@@ -6565,19 +7285,29 @@ export const MerchantSumOrderByAggregateInputSchema: z.ZodType<Prisma.MerchantSu
 });
 
 export const DecimalNullableWithAggregatesFilterSchema: z.ZodType<Prisma.DecimalNullableWithAggregatesFilter> = z.strictObject({
-  equals: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
-  in: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
-  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
-  lt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  lte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalNullableWithAggregatesFilterSchema) ]).optional().nullable(),
+  equals: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  in: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
+  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
+  lt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  lte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalNullableWithAggregatesFilterSchema) ]).optional().nullable(),
   _count: z.lazy(() => NestedIntNullableFilterSchema).optional(),
   _avg: z.lazy(() => NestedDecimalNullableFilterSchema).optional(),
   _sum: z.lazy(() => NestedDecimalNullableFilterSchema).optional(),
   _min: z.lazy(() => NestedDecimalNullableFilterSchema).optional(),
   _max: z.lazy(() => NestedDecimalNullableFilterSchema).optional(),
+});
+
+export const EnumApprovalStatusWithAggregatesFilterSchema: z.ZodType<Prisma.EnumApprovalStatusWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => ApprovalStatusSchema).optional(),
+  in: z.lazy(() => ApprovalStatusSchema).array().optional(),
+  notIn: z.lazy(() => ApprovalStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => NestedEnumApprovalStatusWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumApprovalStatusFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumApprovalStatusFilterSchema).optional(),
 });
 
 export const IntFilterSchema: z.ZodType<Prisma.IntFilter> = z.strictObject({
@@ -6948,6 +7678,12 @@ export const OrderPromotionListRelationFilterSchema: z.ZodType<Prisma.OrderPromo
   none: z.lazy(() => OrderPromotionWhereInputSchema).optional(),
 });
 
+export const ChatRoomListRelationFilterSchema: z.ZodType<Prisma.ChatRoomListRelationFilter> = z.strictObject({
+  every: z.lazy(() => ChatRoomWhereInputSchema).optional(),
+  some: z.lazy(() => ChatRoomWhereInputSchema).optional(),
+  none: z.lazy(() => ChatRoomWhereInputSchema).optional(),
+});
+
 export const DriverNullableScalarRelationFilterSchema: z.ZodType<Prisma.DriverNullableScalarRelationFilter> = z.strictObject({
   is: z.lazy(() => DriverWhereInputSchema).optional().nullable(),
   isNot: z.lazy(() => DriverWhereInputSchema).optional().nullable(),
@@ -6958,6 +7694,10 @@ export const DeliveryOrderByRelationAggregateInputSchema: z.ZodType<Prisma.Deliv
 });
 
 export const OrderPromotionOrderByRelationAggregateInputSchema: z.ZodType<Prisma.OrderPromotionOrderByRelationAggregateInput> = z.strictObject({
+  _count: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const ChatRoomOrderByRelationAggregateInputSchema: z.ZodType<Prisma.ChatRoomOrderByRelationAggregateInput> = z.strictObject({
   _count: z.lazy(() => SortOrderSchema).optional(),
 });
 
@@ -7270,6 +8010,12 @@ export const DriverCountOrderByAggregateInputSchema: z.ZodType<Prisma.DriverCoun
   userId: z.lazy(() => SortOrderSchema).optional(),
   plateNumber: z.lazy(() => SortOrderSchema).optional(),
   isAvailable: z.lazy(() => SortOrderSchema).optional(),
+  rating: z.lazy(() => SortOrderSchema).optional(),
+  approvalStatus: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const DriverAvgOrderByAggregateInputSchema: z.ZodType<Prisma.DriverAvgOrderByAggregateInput> = z.strictObject({
+  rating: z.lazy(() => SortOrderSchema).optional(),
 });
 
 export const DriverMaxOrderByAggregateInputSchema: z.ZodType<Prisma.DriverMaxOrderByAggregateInput> = z.strictObject({
@@ -7277,6 +8023,8 @@ export const DriverMaxOrderByAggregateInputSchema: z.ZodType<Prisma.DriverMaxOrd
   userId: z.lazy(() => SortOrderSchema).optional(),
   plateNumber: z.lazy(() => SortOrderSchema).optional(),
   isAvailable: z.lazy(() => SortOrderSchema).optional(),
+  rating: z.lazy(() => SortOrderSchema).optional(),
+  approvalStatus: z.lazy(() => SortOrderSchema).optional(),
 });
 
 export const DriverMinOrderByAggregateInputSchema: z.ZodType<Prisma.DriverMinOrderByAggregateInput> = z.strictObject({
@@ -7284,6 +8032,12 @@ export const DriverMinOrderByAggregateInputSchema: z.ZodType<Prisma.DriverMinOrd
   userId: z.lazy(() => SortOrderSchema).optional(),
   plateNumber: z.lazy(() => SortOrderSchema).optional(),
   isAvailable: z.lazy(() => SortOrderSchema).optional(),
+  rating: z.lazy(() => SortOrderSchema).optional(),
+  approvalStatus: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const DriverSumOrderByAggregateInputSchema: z.ZodType<Prisma.DriverSumOrderByAggregateInput> = z.strictObject({
+  rating: z.lazy(() => SortOrderSchema).optional(),
 });
 
 export const DriverScalarRelationFilterSchema: z.ZodType<Prisma.DriverScalarRelationFilter> = z.strictObject({
@@ -7489,6 +8243,7 @@ export const DriverReviewCountOrderByAggregateInputSchema: z.ZodType<Prisma.Driv
   driverId: z.lazy(() => SortOrderSchema).optional(),
   rating: z.lazy(() => SortOrderSchema).optional(),
   comment: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
 });
 
 export const DriverReviewAvgOrderByAggregateInputSchema: z.ZodType<Prisma.DriverReviewAvgOrderByAggregateInput> = z.strictObject({
@@ -7501,6 +8256,7 @@ export const DriverReviewMaxOrderByAggregateInputSchema: z.ZodType<Prisma.Driver
   driverId: z.lazy(() => SortOrderSchema).optional(),
   rating: z.lazy(() => SortOrderSchema).optional(),
   comment: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
 });
 
 export const DriverReviewMinOrderByAggregateInputSchema: z.ZodType<Prisma.DriverReviewMinOrderByAggregateInput> = z.strictObject({
@@ -7509,6 +8265,7 @@ export const DriverReviewMinOrderByAggregateInputSchema: z.ZodType<Prisma.Driver
   driverId: z.lazy(() => SortOrderSchema).optional(),
   rating: z.lazy(() => SortOrderSchema).optional(),
   comment: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
 });
 
 export const DriverReviewSumOrderByAggregateInputSchema: z.ZodType<Prisma.DriverReviewSumOrderByAggregateInput> = z.strictObject({
@@ -7575,6 +8332,145 @@ export const ImageMinOrderByAggregateInputSchema: z.ZodType<Prisma.ImageMinOrder
   id: z.lazy(() => SortOrderSchema).optional(),
   imageUrl: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const EnumChatRoomTypeFilterSchema: z.ZodType<Prisma.EnumChatRoomTypeFilter> = z.strictObject({
+  equals: z.lazy(() => ChatRoomTypeSchema).optional(),
+  in: z.lazy(() => ChatRoomTypeSchema).array().optional(),
+  notIn: z.lazy(() => ChatRoomTypeSchema).array().optional(),
+  not: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => NestedEnumChatRoomTypeFilterSchema) ]).optional(),
+});
+
+export const ChatRoomCountOrderByAggregateInputSchema: z.ZodType<Prisma.ChatRoomCountOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  orderId: z.lazy(() => SortOrderSchema).optional(),
+  type: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const ChatRoomMaxOrderByAggregateInputSchema: z.ZodType<Prisma.ChatRoomMaxOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  orderId: z.lazy(() => SortOrderSchema).optional(),
+  type: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const ChatRoomMinOrderByAggregateInputSchema: z.ZodType<Prisma.ChatRoomMinOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  orderId: z.lazy(() => SortOrderSchema).optional(),
+  type: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const EnumChatRoomTypeWithAggregatesFilterSchema: z.ZodType<Prisma.EnumChatRoomTypeWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => ChatRoomTypeSchema).optional(),
+  in: z.lazy(() => ChatRoomTypeSchema).array().optional(),
+  notIn: z.lazy(() => ChatRoomTypeSchema).array().optional(),
+  not: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => NestedEnumChatRoomTypeWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumChatRoomTypeFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumChatRoomTypeFilterSchema).optional(),
+});
+
+export const EnumChatRoleFilterSchema: z.ZodType<Prisma.EnumChatRoleFilter> = z.strictObject({
+  equals: z.lazy(() => ChatRoleSchema).optional(),
+  in: z.lazy(() => ChatRoleSchema).array().optional(),
+  notIn: z.lazy(() => ChatRoleSchema).array().optional(),
+  not: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => NestedEnumChatRoleFilterSchema) ]).optional(),
+});
+
+export const ChatRoomScalarRelationFilterSchema: z.ZodType<Prisma.ChatRoomScalarRelationFilter> = z.strictObject({
+  is: z.lazy(() => ChatRoomWhereInputSchema).optional(),
+  isNot: z.lazy(() => ChatRoomWhereInputSchema).optional(),
+});
+
+export const ChatParticipantChatRoomIdUserIdCompoundUniqueInputSchema: z.ZodType<Prisma.ChatParticipantChatRoomIdUserIdCompoundUniqueInput> = z.strictObject({
+  chatRoomId: z.string(),
+  userId: z.string(),
+});
+
+export const ChatParticipantCountOrderByAggregateInputSchema: z.ZodType<Prisma.ChatParticipantCountOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  chatRoomId: z.lazy(() => SortOrderSchema).optional(),
+  userId: z.lazy(() => SortOrderSchema).optional(),
+  role: z.lazy(() => SortOrderSchema).optional(),
+  joinedAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const ChatParticipantMaxOrderByAggregateInputSchema: z.ZodType<Prisma.ChatParticipantMaxOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  chatRoomId: z.lazy(() => SortOrderSchema).optional(),
+  userId: z.lazy(() => SortOrderSchema).optional(),
+  role: z.lazy(() => SortOrderSchema).optional(),
+  joinedAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const ChatParticipantMinOrderByAggregateInputSchema: z.ZodType<Prisma.ChatParticipantMinOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  chatRoomId: z.lazy(() => SortOrderSchema).optional(),
+  userId: z.lazy(() => SortOrderSchema).optional(),
+  role: z.lazy(() => SortOrderSchema).optional(),
+  joinedAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const EnumChatRoleWithAggregatesFilterSchema: z.ZodType<Prisma.EnumChatRoleWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => ChatRoleSchema).optional(),
+  in: z.lazy(() => ChatRoleSchema).array().optional(),
+  notIn: z.lazy(() => ChatRoleSchema).array().optional(),
+  not: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => NestedEnumChatRoleWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumChatRoleFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumChatRoleFilterSchema).optional(),
+});
+
+export const EnumMessageTypeFilterSchema: z.ZodType<Prisma.EnumMessageTypeFilter> = z.strictObject({
+  equals: z.lazy(() => MessageTypeSchema).optional(),
+  in: z.lazy(() => MessageTypeSchema).array().optional(),
+  notIn: z.lazy(() => MessageTypeSchema).array().optional(),
+  not: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => NestedEnumMessageTypeFilterSchema) ]).optional(),
+});
+
+export const ChatMessageCountOrderByAggregateInputSchema: z.ZodType<Prisma.ChatMessageCountOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  chatRoomId: z.lazy(() => SortOrderSchema).optional(),
+  senderId: z.lazy(() => SortOrderSchema).optional(),
+  content: z.lazy(() => SortOrderSchema).optional(),
+  type: z.lazy(() => SortOrderSchema).optional(),
+  isRead: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const ChatMessageMaxOrderByAggregateInputSchema: z.ZodType<Prisma.ChatMessageMaxOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  chatRoomId: z.lazy(() => SortOrderSchema).optional(),
+  senderId: z.lazy(() => SortOrderSchema).optional(),
+  content: z.lazy(() => SortOrderSchema).optional(),
+  type: z.lazy(() => SortOrderSchema).optional(),
+  isRead: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const ChatMessageMinOrderByAggregateInputSchema: z.ZodType<Prisma.ChatMessageMinOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  chatRoomId: z.lazy(() => SortOrderSchema).optional(),
+  senderId: z.lazy(() => SortOrderSchema).optional(),
+  content: z.lazy(() => SortOrderSchema).optional(),
+  type: z.lazy(() => SortOrderSchema).optional(),
+  isRead: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const EnumMessageTypeWithAggregatesFilterSchema: z.ZodType<Prisma.EnumMessageTypeWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => MessageTypeSchema).optional(),
+  in: z.lazy(() => MessageTypeSchema).array().optional(),
+  notIn: z.lazy(() => MessageTypeSchema).array().optional(),
+  not: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => NestedEnumMessageTypeWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumMessageTypeFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumMessageTypeFilterSchema).optional(),
 });
 
 export const UserProfileCreateNestedManyWithoutUserInputSchema: z.ZodType<Prisma.UserProfileCreateNestedManyWithoutUserInput> = z.strictObject({
@@ -7668,6 +8564,20 @@ export const PaymentCreateNestedManyWithoutCustomerInputSchema: z.ZodType<Prisma
   connect: z.union([ z.lazy(() => PaymentWhereUniqueInputSchema), z.lazy(() => PaymentWhereUniqueInputSchema).array() ]).optional(),
 });
 
+export const ChatParticipantCreateNestedManyWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantCreateNestedManyWithoutUserInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatParticipantCreateWithoutUserInputSchema), z.lazy(() => ChatParticipantCreateWithoutUserInputSchema).array(), z.lazy(() => ChatParticipantUncheckedCreateWithoutUserInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutUserInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatParticipantCreateOrConnectWithoutUserInputSchema), z.lazy(() => ChatParticipantCreateOrConnectWithoutUserInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatParticipantCreateManyUserInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const ChatMessageCreateNestedManyWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageCreateNestedManyWithoutSenderInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutSenderInputSchema), z.lazy(() => ChatMessageCreateWithoutSenderInputSchema).array(), z.lazy(() => ChatMessageUncheckedCreateWithoutSenderInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutSenderInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutSenderInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutSenderInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatMessageCreateManySenderInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+});
+
 export const UserProfileUncheckedCreateNestedManyWithoutUserInputSchema: z.ZodType<Prisma.UserProfileUncheckedCreateNestedManyWithoutUserInput> = z.strictObject({
   create: z.union([ z.lazy(() => UserProfileCreateWithoutUserInputSchema), z.lazy(() => UserProfileCreateWithoutUserInputSchema).array(), z.lazy(() => UserProfileUncheckedCreateWithoutUserInputSchema), z.lazy(() => UserProfileUncheckedCreateWithoutUserInputSchema).array() ]).optional(),
   connectOrCreate: z.union([ z.lazy(() => UserProfileCreateOrConnectWithoutUserInputSchema), z.lazy(() => UserProfileCreateOrConnectWithoutUserInputSchema).array() ]).optional(),
@@ -7757,6 +8667,20 @@ export const PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema: z.ZodTy
   connectOrCreate: z.union([ z.lazy(() => PaymentCreateOrConnectWithoutCustomerInputSchema), z.lazy(() => PaymentCreateOrConnectWithoutCustomerInputSchema).array() ]).optional(),
   createMany: z.lazy(() => PaymentCreateManyCustomerInputEnvelopeSchema).optional(),
   connect: z.union([ z.lazy(() => PaymentWhereUniqueInputSchema), z.lazy(() => PaymentWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedCreateNestedManyWithoutUserInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatParticipantCreateWithoutUserInputSchema), z.lazy(() => ChatParticipantCreateWithoutUserInputSchema).array(), z.lazy(() => ChatParticipantUncheckedCreateWithoutUserInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutUserInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatParticipantCreateOrConnectWithoutUserInputSchema), z.lazy(() => ChatParticipantCreateOrConnectWithoutUserInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatParticipantCreateManyUserInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUncheckedCreateNestedManyWithoutSenderInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutSenderInputSchema), z.lazy(() => ChatMessageCreateWithoutSenderInputSchema).array(), z.lazy(() => ChatMessageUncheckedCreateWithoutSenderInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutSenderInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutSenderInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutSenderInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatMessageCreateManySenderInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
 });
 
 export const StringFieldUpdateOperationsInputSchema: z.ZodType<Prisma.StringFieldUpdateOperationsInput> = z.strictObject({
@@ -7965,6 +8889,34 @@ export const PaymentUpdateManyWithoutCustomerNestedInputSchema: z.ZodType<Prisma
   deleteMany: z.union([ z.lazy(() => PaymentScalarWhereInputSchema), z.lazy(() => PaymentScalarWhereInputSchema).array() ]).optional(),
 });
 
+export const ChatParticipantUpdateManyWithoutUserNestedInputSchema: z.ZodType<Prisma.ChatParticipantUpdateManyWithoutUserNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatParticipantCreateWithoutUserInputSchema), z.lazy(() => ChatParticipantCreateWithoutUserInputSchema).array(), z.lazy(() => ChatParticipantUncheckedCreateWithoutUserInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutUserInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatParticipantCreateOrConnectWithoutUserInputSchema), z.lazy(() => ChatParticipantCreateOrConnectWithoutUserInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => ChatParticipantUpsertWithWhereUniqueWithoutUserInputSchema), z.lazy(() => ChatParticipantUpsertWithWhereUniqueWithoutUserInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatParticipantCreateManyUserInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => ChatParticipantUpdateWithWhereUniqueWithoutUserInputSchema), z.lazy(() => ChatParticipantUpdateWithWhereUniqueWithoutUserInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => ChatParticipantUpdateManyWithWhereWithoutUserInputSchema), z.lazy(() => ChatParticipantUpdateManyWithWhereWithoutUserInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => ChatParticipantScalarWhereInputSchema), z.lazy(() => ChatParticipantScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const ChatMessageUpdateManyWithoutSenderNestedInputSchema: z.ZodType<Prisma.ChatMessageUpdateManyWithoutSenderNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutSenderInputSchema), z.lazy(() => ChatMessageCreateWithoutSenderInputSchema).array(), z.lazy(() => ChatMessageUncheckedCreateWithoutSenderInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutSenderInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutSenderInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutSenderInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => ChatMessageUpsertWithWhereUniqueWithoutSenderInputSchema), z.lazy(() => ChatMessageUpsertWithWhereUniqueWithoutSenderInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatMessageCreateManySenderInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutSenderInputSchema), z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutSenderInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => ChatMessageUpdateManyWithWhereWithoutSenderInputSchema), z.lazy(() => ChatMessageUpdateManyWithWhereWithoutSenderInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => ChatMessageScalarWhereInputSchema), z.lazy(() => ChatMessageScalarWhereInputSchema).array() ]).optional(),
+});
+
 export const UserProfileUncheckedUpdateManyWithoutUserNestedInputSchema: z.ZodType<Prisma.UserProfileUncheckedUpdateManyWithoutUserNestedInput> = z.strictObject({
   create: z.union([ z.lazy(() => UserProfileCreateWithoutUserInputSchema), z.lazy(() => UserProfileCreateWithoutUserInputSchema).array(), z.lazy(() => UserProfileUncheckedCreateWithoutUserInputSchema), z.lazy(() => UserProfileUncheckedCreateWithoutUserInputSchema).array() ]).optional(),
   connectOrCreate: z.union([ z.lazy(() => UserProfileCreateOrConnectWithoutUserInputSchema), z.lazy(() => UserProfileCreateOrConnectWithoutUserInputSchema).array() ]).optional(),
@@ -8147,6 +9099,34 @@ export const PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema: z.ZodTy
   deleteMany: z.union([ z.lazy(() => PaymentScalarWhereInputSchema), z.lazy(() => PaymentScalarWhereInputSchema).array() ]).optional(),
 });
 
+export const ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedUpdateManyWithoutUserNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatParticipantCreateWithoutUserInputSchema), z.lazy(() => ChatParticipantCreateWithoutUserInputSchema).array(), z.lazy(() => ChatParticipantUncheckedCreateWithoutUserInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutUserInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatParticipantCreateOrConnectWithoutUserInputSchema), z.lazy(() => ChatParticipantCreateOrConnectWithoutUserInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => ChatParticipantUpsertWithWhereUniqueWithoutUserInputSchema), z.lazy(() => ChatParticipantUpsertWithWhereUniqueWithoutUserInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatParticipantCreateManyUserInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => ChatParticipantUpdateWithWhereUniqueWithoutUserInputSchema), z.lazy(() => ChatParticipantUpdateWithWhereUniqueWithoutUserInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => ChatParticipantUpdateManyWithWhereWithoutUserInputSchema), z.lazy(() => ChatParticipantUpdateManyWithWhereWithoutUserInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => ChatParticipantScalarWhereInputSchema), z.lazy(() => ChatParticipantScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateManyWithoutSenderNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutSenderInputSchema), z.lazy(() => ChatMessageCreateWithoutSenderInputSchema).array(), z.lazy(() => ChatMessageUncheckedCreateWithoutSenderInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutSenderInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutSenderInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutSenderInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => ChatMessageUpsertWithWhereUniqueWithoutSenderInputSchema), z.lazy(() => ChatMessageUpsertWithWhereUniqueWithoutSenderInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatMessageCreateManySenderInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutSenderInputSchema), z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutSenderInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => ChatMessageUpdateManyWithWhereWithoutSenderInputSchema), z.lazy(() => ChatMessageUpdateManyWithWhereWithoutSenderInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => ChatMessageScalarWhereInputSchema), z.lazy(() => ChatMessageScalarWhereInputSchema).array() ]).optional(),
+});
+
 export const UserCreateNestedOneWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserCreateNestedOneWithoutUserProfilesInput> = z.strictObject({
   create: z.union([ z.lazy(() => UserCreateWithoutUserProfilesInputSchema), z.lazy(() => UserUncheckedCreateWithoutUserProfilesInputSchema) ]).optional(),
   connectOrCreate: z.lazy(() => UserCreateOrConnectWithoutUserProfilesInputSchema).optional(),
@@ -8182,11 +9162,11 @@ export const UserCreateNestedOneWithoutUserAddressesInputSchema: z.ZodType<Prism
 });
 
 export const DecimalFieldUpdateOperationsInputSchema: z.ZodType<Prisma.DecimalFieldUpdateOperationsInput> = z.strictObject({
-  set: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  increment: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  decrement: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  multiply: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  divide: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  set: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  increment: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  decrement: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  multiply: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  divide: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
 });
 
 export const UserUpdateOneRequiredWithoutUserAddressesNestedInputSchema: z.ZodType<Prisma.UserUpdateOneRequiredWithoutUserAddressesNestedInput> = z.strictObject({
@@ -8334,11 +9314,15 @@ export const PaymentUncheckedCreateNestedManyWithoutMerchantInputSchema: z.ZodTy
 });
 
 export const NullableDecimalFieldUpdateOperationsInputSchema: z.ZodType<Prisma.NullableDecimalFieldUpdateOperationsInput> = z.strictObject({
-  set: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
-  increment: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  decrement: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  multiply: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  divide: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  set: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  increment: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  decrement: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  multiply: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  divide: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+});
+
+export const EnumApprovalStatusFieldUpdateOperationsInputSchema: z.ZodType<Prisma.EnumApprovalStatusFieldUpdateOperationsInput> = z.strictObject({
+  set: z.lazy(() => ApprovalStatusSchema).optional(),
 });
 
 export const UserUpdateOneRequiredWithoutMerchantsNestedInputSchema: z.ZodType<Prisma.UserUpdateOneRequiredWithoutMerchantsNestedInput> = z.strictObject({
@@ -8944,6 +9928,13 @@ export const OrderPromotionCreateNestedManyWithoutOrderInputSchema: z.ZodType<Pr
   connect: z.union([ z.lazy(() => OrderPromotionWhereUniqueInputSchema), z.lazy(() => OrderPromotionWhereUniqueInputSchema).array() ]).optional(),
 });
 
+export const ChatRoomCreateNestedManyWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomCreateNestedManyWithoutOrderInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutOrderInputSchema), z.lazy(() => ChatRoomCreateWithoutOrderInputSchema).array(), z.lazy(() => ChatRoomUncheckedCreateWithoutOrderInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutOrderInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatRoomCreateOrConnectWithoutOrderInputSchema), z.lazy(() => ChatRoomCreateOrConnectWithoutOrderInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatRoomCreateManyOrderInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => ChatRoomWhereUniqueInputSchema), z.lazy(() => ChatRoomWhereUniqueInputSchema).array() ]).optional(),
+});
+
 export const MerchantCreateNestedOneWithoutOrdersInputSchema: z.ZodType<Prisma.MerchantCreateNestedOneWithoutOrdersInput> = z.strictObject({
   create: z.union([ z.lazy(() => MerchantCreateWithoutOrdersInputSchema), z.lazy(() => MerchantUncheckedCreateWithoutOrdersInputSchema) ]).optional(),
   connectOrCreate: z.lazy(() => MerchantCreateOrConnectWithoutOrdersInputSchema).optional(),
@@ -8995,6 +9986,13 @@ export const OrderPromotionUncheckedCreateNestedManyWithoutOrderInputSchema: z.Z
   connectOrCreate: z.union([ z.lazy(() => OrderPromotionCreateOrConnectWithoutOrderInputSchema), z.lazy(() => OrderPromotionCreateOrConnectWithoutOrderInputSchema).array() ]).optional(),
   createMany: z.lazy(() => OrderPromotionCreateManyOrderInputEnvelopeSchema).optional(),
   connect: z.union([ z.lazy(() => OrderPromotionWhereUniqueInputSchema), z.lazy(() => OrderPromotionWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const ChatRoomUncheckedCreateNestedManyWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomUncheckedCreateNestedManyWithoutOrderInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutOrderInputSchema), z.lazy(() => ChatRoomCreateWithoutOrderInputSchema).array(), z.lazy(() => ChatRoomUncheckedCreateWithoutOrderInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutOrderInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatRoomCreateOrConnectWithoutOrderInputSchema), z.lazy(() => ChatRoomCreateOrConnectWithoutOrderInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatRoomCreateManyOrderInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => ChatRoomWhereUniqueInputSchema), z.lazy(() => ChatRoomWhereUniqueInputSchema).array() ]).optional(),
 });
 
 export const EnumOrderStatusFieldUpdateOperationsInputSchema: z.ZodType<Prisma.EnumOrderStatusFieldUpdateOperationsInput> = z.strictObject({
@@ -9081,6 +10079,20 @@ export const OrderPromotionUpdateManyWithoutOrderNestedInputSchema: z.ZodType<Pr
   update: z.union([ z.lazy(() => OrderPromotionUpdateWithWhereUniqueWithoutOrderInputSchema), z.lazy(() => OrderPromotionUpdateWithWhereUniqueWithoutOrderInputSchema).array() ]).optional(),
   updateMany: z.union([ z.lazy(() => OrderPromotionUpdateManyWithWhereWithoutOrderInputSchema), z.lazy(() => OrderPromotionUpdateManyWithWhereWithoutOrderInputSchema).array() ]).optional(),
   deleteMany: z.union([ z.lazy(() => OrderPromotionScalarWhereInputSchema), z.lazy(() => OrderPromotionScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const ChatRoomUpdateManyWithoutOrderNestedInputSchema: z.ZodType<Prisma.ChatRoomUpdateManyWithoutOrderNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutOrderInputSchema), z.lazy(() => ChatRoomCreateWithoutOrderInputSchema).array(), z.lazy(() => ChatRoomUncheckedCreateWithoutOrderInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutOrderInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatRoomCreateOrConnectWithoutOrderInputSchema), z.lazy(() => ChatRoomCreateOrConnectWithoutOrderInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => ChatRoomUpsertWithWhereUniqueWithoutOrderInputSchema), z.lazy(() => ChatRoomUpsertWithWhereUniqueWithoutOrderInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatRoomCreateManyOrderInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => ChatRoomWhereUniqueInputSchema), z.lazy(() => ChatRoomWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => ChatRoomWhereUniqueInputSchema), z.lazy(() => ChatRoomWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => ChatRoomWhereUniqueInputSchema), z.lazy(() => ChatRoomWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => ChatRoomWhereUniqueInputSchema), z.lazy(() => ChatRoomWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => ChatRoomUpdateWithWhereUniqueWithoutOrderInputSchema), z.lazy(() => ChatRoomUpdateWithWhereUniqueWithoutOrderInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => ChatRoomUpdateManyWithWhereWithoutOrderInputSchema), z.lazy(() => ChatRoomUpdateManyWithWhereWithoutOrderInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => ChatRoomScalarWhereInputSchema), z.lazy(() => ChatRoomScalarWhereInputSchema).array() ]).optional(),
 });
 
 export const MerchantUpdateOneRequiredWithoutOrdersNestedInputSchema: z.ZodType<Prisma.MerchantUpdateOneRequiredWithoutOrdersNestedInput> = z.strictObject({
@@ -9177,6 +10189,20 @@ export const OrderPromotionUncheckedUpdateManyWithoutOrderNestedInputSchema: z.Z
   update: z.union([ z.lazy(() => OrderPromotionUpdateWithWhereUniqueWithoutOrderInputSchema), z.lazy(() => OrderPromotionUpdateWithWhereUniqueWithoutOrderInputSchema).array() ]).optional(),
   updateMany: z.union([ z.lazy(() => OrderPromotionUpdateManyWithWhereWithoutOrderInputSchema), z.lazy(() => OrderPromotionUpdateManyWithWhereWithoutOrderInputSchema).array() ]).optional(),
   deleteMany: z.union([ z.lazy(() => OrderPromotionScalarWhereInputSchema), z.lazy(() => OrderPromotionScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const ChatRoomUncheckedUpdateManyWithoutOrderNestedInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateManyWithoutOrderNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutOrderInputSchema), z.lazy(() => ChatRoomCreateWithoutOrderInputSchema).array(), z.lazy(() => ChatRoomUncheckedCreateWithoutOrderInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutOrderInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatRoomCreateOrConnectWithoutOrderInputSchema), z.lazy(() => ChatRoomCreateOrConnectWithoutOrderInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => ChatRoomUpsertWithWhereUniqueWithoutOrderInputSchema), z.lazy(() => ChatRoomUpsertWithWhereUniqueWithoutOrderInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatRoomCreateManyOrderInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => ChatRoomWhereUniqueInputSchema), z.lazy(() => ChatRoomWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => ChatRoomWhereUniqueInputSchema), z.lazy(() => ChatRoomWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => ChatRoomWhereUniqueInputSchema), z.lazy(() => ChatRoomWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => ChatRoomWhereUniqueInputSchema), z.lazy(() => ChatRoomWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => ChatRoomUpdateWithWhereUniqueWithoutOrderInputSchema), z.lazy(() => ChatRoomUpdateWithWhereUniqueWithoutOrderInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => ChatRoomUpdateManyWithWhereWithoutOrderInputSchema), z.lazy(() => ChatRoomUpdateManyWithWhereWithoutOrderInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => ChatRoomScalarWhereInputSchema), z.lazy(() => ChatRoomScalarWhereInputSchema).array() ]).optional(),
 });
 
 export const OrderCreateNestedOneWithoutItemsInputSchema: z.ZodType<Prisma.OrderCreateNestedOneWithoutItemsInput> = z.strictObject({
@@ -9797,6 +10823,172 @@ export const MenuUncheckedUpdateManyWithoutImageNestedInputSchema: z.ZodType<Pri
   deleteMany: z.union([ z.lazy(() => MenuScalarWhereInputSchema), z.lazy(() => MenuScalarWhereInputSchema).array() ]).optional(),
 });
 
+export const OrderCreateNestedOneWithoutChatRoomsInputSchema: z.ZodType<Prisma.OrderCreateNestedOneWithoutChatRoomsInput> = z.strictObject({
+  create: z.union([ z.lazy(() => OrderCreateWithoutChatRoomsInputSchema), z.lazy(() => OrderUncheckedCreateWithoutChatRoomsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => OrderCreateOrConnectWithoutChatRoomsInputSchema).optional(),
+  connect: z.lazy(() => OrderWhereUniqueInputSchema).optional(),
+});
+
+export const ChatParticipantCreateNestedManyWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantCreateNestedManyWithoutChatRoomInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatParticipantCreateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantCreateWithoutChatRoomInputSchema).array(), z.lazy(() => ChatParticipantUncheckedCreateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutChatRoomInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatParticipantCreateOrConnectWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantCreateOrConnectWithoutChatRoomInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatParticipantCreateManyChatRoomInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const ChatMessageCreateNestedManyWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageCreateNestedManyWithoutChatRoomInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutChatRoomInputSchema), z.lazy(() => ChatMessageCreateWithoutChatRoomInputSchema).array(), z.lazy(() => ChatMessageUncheckedCreateWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutChatRoomInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutChatRoomInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutChatRoomInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatMessageCreateManyChatRoomInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const ChatParticipantUncheckedCreateNestedManyWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedCreateNestedManyWithoutChatRoomInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatParticipantCreateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantCreateWithoutChatRoomInputSchema).array(), z.lazy(() => ChatParticipantUncheckedCreateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutChatRoomInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatParticipantCreateOrConnectWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantCreateOrConnectWithoutChatRoomInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatParticipantCreateManyChatRoomInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const ChatMessageUncheckedCreateNestedManyWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageUncheckedCreateNestedManyWithoutChatRoomInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutChatRoomInputSchema), z.lazy(() => ChatMessageCreateWithoutChatRoomInputSchema).array(), z.lazy(() => ChatMessageUncheckedCreateWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutChatRoomInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutChatRoomInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutChatRoomInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatMessageCreateManyChatRoomInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const EnumChatRoomTypeFieldUpdateOperationsInputSchema: z.ZodType<Prisma.EnumChatRoomTypeFieldUpdateOperationsInput> = z.strictObject({
+  set: z.lazy(() => ChatRoomTypeSchema).optional(),
+});
+
+export const OrderUpdateOneRequiredWithoutChatRoomsNestedInputSchema: z.ZodType<Prisma.OrderUpdateOneRequiredWithoutChatRoomsNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => OrderCreateWithoutChatRoomsInputSchema), z.lazy(() => OrderUncheckedCreateWithoutChatRoomsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => OrderCreateOrConnectWithoutChatRoomsInputSchema).optional(),
+  upsert: z.lazy(() => OrderUpsertWithoutChatRoomsInputSchema).optional(),
+  connect: z.lazy(() => OrderWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => OrderUpdateToOneWithWhereWithoutChatRoomsInputSchema), z.lazy(() => OrderUpdateWithoutChatRoomsInputSchema), z.lazy(() => OrderUncheckedUpdateWithoutChatRoomsInputSchema) ]).optional(),
+});
+
+export const ChatParticipantUpdateManyWithoutChatRoomNestedInputSchema: z.ZodType<Prisma.ChatParticipantUpdateManyWithoutChatRoomNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatParticipantCreateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantCreateWithoutChatRoomInputSchema).array(), z.lazy(() => ChatParticipantUncheckedCreateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutChatRoomInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatParticipantCreateOrConnectWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantCreateOrConnectWithoutChatRoomInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => ChatParticipantUpsertWithWhereUniqueWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUpsertWithWhereUniqueWithoutChatRoomInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatParticipantCreateManyChatRoomInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => ChatParticipantUpdateWithWhereUniqueWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUpdateWithWhereUniqueWithoutChatRoomInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => ChatParticipantUpdateManyWithWhereWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUpdateManyWithWhereWithoutChatRoomInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => ChatParticipantScalarWhereInputSchema), z.lazy(() => ChatParticipantScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const ChatMessageUpdateManyWithoutChatRoomNestedInputSchema: z.ZodType<Prisma.ChatMessageUpdateManyWithoutChatRoomNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutChatRoomInputSchema), z.lazy(() => ChatMessageCreateWithoutChatRoomInputSchema).array(), z.lazy(() => ChatMessageUncheckedCreateWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutChatRoomInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutChatRoomInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutChatRoomInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => ChatMessageUpsertWithWhereUniqueWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUpsertWithWhereUniqueWithoutChatRoomInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatMessageCreateManyChatRoomInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutChatRoomInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => ChatMessageUpdateManyWithWhereWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUpdateManyWithWhereWithoutChatRoomInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => ChatMessageScalarWhereInputSchema), z.lazy(() => ChatMessageScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const ChatParticipantUncheckedUpdateManyWithoutChatRoomNestedInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedUpdateManyWithoutChatRoomNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatParticipantCreateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantCreateWithoutChatRoomInputSchema).array(), z.lazy(() => ChatParticipantUncheckedCreateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutChatRoomInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatParticipantCreateOrConnectWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantCreateOrConnectWithoutChatRoomInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => ChatParticipantUpsertWithWhereUniqueWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUpsertWithWhereUniqueWithoutChatRoomInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatParticipantCreateManyChatRoomInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => ChatParticipantWhereUniqueInputSchema), z.lazy(() => ChatParticipantWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => ChatParticipantUpdateWithWhereUniqueWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUpdateWithWhereUniqueWithoutChatRoomInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => ChatParticipantUpdateManyWithWhereWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUpdateManyWithWhereWithoutChatRoomInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => ChatParticipantScalarWhereInputSchema), z.lazy(() => ChatParticipantScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const ChatMessageUncheckedUpdateManyWithoutChatRoomNestedInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateManyWithoutChatRoomNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutChatRoomInputSchema), z.lazy(() => ChatMessageCreateWithoutChatRoomInputSchema).array(), z.lazy(() => ChatMessageUncheckedCreateWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutChatRoomInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutChatRoomInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutChatRoomInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => ChatMessageUpsertWithWhereUniqueWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUpsertWithWhereUniqueWithoutChatRoomInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatMessageCreateManyChatRoomInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutChatRoomInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => ChatMessageUpdateManyWithWhereWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUpdateManyWithWhereWithoutChatRoomInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => ChatMessageScalarWhereInputSchema), z.lazy(() => ChatMessageScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const ChatRoomCreateNestedOneWithoutParticipantsInputSchema: z.ZodType<Prisma.ChatRoomCreateNestedOneWithoutParticipantsInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutParticipantsInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutParticipantsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => ChatRoomCreateOrConnectWithoutParticipantsInputSchema).optional(),
+  connect: z.lazy(() => ChatRoomWhereUniqueInputSchema).optional(),
+});
+
+export const UserCreateNestedOneWithoutChatParticipantsInputSchema: z.ZodType<Prisma.UserCreateNestedOneWithoutChatParticipantsInput> = z.strictObject({
+  create: z.union([ z.lazy(() => UserCreateWithoutChatParticipantsInputSchema), z.lazy(() => UserUncheckedCreateWithoutChatParticipantsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => UserCreateOrConnectWithoutChatParticipantsInputSchema).optional(),
+  connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
+});
+
+export const EnumChatRoleFieldUpdateOperationsInputSchema: z.ZodType<Prisma.EnumChatRoleFieldUpdateOperationsInput> = z.strictObject({
+  set: z.lazy(() => ChatRoleSchema).optional(),
+});
+
+export const ChatRoomUpdateOneRequiredWithoutParticipantsNestedInputSchema: z.ZodType<Prisma.ChatRoomUpdateOneRequiredWithoutParticipantsNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutParticipantsInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutParticipantsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => ChatRoomCreateOrConnectWithoutParticipantsInputSchema).optional(),
+  upsert: z.lazy(() => ChatRoomUpsertWithoutParticipantsInputSchema).optional(),
+  connect: z.lazy(() => ChatRoomWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => ChatRoomUpdateToOneWithWhereWithoutParticipantsInputSchema), z.lazy(() => ChatRoomUpdateWithoutParticipantsInputSchema), z.lazy(() => ChatRoomUncheckedUpdateWithoutParticipantsInputSchema) ]).optional(),
+});
+
+export const UserUpdateOneRequiredWithoutChatParticipantsNestedInputSchema: z.ZodType<Prisma.UserUpdateOneRequiredWithoutChatParticipantsNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => UserCreateWithoutChatParticipantsInputSchema), z.lazy(() => UserUncheckedCreateWithoutChatParticipantsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => UserCreateOrConnectWithoutChatParticipantsInputSchema).optional(),
+  upsert: z.lazy(() => UserUpsertWithoutChatParticipantsInputSchema).optional(),
+  connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => UserUpdateToOneWithWhereWithoutChatParticipantsInputSchema), z.lazy(() => UserUpdateWithoutChatParticipantsInputSchema), z.lazy(() => UserUncheckedUpdateWithoutChatParticipantsInputSchema) ]).optional(),
+});
+
+export const ChatRoomCreateNestedOneWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomCreateNestedOneWithoutMessagesInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutMessagesInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutMessagesInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => ChatRoomCreateOrConnectWithoutMessagesInputSchema).optional(),
+  connect: z.lazy(() => ChatRoomWhereUniqueInputSchema).optional(),
+});
+
+export const UserCreateNestedOneWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserCreateNestedOneWithoutChatMessagesInput> = z.strictObject({
+  create: z.union([ z.lazy(() => UserCreateWithoutChatMessagesInputSchema), z.lazy(() => UserUncheckedCreateWithoutChatMessagesInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => UserCreateOrConnectWithoutChatMessagesInputSchema).optional(),
+  connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
+});
+
+export const EnumMessageTypeFieldUpdateOperationsInputSchema: z.ZodType<Prisma.EnumMessageTypeFieldUpdateOperationsInput> = z.strictObject({
+  set: z.lazy(() => MessageTypeSchema).optional(),
+});
+
+export const ChatRoomUpdateOneRequiredWithoutMessagesNestedInputSchema: z.ZodType<Prisma.ChatRoomUpdateOneRequiredWithoutMessagesNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutMessagesInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutMessagesInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => ChatRoomCreateOrConnectWithoutMessagesInputSchema).optional(),
+  upsert: z.lazy(() => ChatRoomUpsertWithoutMessagesInputSchema).optional(),
+  connect: z.lazy(() => ChatRoomWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => ChatRoomUpdateToOneWithWhereWithoutMessagesInputSchema), z.lazy(() => ChatRoomUpdateWithoutMessagesInputSchema), z.lazy(() => ChatRoomUncheckedUpdateWithoutMessagesInputSchema) ]).optional(),
+});
+
+export const UserUpdateOneRequiredWithoutChatMessagesNestedInputSchema: z.ZodType<Prisma.UserUpdateOneRequiredWithoutChatMessagesNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => UserCreateWithoutChatMessagesInputSchema), z.lazy(() => UserUncheckedCreateWithoutChatMessagesInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => UserCreateOrConnectWithoutChatMessagesInputSchema).optional(),
+  upsert: z.lazy(() => UserUpsertWithoutChatMessagesInputSchema).optional(),
+  connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => UserUpdateToOneWithWhereWithoutChatMessagesInputSchema), z.lazy(() => UserUpdateWithoutChatMessagesInputSchema), z.lazy(() => UserUncheckedUpdateWithoutChatMessagesInputSchema) ]).optional(),
+});
+
 export const NestedStringFilterSchema: z.ZodType<Prisma.NestedStringFilter> = z.strictObject({
   equals: z.string().optional(),
   in: z.string().array().optional(),
@@ -9954,25 +11146,25 @@ export const NestedDateTimeWithAggregatesFilterSchema: z.ZodType<Prisma.NestedDa
 });
 
 export const NestedDecimalFilterSchema: z.ZodType<Prisma.NestedDecimalFilter> = z.strictObject({
-  equals: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  in: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
-  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
-  lt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  lte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalFilterSchema) ]).optional(),
+  equals: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  in: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
+  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
+  lt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  lte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalFilterSchema) ]).optional(),
 });
 
 export const NestedDecimalWithAggregatesFilterSchema: z.ZodType<Prisma.NestedDecimalWithAggregatesFilter> = z.strictObject({
-  equals: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  in: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
-  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
-  lt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  lte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalWithAggregatesFilterSchema) ]).optional(),
+  equals: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  in: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
+  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional(),
+  lt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  lte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalWithAggregatesFilterSchema) ]).optional(),
   _count: z.lazy(() => NestedIntFilterSchema).optional(),
   _avg: z.lazy(() => NestedDecimalFilterSchema).optional(),
   _sum: z.lazy(() => NestedDecimalFilterSchema).optional(),
@@ -10006,30 +11198,47 @@ export const NestedDateTimeNullableWithAggregatesFilterSchema: z.ZodType<Prisma.
 });
 
 export const NestedDecimalNullableFilterSchema: z.ZodType<Prisma.NestedDecimalNullableFilter> = z.strictObject({
-  equals: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
-  in: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
-  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
-  lt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  lte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalNullableFilterSchema) ]).optional().nullable(),
+  equals: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  in: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
+  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
+  lt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  lte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalNullableFilterSchema) ]).optional().nullable(),
+});
+
+export const NestedEnumApprovalStatusFilterSchema: z.ZodType<Prisma.NestedEnumApprovalStatusFilter> = z.strictObject({
+  equals: z.lazy(() => ApprovalStatusSchema).optional(),
+  in: z.lazy(() => ApprovalStatusSchema).array().optional(),
+  notIn: z.lazy(() => ApprovalStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => NestedEnumApprovalStatusFilterSchema) ]).optional(),
 });
 
 export const NestedDecimalNullableWithAggregatesFilterSchema: z.ZodType<Prisma.NestedDecimalNullableWithAggregatesFilter> = z.strictObject({
-  equals: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
-  in: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
-  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
-  lt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  lte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gt: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  gte: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
-  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalNullableWithAggregatesFilterSchema) ]).optional().nullable(),
+  equals: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  in: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
+  notIn: z.union([z.number().array(),z.string().array(),z.instanceof(Decimal).array(),z.instanceof(Prisma.Decimal).array(),DecimalJsLikeSchema.array(),]).refine((v) => Array.isArray(v) && (v as any[]).every((v) => isValidDecimalInput(v)), { message: 'Must be a Decimal' }).optional().nullable(),
+  lt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  lte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gt: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  gte: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional(),
+  not: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NestedDecimalNullableWithAggregatesFilterSchema) ]).optional().nullable(),
   _count: z.lazy(() => NestedIntNullableFilterSchema).optional(),
   _avg: z.lazy(() => NestedDecimalNullableFilterSchema).optional(),
   _sum: z.lazy(() => NestedDecimalNullableFilterSchema).optional(),
   _min: z.lazy(() => NestedDecimalNullableFilterSchema).optional(),
   _max: z.lazy(() => NestedDecimalNullableFilterSchema).optional(),
+});
+
+export const NestedEnumApprovalStatusWithAggregatesFilterSchema: z.ZodType<Prisma.NestedEnumApprovalStatusWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => ApprovalStatusSchema).optional(),
+  in: z.lazy(() => ApprovalStatusSchema).array().optional(),
+  notIn: z.lazy(() => ApprovalStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => NestedEnumApprovalStatusWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumApprovalStatusFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumApprovalStatusFilterSchema).optional(),
 });
 
 export const NestedIntWithAggregatesFilterSchema: z.ZodType<Prisma.NestedIntWithAggregatesFilter> = z.strictObject({
@@ -10222,6 +11431,57 @@ export const NestedEnumNotificationTypeWithAggregatesFilterSchema: z.ZodType<Pri
   _max: z.lazy(() => NestedEnumNotificationTypeFilterSchema).optional(),
 });
 
+export const NestedEnumChatRoomTypeFilterSchema: z.ZodType<Prisma.NestedEnumChatRoomTypeFilter> = z.strictObject({
+  equals: z.lazy(() => ChatRoomTypeSchema).optional(),
+  in: z.lazy(() => ChatRoomTypeSchema).array().optional(),
+  notIn: z.lazy(() => ChatRoomTypeSchema).array().optional(),
+  not: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => NestedEnumChatRoomTypeFilterSchema) ]).optional(),
+});
+
+export const NestedEnumChatRoomTypeWithAggregatesFilterSchema: z.ZodType<Prisma.NestedEnumChatRoomTypeWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => ChatRoomTypeSchema).optional(),
+  in: z.lazy(() => ChatRoomTypeSchema).array().optional(),
+  notIn: z.lazy(() => ChatRoomTypeSchema).array().optional(),
+  not: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => NestedEnumChatRoomTypeWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumChatRoomTypeFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumChatRoomTypeFilterSchema).optional(),
+});
+
+export const NestedEnumChatRoleFilterSchema: z.ZodType<Prisma.NestedEnumChatRoleFilter> = z.strictObject({
+  equals: z.lazy(() => ChatRoleSchema).optional(),
+  in: z.lazy(() => ChatRoleSchema).array().optional(),
+  notIn: z.lazy(() => ChatRoleSchema).array().optional(),
+  not: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => NestedEnumChatRoleFilterSchema) ]).optional(),
+});
+
+export const NestedEnumChatRoleWithAggregatesFilterSchema: z.ZodType<Prisma.NestedEnumChatRoleWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => ChatRoleSchema).optional(),
+  in: z.lazy(() => ChatRoleSchema).array().optional(),
+  notIn: z.lazy(() => ChatRoleSchema).array().optional(),
+  not: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => NestedEnumChatRoleWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumChatRoleFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumChatRoleFilterSchema).optional(),
+});
+
+export const NestedEnumMessageTypeFilterSchema: z.ZodType<Prisma.NestedEnumMessageTypeFilter> = z.strictObject({
+  equals: z.lazy(() => MessageTypeSchema).optional(),
+  in: z.lazy(() => MessageTypeSchema).array().optional(),
+  notIn: z.lazy(() => MessageTypeSchema).array().optional(),
+  not: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => NestedEnumMessageTypeFilterSchema) ]).optional(),
+});
+
+export const NestedEnumMessageTypeWithAggregatesFilterSchema: z.ZodType<Prisma.NestedEnumMessageTypeWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => MessageTypeSchema).optional(),
+  in: z.lazy(() => MessageTypeSchema).array().optional(),
+  notIn: z.lazy(() => MessageTypeSchema).array().optional(),
+  not: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => NestedEnumMessageTypeWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumMessageTypeFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumMessageTypeFilterSchema).optional(),
+});
+
 export const UserProfileCreateWithoutUserInputSchema: z.ZodType<Prisma.UserProfileCreateWithoutUserInput> = z.strictObject({
   id: z.uuid().optional(),
   fullName: z.string(),
@@ -10251,8 +11511,8 @@ export const UserProfileCreateManyUserInputEnvelopeSchema: z.ZodType<Prisma.User
 export const UserAddresCreateWithoutUserInputSchema: z.ZodType<Prisma.UserAddresCreateWithoutUserInput> = z.strictObject({
   id: z.uuid().optional(),
   label: z.string(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   address: z.string(),
   isDefault: z.boolean(),
 });
@@ -10260,8 +11520,8 @@ export const UserAddresCreateWithoutUserInputSchema: z.ZodType<Prisma.UserAddres
 export const UserAddresUncheckedCreateWithoutUserInputSchema: z.ZodType<Prisma.UserAddresUncheckedCreateWithoutUserInput> = z.strictObject({
   id: z.uuid().optional(),
   label: z.string(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   address: z.string(),
   isDefault: z.boolean(),
 });
@@ -10352,10 +11612,11 @@ export const MerchantCreateWithoutUserInputSchema: z.ZodType<Prisma.MerchantCrea
   id: z.uuid().optional(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourCreateNestedManyWithoutMerchantInputSchema).optional(),
   menus: z.lazy(() => MenuCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -10370,10 +11631,11 @@ export const MerchantUncheckedCreateWithoutUserInputSchema: z.ZodType<Prisma.Mer
   id: z.uuid().optional(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -10405,6 +11667,7 @@ export const OrderCreateWithoutUserInputSchema: z.ZodType<Prisma.OrderCreateWith
   payments: z.lazy(() => PaymentCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomCreateNestedManyWithoutOrderInputSchema).optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutOrdersInputSchema),
   driver: z.lazy(() => DriverCreateNestedOneWithoutOrdersInputSchema).optional(),
 });
@@ -10422,6 +11685,7 @@ export const OrderUncheckedCreateWithoutUserInputSchema: z.ZodType<Prisma.OrderU
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
 });
 
 export const OrderCreateOrConnectWithoutUserInputSchema: z.ZodType<Prisma.OrderCreateOrConnectWithoutUserInput> = z.strictObject({
@@ -10462,6 +11726,8 @@ export const DriverCreateWithoutUserInputSchema: z.ZodType<Prisma.DriverCreateWi
   id: z.uuid().optional(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   orders: z.lazy(() => OrderCreateNestedManyWithoutDriverInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationCreateNestedManyWithoutDriverInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutDriverInputSchema).optional(),
@@ -10472,6 +11738,8 @@ export const DriverUncheckedCreateWithoutUserInputSchema: z.ZodType<Prisma.Drive
   id: z.uuid().optional(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   orders: z.lazy(() => OrderUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
@@ -10518,6 +11786,7 @@ export const DriverReviewCreateWithoutUserInputSchema: z.ZodType<Prisma.DriverRe
   id: z.uuid().optional(),
   rating: z.number(),
   comment: z.string(),
+  createdAt: z.coerce.date().optional(),
   driver: z.lazy(() => DriverCreateNestedOneWithoutDriverReviewsInputSchema),
 });
 
@@ -10526,6 +11795,7 @@ export const DriverReviewUncheckedCreateWithoutUserInputSchema: z.ZodType<Prisma
   driverId: z.string(),
   rating: z.number(),
   comment: z.string(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const DriverReviewCreateOrConnectWithoutUserInputSchema: z.ZodType<Prisma.DriverReviewCreateOrConnectWithoutUserInput> = z.strictObject({
@@ -10630,6 +11900,58 @@ export const PaymentCreateManyCustomerInputEnvelopeSchema: z.ZodType<Prisma.Paym
   skipDuplicates: z.boolean().optional(),
 });
 
+export const ChatParticipantCreateWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantCreateWithoutUserInput> = z.strictObject({
+  id: z.uuid().optional(),
+  role: z.lazy(() => ChatRoleSchema),
+  joinedAt: z.coerce.date().optional(),
+  chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutParticipantsInputSchema),
+});
+
+export const ChatParticipantUncheckedCreateWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedCreateWithoutUserInput> = z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId: z.string(),
+  role: z.lazy(() => ChatRoleSchema),
+  joinedAt: z.coerce.date().optional(),
+});
+
+export const ChatParticipantCreateOrConnectWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantCreateOrConnectWithoutUserInput> = z.strictObject({
+  where: z.lazy(() => ChatParticipantWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => ChatParticipantCreateWithoutUserInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutUserInputSchema) ]),
+});
+
+export const ChatParticipantCreateManyUserInputEnvelopeSchema: z.ZodType<Prisma.ChatParticipantCreateManyUserInputEnvelope> = z.strictObject({
+  data: z.union([ z.lazy(() => ChatParticipantCreateManyUserInputSchema), z.lazy(() => ChatParticipantCreateManyUserInputSchema).array() ]),
+  skipDuplicates: z.boolean().optional(),
+});
+
+export const ChatMessageCreateWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageCreateWithoutSenderInput> = z.strictObject({
+  id: z.uuid().optional(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+  chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutMessagesInputSchema),
+});
+
+export const ChatMessageUncheckedCreateWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUncheckedCreateWithoutSenderInput> = z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId: z.string(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+});
+
+export const ChatMessageCreateOrConnectWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageCreateOrConnectWithoutSenderInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutSenderInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutSenderInputSchema) ]),
+});
+
+export const ChatMessageCreateManySenderInputEnvelopeSchema: z.ZodType<Prisma.ChatMessageCreateManySenderInputEnvelope> = z.strictObject({
+  data: z.union([ z.lazy(() => ChatMessageCreateManySenderInputSchema), z.lazy(() => ChatMessageCreateManySenderInputSchema).array() ]),
+  skipDuplicates: z.boolean().optional(),
+});
+
 export const UserProfileUpsertWithWhereUniqueWithoutUserInputSchema: z.ZodType<Prisma.UserProfileUpsertWithWhereUniqueWithoutUserInput> = z.strictObject({
   where: z.lazy(() => UserProfileWhereUniqueInputSchema),
   update: z.union([ z.lazy(() => UserProfileUpdateWithoutUserInputSchema), z.lazy(() => UserProfileUncheckedUpdateWithoutUserInputSchema) ]),
@@ -10681,8 +12003,8 @@ export const UserAddresScalarWhereInputSchema: z.ZodType<Prisma.UserAddresScalar
   id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   label: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
-  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
-  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   address: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   isDefault: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
 });
@@ -10777,10 +12099,11 @@ export const MerchantScalarWhereInputSchema: z.ZodType<Prisma.MerchantScalarWher
   ownerId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   name: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   description: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
-  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
-  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   isOpen: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
-  rating: z.union([ z.lazy(() => DecimalNullableFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional().nullable(),
+  rating: z.union([ z.lazy(() => DecimalNullableFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => EnumApprovalStatusFilterSchema), z.lazy(() => ApprovalStatusSchema) ]).optional(),
   createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
 });
 
@@ -10865,6 +12188,8 @@ export const DriverScalarWhereInputSchema: z.ZodType<Prisma.DriverScalarWhereInp
   userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   plateNumber: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   isAvailable: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
+  rating: z.union([ z.lazy(() => DecimalNullableFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => EnumApprovalStatusFilterSchema), z.lazy(() => ApprovalStatusSchema) ]).optional(),
 });
 
 export const MerchantReviewUpsertWithWhereUniqueWithoutUserInputSchema: z.ZodType<Prisma.MerchantReviewUpsertWithWhereUniqueWithoutUserInput> = z.strictObject({
@@ -10920,6 +12245,7 @@ export const DriverReviewScalarWhereInputSchema: z.ZodType<Prisma.DriverReviewSc
   driverId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   rating: z.union([ z.lazy(() => IntFilterSchema), z.number() ]).optional(),
   comment: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
 });
 
 export const NotificationUpsertWithWhereUniqueWithoutUserInputSchema: z.ZodType<Prisma.NotificationUpsertWithWhereUniqueWithoutUserInput> = z.strictObject({
@@ -11011,6 +12337,62 @@ export const PaymentScalarWhereInputSchema: z.ZodType<Prisma.PaymentScalarWhereI
   createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
 });
 
+export const ChatParticipantUpsertWithWhereUniqueWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantUpsertWithWhereUniqueWithoutUserInput> = z.strictObject({
+  where: z.lazy(() => ChatParticipantWhereUniqueInputSchema),
+  update: z.union([ z.lazy(() => ChatParticipantUpdateWithoutUserInputSchema), z.lazy(() => ChatParticipantUncheckedUpdateWithoutUserInputSchema) ]),
+  create: z.union([ z.lazy(() => ChatParticipantCreateWithoutUserInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutUserInputSchema) ]),
+});
+
+export const ChatParticipantUpdateWithWhereUniqueWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantUpdateWithWhereUniqueWithoutUserInput> = z.strictObject({
+  where: z.lazy(() => ChatParticipantWhereUniqueInputSchema),
+  data: z.union([ z.lazy(() => ChatParticipantUpdateWithoutUserInputSchema), z.lazy(() => ChatParticipantUncheckedUpdateWithoutUserInputSchema) ]),
+});
+
+export const ChatParticipantUpdateManyWithWhereWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantUpdateManyWithWhereWithoutUserInput> = z.strictObject({
+  where: z.lazy(() => ChatParticipantScalarWhereInputSchema),
+  data: z.union([ z.lazy(() => ChatParticipantUpdateManyMutationInputSchema), z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserInputSchema) ]),
+});
+
+export const ChatParticipantScalarWhereInputSchema: z.ZodType<Prisma.ChatParticipantScalarWhereInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => ChatParticipantScalarWhereInputSchema), z.lazy(() => ChatParticipantScalarWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => ChatParticipantScalarWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => ChatParticipantScalarWhereInputSchema), z.lazy(() => ChatParticipantScalarWhereInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  chatRoomId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  role: z.union([ z.lazy(() => EnumChatRoleFilterSchema), z.lazy(() => ChatRoleSchema) ]).optional(),
+  joinedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+});
+
+export const ChatMessageUpsertWithWhereUniqueWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUpsertWithWhereUniqueWithoutSenderInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereUniqueInputSchema),
+  update: z.union([ z.lazy(() => ChatMessageUpdateWithoutSenderInputSchema), z.lazy(() => ChatMessageUncheckedUpdateWithoutSenderInputSchema) ]),
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutSenderInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutSenderInputSchema) ]),
+});
+
+export const ChatMessageUpdateWithWhereUniqueWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUpdateWithWhereUniqueWithoutSenderInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereUniqueInputSchema),
+  data: z.union([ z.lazy(() => ChatMessageUpdateWithoutSenderInputSchema), z.lazy(() => ChatMessageUncheckedUpdateWithoutSenderInputSchema) ]),
+});
+
+export const ChatMessageUpdateManyWithWhereWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUpdateManyWithWhereWithoutSenderInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageScalarWhereInputSchema),
+  data: z.union([ z.lazy(() => ChatMessageUpdateManyMutationInputSchema), z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderInputSchema) ]),
+});
+
+export const ChatMessageScalarWhereInputSchema: z.ZodType<Prisma.ChatMessageScalarWhereInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => ChatMessageScalarWhereInputSchema), z.lazy(() => ChatMessageScalarWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => ChatMessageScalarWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => ChatMessageScalarWhereInputSchema), z.lazy(() => ChatMessageScalarWhereInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  chatRoomId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  senderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  content: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  type: z.union([ z.lazy(() => EnumMessageTypeFilterSchema), z.lazy(() => MessageTypeSchema) ]).optional(),
+  isRead: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+});
+
 export const UserCreateWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserCreateWithoutUserProfilesInput> = z.strictObject({
   id: z.uuid().optional(),
   email: z.string(),
@@ -11033,6 +12415,8 @@ export const UserCreateWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserCrea
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutUserProfilesInput> = z.strictObject({
@@ -11057,6 +12441,8 @@ export const UserUncheckedCreateWithoutUserProfilesInputSchema: z.ZodType<Prisma
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutUserProfilesInput> = z.strictObject({
@@ -11116,6 +12502,8 @@ export const UserUpdateWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserUpda
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutUserProfilesInput> = z.strictObject({
@@ -11140,6 +12528,8 @@ export const UserUncheckedUpdateWithoutUserProfilesInputSchema: z.ZodType<Prisma
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const ImageUpsertWithoutUserProfilesInputSchema: z.ZodType<Prisma.ImageUpsertWithoutUserProfilesInput> = z.strictObject({
@@ -11189,6 +12579,8 @@ export const UserCreateWithoutUserAddressesInputSchema: z.ZodType<Prisma.UserCre
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutUserAddressesInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutUserAddressesInput> = z.strictObject({
@@ -11213,6 +12605,8 @@ export const UserUncheckedCreateWithoutUserAddressesInputSchema: z.ZodType<Prism
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutUserAddressesInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutUserAddressesInput> = z.strictObject({
@@ -11253,6 +12647,8 @@ export const UserUpdateWithoutUserAddressesInputSchema: z.ZodType<Prisma.UserUpd
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutUserAddressesInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutUserAddressesInput> = z.strictObject({
@@ -11277,6 +12673,8 @@ export const UserUncheckedUpdateWithoutUserAddressesInputSchema: z.ZodType<Prism
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserCreateWithoutAccountsInputSchema: z.ZodType<Prisma.UserCreateWithoutAccountsInput> = z.strictObject({
@@ -11301,6 +12699,8 @@ export const UserCreateWithoutAccountsInputSchema: z.ZodType<Prisma.UserCreateWi
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutAccountsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutAccountsInput> = z.strictObject({
@@ -11325,6 +12725,8 @@ export const UserUncheckedCreateWithoutAccountsInputSchema: z.ZodType<Prisma.Use
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutAccountsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutAccountsInput> = z.strictObject({
@@ -11365,6 +12767,8 @@ export const UserUpdateWithoutAccountsInputSchema: z.ZodType<Prisma.UserUpdateWi
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutAccountsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutAccountsInput> = z.strictObject({
@@ -11389,6 +12793,8 @@ export const UserUncheckedUpdateWithoutAccountsInputSchema: z.ZodType<Prisma.Use
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserCreateWithoutSessionsInputSchema: z.ZodType<Prisma.UserCreateWithoutSessionsInput> = z.strictObject({
@@ -11413,6 +12819,8 @@ export const UserCreateWithoutSessionsInputSchema: z.ZodType<Prisma.UserCreateWi
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutSessionsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutSessionsInput> = z.strictObject({
@@ -11437,6 +12845,8 @@ export const UserUncheckedCreateWithoutSessionsInputSchema: z.ZodType<Prisma.Use
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutSessionsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutSessionsInput> = z.strictObject({
@@ -11477,6 +12887,8 @@ export const UserUpdateWithoutSessionsInputSchema: z.ZodType<Prisma.UserUpdateWi
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutSessionsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutSessionsInput> = z.strictObject({
@@ -11501,6 +12913,8 @@ export const UserUncheckedUpdateWithoutSessionsInputSchema: z.ZodType<Prisma.Use
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserCreateWithoutMerchantsInputSchema: z.ZodType<Prisma.UserCreateWithoutMerchantsInput> = z.strictObject({
@@ -11525,6 +12939,8 @@ export const UserCreateWithoutMerchantsInputSchema: z.ZodType<Prisma.UserCreateW
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutMerchantsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutMerchantsInput> = z.strictObject({
@@ -11549,6 +12965,8 @@ export const UserUncheckedCreateWithoutMerchantsInputSchema: z.ZodType<Prisma.Us
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutMerchantsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutMerchantsInput> = z.strictObject({
@@ -11625,6 +13043,7 @@ export const OrderCreateWithoutMerchantInputSchema: z.ZodType<Prisma.OrderCreate
   payments: z.lazy(() => PaymentCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomCreateNestedManyWithoutOrderInputSchema).optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutOrdersInputSchema),
   driver: z.lazy(() => DriverCreateNestedOneWithoutOrdersInputSchema).optional(),
 });
@@ -11642,6 +13061,7 @@ export const OrderUncheckedCreateWithoutMerchantInputSchema: z.ZodType<Prisma.Or
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
 });
 
 export const OrderCreateOrConnectWithoutMerchantInputSchema: z.ZodType<Prisma.OrderCreateOrConnectWithoutMerchantInput> = z.strictObject({
@@ -11801,6 +13221,8 @@ export const UserUpdateWithoutMerchantsInputSchema: z.ZodType<Prisma.UserUpdateW
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutMerchantsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutMerchantsInput> = z.strictObject({
@@ -11825,6 +13247,8 @@ export const UserUncheckedUpdateWithoutMerchantsInputSchema: z.ZodType<Prisma.Us
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const MerchantOperationalHourUpsertWithWhereUniqueWithoutMerchantInputSchema: z.ZodType<Prisma.MerchantOperationalHourUpsertWithWhereUniqueWithoutMerchantInput> = z.strictObject({
@@ -11978,10 +13402,11 @@ export const MerchantCreateWithoutMerchantOperationalHoursInputSchema: z.ZodType
   id: z.uuid().optional(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutMerchantsInputSchema),
   menus: z.lazy(() => MenuCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -11997,10 +13422,11 @@ export const MerchantUncheckedCreateWithoutMerchantOperationalHoursInputSchema: 
   ownerId: z.string(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   menus: z.lazy(() => MenuUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
   orders: z.lazy(() => OrderUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -12030,10 +13456,11 @@ export const MerchantUpdateWithoutMerchantOperationalHoursInputSchema: z.ZodType
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutMerchantsNestedInputSchema).optional(),
   menus: z.lazy(() => MenuUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -12049,10 +13476,11 @@ export const MerchantUncheckedUpdateWithoutMerchantOperationalHoursInputSchema: 
   ownerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   menus: z.lazy(() => MenuUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
   orders: z.lazy(() => OrderUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -12066,10 +13494,11 @@ export const MerchantCreateWithoutMerchantCategoriesInputSchema: z.ZodType<Prism
   id: z.uuid().optional(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutMerchantsInputSchema),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -12085,10 +13514,11 @@ export const MerchantUncheckedCreateWithoutMerchantCategoriesInputSchema: z.ZodT
   ownerId: z.string(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -12152,10 +13582,11 @@ export const MerchantUpdateWithoutMerchantCategoriesInputSchema: z.ZodType<Prism
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutMerchantsNestedInputSchema).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -12171,10 +13602,11 @@ export const MerchantUncheckedUpdateWithoutMerchantCategoriesInputSchema: z.ZodT
   ownerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -12204,10 +13636,11 @@ export const MerchantCreateWithoutMenusInputSchema: z.ZodType<Prisma.MerchantCre
   id: z.uuid().optional(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutMerchantsInputSchema),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -12223,10 +13656,11 @@ export const MerchantUncheckedCreateWithoutMenusInputSchema: z.ZodType<Prisma.Me
   ownerId: z.string(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
   orders: z.lazy(() => OrderUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -12318,10 +13752,11 @@ export const MerchantUpdateWithoutMenusInputSchema: z.ZodType<Prisma.MerchantUpd
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutMerchantsNestedInputSchema).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -12337,10 +13772,11 @@ export const MerchantUncheckedUpdateWithoutMenusInputSchema: z.ZodType<Prisma.Me
   ownerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
   orders: z.lazy(() => OrderUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -12603,10 +14039,11 @@ export const MerchantCreateWithoutCartsInputSchema: z.ZodType<Prisma.MerchantCre
   id: z.uuid().optional(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutMerchantsInputSchema),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -12622,10 +14059,11 @@ export const MerchantUncheckedCreateWithoutCartsInputSchema: z.ZodType<Prisma.Me
   ownerId: z.string(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -12662,6 +14100,8 @@ export const UserCreateWithoutCartsInputSchema: z.ZodType<Prisma.UserCreateWitho
   driverReviews: z.lazy(() => DriverReviewCreateNestedManyWithoutUserInputSchema).optional(),
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutCartsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutCartsInput> = z.strictObject({
@@ -12686,6 +14126,8 @@ export const UserUncheckedCreateWithoutCartsInputSchema: z.ZodType<Prisma.UserUn
   driverReviews: z.lazy(() => DriverReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutCartsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutCartsInput> = z.strictObject({
@@ -12738,10 +14180,11 @@ export const MerchantUpdateWithoutCartsInputSchema: z.ZodType<Prisma.MerchantUpd
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutMerchantsNestedInputSchema).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -12757,10 +14200,11 @@ export const MerchantUncheckedUpdateWithoutCartsInputSchema: z.ZodType<Prisma.Me
   ownerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -12803,6 +14247,8 @@ export const UserUpdateWithoutCartsInputSchema: z.ZodType<Prisma.UserUpdateWitho
   driverReviews: z.lazy(() => DriverReviewUpdateManyWithoutUserNestedInputSchema).optional(),
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutCartsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutCartsInput> = z.strictObject({
@@ -12827,6 +14273,8 @@ export const UserUncheckedUpdateWithoutCartsInputSchema: z.ZodType<Prisma.UserUn
   driverReviews: z.lazy(() => DriverReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const CartItemUpsertWithWhereUniqueWithoutCartInputSchema: z.ZodType<Prisma.CartItemUpsertWithWhereUniqueWithoutCartInput> = z.strictObject({
@@ -13037,7 +14485,7 @@ export const DeliveryCreateWithoutOrderInputSchema: z.ZodType<Prisma.DeliveryCre
   id: z.uuid().optional(),
   pickedAt: z.coerce.date(),
   deliveredAt: z.coerce.date(),
-  distanceKm: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  distanceKm: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   driver: z.lazy(() => DriverCreateNestedOneWithoutDeliveriesInputSchema),
 });
 
@@ -13046,7 +14494,7 @@ export const DeliveryUncheckedCreateWithoutOrderInputSchema: z.ZodType<Prisma.De
   driverId: z.string(),
   pickedAt: z.coerce.date(),
   deliveredAt: z.coerce.date(),
-  distanceKm: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  distanceKm: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
 });
 
 export const DeliveryCreateOrConnectWithoutOrderInputSchema: z.ZodType<Prisma.DeliveryCreateOrConnectWithoutOrderInput> = z.strictObject({
@@ -13081,14 +14529,43 @@ export const OrderPromotionCreateManyOrderInputEnvelopeSchema: z.ZodType<Prisma.
   skipDuplicates: z.boolean().optional(),
 });
 
+export const ChatRoomCreateWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomCreateWithoutOrderInput> = z.strictObject({
+  id: z.uuid().optional(),
+  type: z.lazy(() => ChatRoomTypeSchema),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  participants: z.lazy(() => ChatParticipantCreateNestedManyWithoutChatRoomInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageCreateNestedManyWithoutChatRoomInputSchema).optional(),
+});
+
+export const ChatRoomUncheckedCreateWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomUncheckedCreateWithoutOrderInput> = z.strictObject({
+  id: z.uuid().optional(),
+  type: z.lazy(() => ChatRoomTypeSchema),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  participants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutChatRoomInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutChatRoomInputSchema).optional(),
+});
+
+export const ChatRoomCreateOrConnectWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomCreateOrConnectWithoutOrderInput> = z.strictObject({
+  where: z.lazy(() => ChatRoomWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutOrderInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutOrderInputSchema) ]),
+});
+
+export const ChatRoomCreateManyOrderInputEnvelopeSchema: z.ZodType<Prisma.ChatRoomCreateManyOrderInputEnvelope> = z.strictObject({
+  data: z.union([ z.lazy(() => ChatRoomCreateManyOrderInputSchema), z.lazy(() => ChatRoomCreateManyOrderInputSchema).array() ]),
+  skipDuplicates: z.boolean().optional(),
+});
+
 export const MerchantCreateWithoutOrdersInputSchema: z.ZodType<Prisma.MerchantCreateWithoutOrdersInput> = z.strictObject({
   id: z.uuid().optional(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutMerchantsInputSchema),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -13104,10 +14581,11 @@ export const MerchantUncheckedCreateWithoutOrdersInputSchema: z.ZodType<Prisma.M
   ownerId: z.string(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -13144,6 +14622,8 @@ export const UserCreateWithoutOrdersInputSchema: z.ZodType<Prisma.UserCreateWith
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutOrdersInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutOrdersInput> = z.strictObject({
@@ -13168,6 +14648,8 @@ export const UserUncheckedCreateWithoutOrdersInputSchema: z.ZodType<Prisma.UserU
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutOrdersInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutOrdersInput> = z.strictObject({
@@ -13179,6 +14661,8 @@ export const DriverCreateWithoutOrdersInputSchema: z.ZodType<Prisma.DriverCreate
   id: z.uuid().optional(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationCreateNestedManyWithoutDriverInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutDriverInputSchema).optional(),
   driverReviews: z.lazy(() => DriverReviewCreateNestedManyWithoutDriverInputSchema).optional(),
@@ -13190,6 +14674,8 @@ export const DriverUncheckedCreateWithoutOrdersInputSchema: z.ZodType<Prisma.Dri
   userId: z.string(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
   driverReviews: z.lazy(() => DriverReviewUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
@@ -13273,7 +14759,7 @@ export const DeliveryScalarWhereInputSchema: z.ZodType<Prisma.DeliveryScalarWher
   driverId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   pickedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   deliveredAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
-  distanceKm: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  distanceKm: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
 });
 
 export const OrderPromotionUpsertWithWhereUniqueWithoutOrderInputSchema: z.ZodType<Prisma.OrderPromotionUpsertWithWhereUniqueWithoutOrderInput> = z.strictObject({
@@ -13302,6 +14788,33 @@ export const OrderPromotionScalarWhereInputSchema: z.ZodType<Prisma.OrderPromoti
   discountAmount: z.union([ z.lazy(() => IntFilterSchema), z.number() ]).optional(),
 });
 
+export const ChatRoomUpsertWithWhereUniqueWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomUpsertWithWhereUniqueWithoutOrderInput> = z.strictObject({
+  where: z.lazy(() => ChatRoomWhereUniqueInputSchema),
+  update: z.union([ z.lazy(() => ChatRoomUpdateWithoutOrderInputSchema), z.lazy(() => ChatRoomUncheckedUpdateWithoutOrderInputSchema) ]),
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutOrderInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutOrderInputSchema) ]),
+});
+
+export const ChatRoomUpdateWithWhereUniqueWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomUpdateWithWhereUniqueWithoutOrderInput> = z.strictObject({
+  where: z.lazy(() => ChatRoomWhereUniqueInputSchema),
+  data: z.union([ z.lazy(() => ChatRoomUpdateWithoutOrderInputSchema), z.lazy(() => ChatRoomUncheckedUpdateWithoutOrderInputSchema) ]),
+});
+
+export const ChatRoomUpdateManyWithWhereWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomUpdateManyWithWhereWithoutOrderInput> = z.strictObject({
+  where: z.lazy(() => ChatRoomScalarWhereInputSchema),
+  data: z.union([ z.lazy(() => ChatRoomUpdateManyMutationInputSchema), z.lazy(() => ChatRoomUncheckedUpdateManyWithoutOrderInputSchema) ]),
+});
+
+export const ChatRoomScalarWhereInputSchema: z.ZodType<Prisma.ChatRoomScalarWhereInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => ChatRoomScalarWhereInputSchema), z.lazy(() => ChatRoomScalarWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => ChatRoomScalarWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => ChatRoomScalarWhereInputSchema), z.lazy(() => ChatRoomScalarWhereInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  orderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  type: z.union([ z.lazy(() => EnumChatRoomTypeFilterSchema), z.lazy(() => ChatRoomTypeSchema) ]).optional(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  updatedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+});
+
 export const MerchantUpsertWithoutOrdersInputSchema: z.ZodType<Prisma.MerchantUpsertWithoutOrdersInput> = z.strictObject({
   update: z.union([ z.lazy(() => MerchantUpdateWithoutOrdersInputSchema), z.lazy(() => MerchantUncheckedUpdateWithoutOrdersInputSchema) ]),
   create: z.union([ z.lazy(() => MerchantCreateWithoutOrdersInputSchema), z.lazy(() => MerchantUncheckedCreateWithoutOrdersInputSchema) ]),
@@ -13317,10 +14830,11 @@ export const MerchantUpdateWithoutOrdersInputSchema: z.ZodType<Prisma.MerchantUp
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutMerchantsNestedInputSchema).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -13336,10 +14850,11 @@ export const MerchantUncheckedUpdateWithoutOrdersInputSchema: z.ZodType<Prisma.M
   ownerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -13382,6 +14897,8 @@ export const UserUpdateWithoutOrdersInputSchema: z.ZodType<Prisma.UserUpdateWith
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutOrdersInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutOrdersInput> = z.strictObject({
@@ -13406,6 +14923,8 @@ export const UserUncheckedUpdateWithoutOrdersInputSchema: z.ZodType<Prisma.UserU
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const DriverUpsertWithoutOrdersInputSchema: z.ZodType<Prisma.DriverUpsertWithoutOrdersInput> = z.strictObject({
@@ -13423,6 +14942,8 @@ export const DriverUpdateWithoutOrdersInputSchema: z.ZodType<Prisma.DriverUpdate
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   driverLocations: z.lazy(() => DriverLocationUpdateManyWithoutDriverNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverReviews: z.lazy(() => DriverReviewUpdateManyWithoutDriverNestedInputSchema).optional(),
@@ -13434,6 +14955,8 @@ export const DriverUncheckedUpdateWithoutOrdersInputSchema: z.ZodType<Prisma.Dri
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   driverLocations: z.lazy(() => DriverLocationUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverReviews: z.lazy(() => DriverReviewUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
@@ -13449,6 +14972,7 @@ export const OrderCreateWithoutItemsInputSchema: z.ZodType<Prisma.OrderCreateWit
   payments: z.lazy(() => PaymentCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomCreateNestedManyWithoutOrderInputSchema).optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutOrdersInputSchema),
   user: z.lazy(() => UserCreateNestedOneWithoutOrdersInputSchema),
   driver: z.lazy(() => DriverCreateNestedOneWithoutOrdersInputSchema).optional(),
@@ -13467,6 +14991,7 @@ export const OrderUncheckedCreateWithoutItemsInputSchema: z.ZodType<Prisma.Order
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
 });
 
 export const OrderCreateOrConnectWithoutItemsInputSchema: z.ZodType<Prisma.OrderCreateOrConnectWithoutItemsInput> = z.strictObject({
@@ -13516,6 +15041,7 @@ export const OrderUpdateWithoutItemsInputSchema: z.ZodType<Prisma.OrderUpdateWit
   payments: z.lazy(() => PaymentUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUpdateManyWithoutOrderNestedInputSchema).optional(),
   merchant: z.lazy(() => MerchantUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   driver: z.lazy(() => DriverUpdateOneWithoutOrdersNestedInputSchema).optional(),
@@ -13534,6 +15060,7 @@ export const OrderUncheckedUpdateWithoutItemsInputSchema: z.ZodType<Prisma.Order
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
 });
 
 export const MenuVariantUpsertWithoutOrderItemsInputSchema: z.ZodType<Prisma.MenuVariantUpsertWithoutOrderItemsInput> = z.strictObject({
@@ -13573,6 +15100,7 @@ export const OrderCreateWithoutStatusHistoriesInputSchema: z.ZodType<Prisma.Orde
   payments: z.lazy(() => PaymentCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomCreateNestedManyWithoutOrderInputSchema).optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutOrdersInputSchema),
   user: z.lazy(() => UserCreateNestedOneWithoutOrdersInputSchema),
   driver: z.lazy(() => DriverCreateNestedOneWithoutOrdersInputSchema).optional(),
@@ -13591,6 +15119,7 @@ export const OrderUncheckedCreateWithoutStatusHistoriesInputSchema: z.ZodType<Pr
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
 });
 
 export const OrderCreateOrConnectWithoutStatusHistoriesInputSchema: z.ZodType<Prisma.OrderCreateOrConnectWithoutStatusHistoriesInput> = z.strictObject({
@@ -13620,6 +15149,8 @@ export const UserCreateWithoutOrderStatusHistoriesInputSchema: z.ZodType<Prisma.
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutOrderStatusHistoriesInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutOrderStatusHistoriesInput> = z.strictObject({
@@ -13644,6 +15175,8 @@ export const UserUncheckedCreateWithoutOrderStatusHistoriesInputSchema: z.ZodTyp
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutOrderStatusHistoriesInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutOrderStatusHistoriesInput> = z.strictObject({
@@ -13672,6 +15205,7 @@ export const OrderUpdateWithoutStatusHistoriesInputSchema: z.ZodType<Prisma.Orde
   payments: z.lazy(() => PaymentUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUpdateManyWithoutOrderNestedInputSchema).optional(),
   merchant: z.lazy(() => MerchantUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   driver: z.lazy(() => DriverUpdateOneWithoutOrdersNestedInputSchema).optional(),
@@ -13690,6 +15224,7 @@ export const OrderUncheckedUpdateWithoutStatusHistoriesInputSchema: z.ZodType<Pr
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
 });
 
 export const UserUpsertWithoutOrderStatusHistoriesInputSchema: z.ZodType<Prisma.UserUpsertWithoutOrderStatusHistoriesInput> = z.strictObject({
@@ -13725,6 +15260,8 @@ export const UserUpdateWithoutOrderStatusHistoriesInputSchema: z.ZodType<Prisma.
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutOrderStatusHistoriesInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutOrderStatusHistoriesInput> = z.strictObject({
@@ -13749,6 +15286,8 @@ export const UserUncheckedUpdateWithoutOrderStatusHistoriesInputSchema: z.ZodTyp
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const PaymentCallbackCreateWithoutPaymentInputSchema: z.ZodType<Prisma.PaymentCallbackCreateWithoutPaymentInput> = z.strictObject({
@@ -13783,6 +15322,7 @@ export const OrderCreateWithoutPaymentsInputSchema: z.ZodType<Prisma.OrderCreate
   statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomCreateNestedManyWithoutOrderInputSchema).optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutOrdersInputSchema),
   user: z.lazy(() => UserCreateNestedOneWithoutOrdersInputSchema),
   driver: z.lazy(() => DriverCreateNestedOneWithoutOrdersInputSchema).optional(),
@@ -13801,6 +15341,7 @@ export const OrderUncheckedCreateWithoutPaymentsInputSchema: z.ZodType<Prisma.Or
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
 });
 
 export const OrderCreateOrConnectWithoutPaymentsInputSchema: z.ZodType<Prisma.OrderCreateOrConnectWithoutPaymentsInput> = z.strictObject({
@@ -13830,6 +15371,8 @@ export const UserCreateWithoutPaymentsInputSchema: z.ZodType<Prisma.UserCreateWi
   driverReviews: z.lazy(() => DriverReviewCreateNestedManyWithoutUserInputSchema).optional(),
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutPaymentsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutPaymentsInput> = z.strictObject({
@@ -13854,6 +15397,8 @@ export const UserUncheckedCreateWithoutPaymentsInputSchema: z.ZodType<Prisma.Use
   driverReviews: z.lazy(() => DriverReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutPaymentsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutPaymentsInput> = z.strictObject({
@@ -13865,10 +15410,11 @@ export const MerchantCreateWithoutPaymentsInputSchema: z.ZodType<Prisma.Merchant
   id: z.uuid().optional(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutMerchantsInputSchema),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -13884,10 +15430,11 @@ export const MerchantUncheckedCreateWithoutPaymentsInputSchema: z.ZodType<Prisma
   ownerId: z.string(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -13949,6 +15496,7 @@ export const OrderUpdateWithoutPaymentsInputSchema: z.ZodType<Prisma.OrderUpdate
   statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUpdateManyWithoutOrderNestedInputSchema).optional(),
   merchant: z.lazy(() => MerchantUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   driver: z.lazy(() => DriverUpdateOneWithoutOrdersNestedInputSchema).optional(),
@@ -13967,6 +15515,7 @@ export const OrderUncheckedUpdateWithoutPaymentsInputSchema: z.ZodType<Prisma.Or
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
 });
 
 export const UserUpsertWithoutPaymentsInputSchema: z.ZodType<Prisma.UserUpsertWithoutPaymentsInput> = z.strictObject({
@@ -14002,6 +15551,8 @@ export const UserUpdateWithoutPaymentsInputSchema: z.ZodType<Prisma.UserUpdateWi
   driverReviews: z.lazy(() => DriverReviewUpdateManyWithoutUserNestedInputSchema).optional(),
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutPaymentsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutPaymentsInput> = z.strictObject({
@@ -14026,6 +15577,8 @@ export const UserUncheckedUpdateWithoutPaymentsInputSchema: z.ZodType<Prisma.Use
   driverReviews: z.lazy(() => DriverReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const MerchantUpsertWithoutPaymentsInputSchema: z.ZodType<Prisma.MerchantUpsertWithoutPaymentsInput> = z.strictObject({
@@ -14043,10 +15596,11 @@ export const MerchantUpdateWithoutPaymentsInputSchema: z.ZodType<Prisma.Merchant
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutMerchantsNestedInputSchema).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -14062,10 +15616,11 @@ export const MerchantUncheckedUpdateWithoutPaymentsInputSchema: z.ZodType<Prisma
   ownerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -14154,6 +15709,7 @@ export const OrderCreateWithoutDriverInputSchema: z.ZodType<Prisma.OrderCreateWi
   payments: z.lazy(() => PaymentCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomCreateNestedManyWithoutOrderInputSchema).optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutOrdersInputSchema),
   user: z.lazy(() => UserCreateNestedOneWithoutOrdersInputSchema),
 });
@@ -14171,6 +15727,7 @@ export const OrderUncheckedCreateWithoutDriverInputSchema: z.ZodType<Prisma.Orde
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
 });
 
 export const OrderCreateOrConnectWithoutDriverInputSchema: z.ZodType<Prisma.OrderCreateOrConnectWithoutDriverInput> = z.strictObject({
@@ -14185,15 +15742,15 @@ export const OrderCreateManyDriverInputEnvelopeSchema: z.ZodType<Prisma.OrderCre
 
 export const DriverLocationCreateWithoutDriverInputSchema: z.ZodType<Prisma.DriverLocationCreateWithoutDriverInput> = z.strictObject({
   id: z.uuid().optional(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   recordedAt: z.coerce.date(),
 });
 
 export const DriverLocationUncheckedCreateWithoutDriverInputSchema: z.ZodType<Prisma.DriverLocationUncheckedCreateWithoutDriverInput> = z.strictObject({
   id: z.uuid().optional(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   recordedAt: z.coerce.date(),
 });
 
@@ -14211,7 +15768,7 @@ export const DeliveryCreateWithoutDriverInputSchema: z.ZodType<Prisma.DeliveryCr
   id: z.uuid().optional(),
   pickedAt: z.coerce.date(),
   deliveredAt: z.coerce.date(),
-  distanceKm: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  distanceKm: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   order: z.lazy(() => OrderCreateNestedOneWithoutDeliveriesInputSchema),
 });
 
@@ -14220,7 +15777,7 @@ export const DeliveryUncheckedCreateWithoutDriverInputSchema: z.ZodType<Prisma.D
   orderId: z.string(),
   pickedAt: z.coerce.date(),
   deliveredAt: z.coerce.date(),
-  distanceKm: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  distanceKm: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
 });
 
 export const DeliveryCreateOrConnectWithoutDriverInputSchema: z.ZodType<Prisma.DeliveryCreateOrConnectWithoutDriverInput> = z.strictObject({
@@ -14237,6 +15794,7 @@ export const DriverReviewCreateWithoutDriverInputSchema: z.ZodType<Prisma.Driver
   id: z.uuid().optional(),
   rating: z.number(),
   comment: z.string(),
+  createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutDriverReviewsInputSchema),
 });
 
@@ -14245,6 +15803,7 @@ export const DriverReviewUncheckedCreateWithoutDriverInputSchema: z.ZodType<Pris
   userId: z.string(),
   rating: z.number(),
   comment: z.string(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const DriverReviewCreateOrConnectWithoutDriverInputSchema: z.ZodType<Prisma.DriverReviewCreateOrConnectWithoutDriverInput> = z.strictObject({
@@ -14279,6 +15838,8 @@ export const UserCreateWithoutDriversInputSchema: z.ZodType<Prisma.UserCreateWit
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutDriversInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutDriversInput> = z.strictObject({
@@ -14303,6 +15864,8 @@ export const UserUncheckedCreateWithoutDriversInputSchema: z.ZodType<Prisma.User
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutDriversInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutDriversInput> = z.strictObject({
@@ -14348,8 +15911,8 @@ export const DriverLocationScalarWhereInputSchema: z.ZodType<Prisma.DriverLocati
   NOT: z.union([ z.lazy(() => DriverLocationScalarWhereInputSchema), z.lazy(() => DriverLocationScalarWhereInputSchema).array() ]).optional(),
   id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   driverId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
-  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
-  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  latitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
+  longitude: z.union([ z.lazy(() => DecimalFilterSchema), z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }) ]).optional(),
   recordedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
 });
 
@@ -14418,6 +15981,8 @@ export const UserUpdateWithoutDriversInputSchema: z.ZodType<Prisma.UserUpdateWit
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutDriversInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutDriversInput> = z.strictObject({
@@ -14442,12 +16007,16 @@ export const UserUncheckedUpdateWithoutDriversInputSchema: z.ZodType<Prisma.User
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const DriverCreateWithoutDriverLocationsInputSchema: z.ZodType<Prisma.DriverCreateWithoutDriverLocationsInput> = z.strictObject({
   id: z.uuid().optional(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   orders: z.lazy(() => OrderCreateNestedManyWithoutDriverInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutDriverInputSchema).optional(),
   driverReviews: z.lazy(() => DriverReviewCreateNestedManyWithoutDriverInputSchema).optional(),
@@ -14459,6 +16028,8 @@ export const DriverUncheckedCreateWithoutDriverLocationsInputSchema: z.ZodType<P
   userId: z.string(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   orders: z.lazy(() => OrderUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
   driverReviews: z.lazy(() => DriverReviewUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
@@ -14484,6 +16055,8 @@ export const DriverUpdateWithoutDriverLocationsInputSchema: z.ZodType<Prisma.Dri
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   orders: z.lazy(() => OrderUpdateManyWithoutDriverNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverReviews: z.lazy(() => DriverReviewUpdateManyWithoutDriverNestedInputSchema).optional(),
@@ -14495,6 +16068,8 @@ export const DriverUncheckedUpdateWithoutDriverLocationsInputSchema: z.ZodType<P
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   orders: z.lazy(() => OrderUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverReviews: z.lazy(() => DriverReviewUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
@@ -14510,6 +16085,7 @@ export const OrderCreateWithoutDeliveriesInputSchema: z.ZodType<Prisma.OrderCrea
   statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomCreateNestedManyWithoutOrderInputSchema).optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutOrdersInputSchema),
   user: z.lazy(() => UserCreateNestedOneWithoutOrdersInputSchema),
   driver: z.lazy(() => DriverCreateNestedOneWithoutOrdersInputSchema).optional(),
@@ -14528,6 +16104,7 @@ export const OrderUncheckedCreateWithoutDeliveriesInputSchema: z.ZodType<Prisma.
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
 });
 
 export const OrderCreateOrConnectWithoutDeliveriesInputSchema: z.ZodType<Prisma.OrderCreateOrConnectWithoutDeliveriesInput> = z.strictObject({
@@ -14539,6 +16116,8 @@ export const DriverCreateWithoutDeliveriesInputSchema: z.ZodType<Prisma.DriverCr
   id: z.uuid().optional(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   orders: z.lazy(() => OrderCreateNestedManyWithoutDriverInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationCreateNestedManyWithoutDriverInputSchema).optional(),
   driverReviews: z.lazy(() => DriverReviewCreateNestedManyWithoutDriverInputSchema).optional(),
@@ -14550,6 +16129,8 @@ export const DriverUncheckedCreateWithoutDeliveriesInputSchema: z.ZodType<Prisma
   userId: z.string(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   orders: z.lazy(() => OrderUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
   driverReviews: z.lazy(() => DriverReviewUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
@@ -14581,6 +16162,7 @@ export const OrderUpdateWithoutDeliveriesInputSchema: z.ZodType<Prisma.OrderUpda
   statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUpdateManyWithoutOrderNestedInputSchema).optional(),
   merchant: z.lazy(() => MerchantUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   driver: z.lazy(() => DriverUpdateOneWithoutOrdersNestedInputSchema).optional(),
@@ -14599,6 +16181,7 @@ export const OrderUncheckedUpdateWithoutDeliveriesInputSchema: z.ZodType<Prisma.
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
 });
 
 export const DriverUpsertWithoutDeliveriesInputSchema: z.ZodType<Prisma.DriverUpsertWithoutDeliveriesInput> = z.strictObject({
@@ -14616,6 +16199,8 @@ export const DriverUpdateWithoutDeliveriesInputSchema: z.ZodType<Prisma.DriverUp
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   orders: z.lazy(() => OrderUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverReviews: z.lazy(() => DriverReviewUpdateManyWithoutDriverNestedInputSchema).optional(),
@@ -14627,6 +16212,8 @@ export const DriverUncheckedUpdateWithoutDeliveriesInputSchema: z.ZodType<Prisma
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   orders: z.lazy(() => OrderUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverReviews: z.lazy(() => DriverReviewUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
@@ -14680,6 +16267,7 @@ export const OrderCreateWithoutOrderPromotionsInputSchema: z.ZodType<Prisma.Orde
   statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomCreateNestedManyWithoutOrderInputSchema).optional(),
   merchant: z.lazy(() => MerchantCreateNestedOneWithoutOrdersInputSchema),
   user: z.lazy(() => UserCreateNestedOneWithoutOrdersInputSchema),
   driver: z.lazy(() => DriverCreateNestedOneWithoutOrdersInputSchema).optional(),
@@ -14698,6 +16286,7 @@ export const OrderUncheckedCreateWithoutOrderPromotionsInputSchema: z.ZodType<Pr
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
 });
 
 export const OrderCreateOrConnectWithoutOrderPromotionsInputSchema: z.ZodType<Prisma.OrderCreateOrConnectWithoutOrderPromotionsInput> = z.strictObject({
@@ -14749,6 +16338,7 @@ export const OrderUpdateWithoutOrderPromotionsInputSchema: z.ZodType<Prisma.Orde
   statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUpdateManyWithoutOrderNestedInputSchema).optional(),
   merchant: z.lazy(() => MerchantUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   driver: z.lazy(() => DriverUpdateOneWithoutOrdersNestedInputSchema).optional(),
@@ -14767,6 +16357,7 @@ export const OrderUncheckedUpdateWithoutOrderPromotionsInputSchema: z.ZodType<Pr
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
 });
 
 export const PromotionUpsertWithoutOrderPromotionsInputSchema: z.ZodType<Prisma.PromotionUpsertWithoutOrderPromotionsInput> = z.strictObject({
@@ -14820,6 +16411,8 @@ export const UserCreateWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.UserC
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutMerchantReviewsInput> = z.strictObject({
@@ -14844,6 +16437,8 @@ export const UserUncheckedCreateWithoutMerchantReviewsInputSchema: z.ZodType<Pri
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutMerchantReviewsInput> = z.strictObject({
@@ -14855,10 +16450,11 @@ export const MerchantCreateWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.M
   id: z.uuid().optional(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutMerchantsInputSchema),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -14874,10 +16470,11 @@ export const MerchantUncheckedCreateWithoutMerchantReviewsInputSchema: z.ZodType
   ownerId: z.string(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedCreateNestedManyWithoutMerchantInputSchema).optional(),
@@ -14925,6 +16522,8 @@ export const UserUpdateWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.UserU
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutMerchantReviewsInput> = z.strictObject({
@@ -14949,6 +16548,8 @@ export const UserUncheckedUpdateWithoutMerchantReviewsInputSchema: z.ZodType<Pri
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const MerchantUpsertWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.MerchantUpsertWithoutMerchantReviewsInput> = z.strictObject({
@@ -14966,10 +16567,11 @@ export const MerchantUpdateWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.M
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutMerchantsNestedInputSchema).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -14985,10 +16587,11 @@ export const MerchantUncheckedUpdateWithoutMerchantReviewsInputSchema: z.ZodType
   ownerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -15020,6 +16623,8 @@ export const UserCreateWithoutDriverReviewsInputSchema: z.ZodType<Prisma.UserCre
   notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutDriverReviewsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutDriverReviewsInput> = z.strictObject({
@@ -15044,6 +16649,8 @@ export const UserUncheckedCreateWithoutDriverReviewsInputSchema: z.ZodType<Prism
   notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutDriverReviewsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutDriverReviewsInput> = z.strictObject({
@@ -15055,6 +16662,8 @@ export const DriverCreateWithoutDriverReviewsInputSchema: z.ZodType<Prisma.Drive
   id: z.uuid().optional(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   orders: z.lazy(() => OrderCreateNestedManyWithoutDriverInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationCreateNestedManyWithoutDriverInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutDriverInputSchema).optional(),
@@ -15066,6 +16675,8 @@ export const DriverUncheckedCreateWithoutDriverReviewsInputSchema: z.ZodType<Pri
   userId: z.string(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   orders: z.lazy(() => OrderUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutDriverInputSchema).optional(),
@@ -15109,6 +16720,8 @@ export const UserUpdateWithoutDriverReviewsInputSchema: z.ZodType<Prisma.UserUpd
   notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutDriverReviewsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutDriverReviewsInput> = z.strictObject({
@@ -15133,6 +16746,8 @@ export const UserUncheckedUpdateWithoutDriverReviewsInputSchema: z.ZodType<Prism
   notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const DriverUpsertWithoutDriverReviewsInputSchema: z.ZodType<Prisma.DriverUpsertWithoutDriverReviewsInput> = z.strictObject({
@@ -15150,6 +16765,8 @@ export const DriverUpdateWithoutDriverReviewsInputSchema: z.ZodType<Prisma.Drive
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   orders: z.lazy(() => OrderUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUpdateManyWithoutDriverNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutDriverNestedInputSchema).optional(),
@@ -15161,6 +16778,8 @@ export const DriverUncheckedUpdateWithoutDriverReviewsInputSchema: z.ZodType<Pri
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   orders: z.lazy(() => OrderUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
@@ -15188,6 +16807,8 @@ export const UserCreateWithoutNotificationsInputSchema: z.ZodType<Prisma.UserCre
   driverReviews: z.lazy(() => DriverReviewCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutNotificationsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutNotificationsInput> = z.strictObject({
@@ -15212,6 +16833,8 @@ export const UserUncheckedCreateWithoutNotificationsInputSchema: z.ZodType<Prism
   driverReviews: z.lazy(() => DriverReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutNotificationsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutNotificationsInput> = z.strictObject({
@@ -15252,6 +16875,8 @@ export const UserUpdateWithoutNotificationsInputSchema: z.ZodType<Prisma.UserUpd
   driverReviews: z.lazy(() => DriverReviewUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutNotificationsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutNotificationsInput> = z.strictObject({
@@ -15276,6 +16901,8 @@ export const UserUncheckedUpdateWithoutNotificationsInputSchema: z.ZodType<Prism
   driverReviews: z.lazy(() => DriverReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
 });
 
 export const UserProfileCreateWithoutImageInputSchema: z.ZodType<Prisma.UserProfileCreateWithoutImageInput> = z.strictObject({
@@ -15370,6 +16997,514 @@ export const MenuUpdateManyWithWhereWithoutImageInputSchema: z.ZodType<Prisma.Me
   data: z.union([ z.lazy(() => MenuUpdateManyMutationInputSchema), z.lazy(() => MenuUncheckedUpdateManyWithoutImageInputSchema) ]),
 });
 
+export const OrderCreateWithoutChatRoomsInputSchema: z.ZodType<Prisma.OrderCreateWithoutChatRoomsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  status: z.lazy(() => OrderStatusSchema).optional(),
+  totalPrice: z.number(),
+  deliveryFee: z.number().optional().nullable(),
+  paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
+  items: z.lazy(() => OrderItemCreateNestedManyWithoutOrderInputSchema).optional(),
+  statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
+  payments: z.lazy(() => PaymentCreateNestedManyWithoutOrderInputSchema).optional(),
+  deliveries: z.lazy(() => DeliveryCreateNestedManyWithoutOrderInputSchema).optional(),
+  orderPromotions: z.lazy(() => OrderPromotionCreateNestedManyWithoutOrderInputSchema).optional(),
+  merchant: z.lazy(() => MerchantCreateNestedOneWithoutOrdersInputSchema),
+  user: z.lazy(() => UserCreateNestedOneWithoutOrdersInputSchema),
+  driver: z.lazy(() => DriverCreateNestedOneWithoutOrdersInputSchema).optional(),
+});
+
+export const OrderUncheckedCreateWithoutChatRoomsInputSchema: z.ZodType<Prisma.OrderUncheckedCreateWithoutChatRoomsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  userId: z.string(),
+  merchantId: z.string(),
+  driverId: z.string().optional().nullable(),
+  status: z.lazy(() => OrderStatusSchema).optional(),
+  totalPrice: z.number(),
+  deliveryFee: z.number().optional().nullable(),
+  paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
+  items: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+  statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
+  payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+  deliveries: z.lazy(() => DeliveryUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+  orderPromotions: z.lazy(() => OrderPromotionUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
+});
+
+export const OrderCreateOrConnectWithoutChatRoomsInputSchema: z.ZodType<Prisma.OrderCreateOrConnectWithoutChatRoomsInput> = z.strictObject({
+  where: z.lazy(() => OrderWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => OrderCreateWithoutChatRoomsInputSchema), z.lazy(() => OrderUncheckedCreateWithoutChatRoomsInputSchema) ]),
+});
+
+export const ChatParticipantCreateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantCreateWithoutChatRoomInput> = z.strictObject({
+  id: z.uuid().optional(),
+  role: z.lazy(() => ChatRoleSchema),
+  joinedAt: z.coerce.date().optional(),
+  user: z.lazy(() => UserCreateNestedOneWithoutChatParticipantsInputSchema),
+});
+
+export const ChatParticipantUncheckedCreateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedCreateWithoutChatRoomInput> = z.strictObject({
+  id: z.uuid().optional(),
+  userId: z.string(),
+  role: z.lazy(() => ChatRoleSchema),
+  joinedAt: z.coerce.date().optional(),
+});
+
+export const ChatParticipantCreateOrConnectWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantCreateOrConnectWithoutChatRoomInput> = z.strictObject({
+  where: z.lazy(() => ChatParticipantWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => ChatParticipantCreateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutChatRoomInputSchema) ]),
+});
+
+export const ChatParticipantCreateManyChatRoomInputEnvelopeSchema: z.ZodType<Prisma.ChatParticipantCreateManyChatRoomInputEnvelope> = z.strictObject({
+  data: z.union([ z.lazy(() => ChatParticipantCreateManyChatRoomInputSchema), z.lazy(() => ChatParticipantCreateManyChatRoomInputSchema).array() ]),
+  skipDuplicates: z.boolean().optional(),
+});
+
+export const ChatMessageCreateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageCreateWithoutChatRoomInput> = z.strictObject({
+  id: z.uuid().optional(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+  sender: z.lazy(() => UserCreateNestedOneWithoutChatMessagesInputSchema),
+});
+
+export const ChatMessageUncheckedCreateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageUncheckedCreateWithoutChatRoomInput> = z.strictObject({
+  id: z.uuid().optional(),
+  senderId: z.string(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+});
+
+export const ChatMessageCreateOrConnectWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageCreateOrConnectWithoutChatRoomInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutChatRoomInputSchema) ]),
+});
+
+export const ChatMessageCreateManyChatRoomInputEnvelopeSchema: z.ZodType<Prisma.ChatMessageCreateManyChatRoomInputEnvelope> = z.strictObject({
+  data: z.union([ z.lazy(() => ChatMessageCreateManyChatRoomInputSchema), z.lazy(() => ChatMessageCreateManyChatRoomInputSchema).array() ]),
+  skipDuplicates: z.boolean().optional(),
+});
+
+export const OrderUpsertWithoutChatRoomsInputSchema: z.ZodType<Prisma.OrderUpsertWithoutChatRoomsInput> = z.strictObject({
+  update: z.union([ z.lazy(() => OrderUpdateWithoutChatRoomsInputSchema), z.lazy(() => OrderUncheckedUpdateWithoutChatRoomsInputSchema) ]),
+  create: z.union([ z.lazy(() => OrderCreateWithoutChatRoomsInputSchema), z.lazy(() => OrderUncheckedCreateWithoutChatRoomsInputSchema) ]),
+  where: z.lazy(() => OrderWhereInputSchema).optional(),
+});
+
+export const OrderUpdateToOneWithWhereWithoutChatRoomsInputSchema: z.ZodType<Prisma.OrderUpdateToOneWithWhereWithoutChatRoomsInput> = z.strictObject({
+  where: z.lazy(() => OrderWhereInputSchema).optional(),
+  data: z.union([ z.lazy(() => OrderUpdateWithoutChatRoomsInputSchema), z.lazy(() => OrderUncheckedUpdateWithoutChatRoomsInputSchema) ]),
+});
+
+export const OrderUpdateWithoutChatRoomsInputSchema: z.ZodType<Prisma.OrderUpdateWithoutChatRoomsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  items: z.lazy(() => OrderItemUpdateManyWithoutOrderNestedInputSchema).optional(),
+  statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
+  payments: z.lazy(() => PaymentUpdateManyWithoutOrderNestedInputSchema).optional(),
+  deliveries: z.lazy(() => DeliveryUpdateManyWithoutOrderNestedInputSchema).optional(),
+  orderPromotions: z.lazy(() => OrderPromotionUpdateManyWithoutOrderNestedInputSchema).optional(),
+  merchant: z.lazy(() => MerchantUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
+  user: z.lazy(() => UserUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
+  driver: z.lazy(() => DriverUpdateOneWithoutOrdersNestedInputSchema).optional(),
+});
+
+export const OrderUncheckedUpdateWithoutChatRoomsInputSchema: z.ZodType<Prisma.OrderUncheckedUpdateWithoutChatRoomsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  merchantId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  driverId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  items: z.lazy(() => OrderItemUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+  statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
+  payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+  deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+  orderPromotions: z.lazy(() => OrderPromotionUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+});
+
+export const ChatParticipantUpsertWithWhereUniqueWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantUpsertWithWhereUniqueWithoutChatRoomInput> = z.strictObject({
+  where: z.lazy(() => ChatParticipantWhereUniqueInputSchema),
+  update: z.union([ z.lazy(() => ChatParticipantUpdateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUncheckedUpdateWithoutChatRoomInputSchema) ]),
+  create: z.union([ z.lazy(() => ChatParticipantCreateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutChatRoomInputSchema) ]),
+});
+
+export const ChatParticipantUpdateWithWhereUniqueWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantUpdateWithWhereUniqueWithoutChatRoomInput> = z.strictObject({
+  where: z.lazy(() => ChatParticipantWhereUniqueInputSchema),
+  data: z.union([ z.lazy(() => ChatParticipantUpdateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUncheckedUpdateWithoutChatRoomInputSchema) ]),
+});
+
+export const ChatParticipantUpdateManyWithWhereWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantUpdateManyWithWhereWithoutChatRoomInput> = z.strictObject({
+  where: z.lazy(() => ChatParticipantScalarWhereInputSchema),
+  data: z.union([ z.lazy(() => ChatParticipantUpdateManyMutationInputSchema), z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutChatRoomInputSchema) ]),
+});
+
+export const ChatMessageUpsertWithWhereUniqueWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageUpsertWithWhereUniqueWithoutChatRoomInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereUniqueInputSchema),
+  update: z.union([ z.lazy(() => ChatMessageUpdateWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUncheckedUpdateWithoutChatRoomInputSchema) ]),
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutChatRoomInputSchema) ]),
+});
+
+export const ChatMessageUpdateWithWhereUniqueWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageUpdateWithWhereUniqueWithoutChatRoomInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereUniqueInputSchema),
+  data: z.union([ z.lazy(() => ChatMessageUpdateWithoutChatRoomInputSchema), z.lazy(() => ChatMessageUncheckedUpdateWithoutChatRoomInputSchema) ]),
+});
+
+export const ChatMessageUpdateManyWithWhereWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageUpdateManyWithWhereWithoutChatRoomInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageScalarWhereInputSchema),
+  data: z.union([ z.lazy(() => ChatMessageUpdateManyMutationInputSchema), z.lazy(() => ChatMessageUncheckedUpdateManyWithoutChatRoomInputSchema) ]),
+});
+
+export const ChatRoomCreateWithoutParticipantsInputSchema: z.ZodType<Prisma.ChatRoomCreateWithoutParticipantsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  type: z.lazy(() => ChatRoomTypeSchema),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  order: z.lazy(() => OrderCreateNestedOneWithoutChatRoomsInputSchema),
+  messages: z.lazy(() => ChatMessageCreateNestedManyWithoutChatRoomInputSchema).optional(),
+});
+
+export const ChatRoomUncheckedCreateWithoutParticipantsInputSchema: z.ZodType<Prisma.ChatRoomUncheckedCreateWithoutParticipantsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  orderId: z.string(),
+  type: z.lazy(() => ChatRoomTypeSchema),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  messages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutChatRoomInputSchema).optional(),
+});
+
+export const ChatRoomCreateOrConnectWithoutParticipantsInputSchema: z.ZodType<Prisma.ChatRoomCreateOrConnectWithoutParticipantsInput> = z.strictObject({
+  where: z.lazy(() => ChatRoomWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutParticipantsInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutParticipantsInputSchema) ]),
+});
+
+export const UserCreateWithoutChatParticipantsInputSchema: z.ZodType<Prisma.UserCreateWithoutChatParticipantsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  email: z.string(),
+  emailVerified: z.boolean().optional(),
+  image: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  role: z.lazy(() => RoleSchema).optional(),
+  status: z.lazy(() => UserStatusSchema).optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  userProfiles: z.lazy(() => UserProfileCreateNestedManyWithoutUserInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresCreateNestedManyWithoutUserInputSchema).optional(),
+  accounts: z.lazy(() => AccountCreateNestedManyWithoutUserInputSchema).optional(),
+  sessions: z.lazy(() => SessionCreateNestedManyWithoutUserInputSchema).optional(),
+  merchants: z.lazy(() => MerchantCreateNestedManyWithoutUserInputSchema).optional(),
+  orders: z.lazy(() => OrderCreateNestedManyWithoutUserInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutUsersInputSchema).optional(),
+  drivers: z.lazy(() => DriverCreateNestedManyWithoutUserInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewCreateNestedManyWithoutUserInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewCreateNestedManyWithoutUserInputSchema).optional(),
+  notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
+  carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
+  payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+});
+
+export const UserUncheckedCreateWithoutChatParticipantsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutChatParticipantsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  email: z.string(),
+  emailVerified: z.boolean().optional(),
+  image: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  role: z.lazy(() => RoleSchema).optional(),
+  status: z.lazy(() => UserStatusSchema).optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  userProfiles: z.lazy(() => UserProfileUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  accounts: z.lazy(() => AccountUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  sessions: z.lazy(() => SessionUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  orders: z.lazy(() => OrderUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutUsersInputSchema).optional(),
+  drivers: z.lazy(() => DriverUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+});
+
+export const UserCreateOrConnectWithoutChatParticipantsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutChatParticipantsInput> = z.strictObject({
+  where: z.lazy(() => UserWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => UserCreateWithoutChatParticipantsInputSchema), z.lazy(() => UserUncheckedCreateWithoutChatParticipantsInputSchema) ]),
+});
+
+export const ChatRoomUpsertWithoutParticipantsInputSchema: z.ZodType<Prisma.ChatRoomUpsertWithoutParticipantsInput> = z.strictObject({
+  update: z.union([ z.lazy(() => ChatRoomUpdateWithoutParticipantsInputSchema), z.lazy(() => ChatRoomUncheckedUpdateWithoutParticipantsInputSchema) ]),
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutParticipantsInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutParticipantsInputSchema) ]),
+  where: z.lazy(() => ChatRoomWhereInputSchema).optional(),
+});
+
+export const ChatRoomUpdateToOneWithWhereWithoutParticipantsInputSchema: z.ZodType<Prisma.ChatRoomUpdateToOneWithWhereWithoutParticipantsInput> = z.strictObject({
+  where: z.lazy(() => ChatRoomWhereInputSchema).optional(),
+  data: z.union([ z.lazy(() => ChatRoomUpdateWithoutParticipantsInputSchema), z.lazy(() => ChatRoomUncheckedUpdateWithoutParticipantsInputSchema) ]),
+});
+
+export const ChatRoomUpdateWithoutParticipantsInputSchema: z.ZodType<Prisma.ChatRoomUpdateWithoutParticipantsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  order: z.lazy(() => OrderUpdateOneRequiredWithoutChatRoomsNestedInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+});
+
+export const ChatRoomUncheckedUpdateWithoutParticipantsInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateWithoutParticipantsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  messages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+});
+
+export const UserUpsertWithoutChatParticipantsInputSchema: z.ZodType<Prisma.UserUpsertWithoutChatParticipantsInput> = z.strictObject({
+  update: z.union([ z.lazy(() => UserUpdateWithoutChatParticipantsInputSchema), z.lazy(() => UserUncheckedUpdateWithoutChatParticipantsInputSchema) ]),
+  create: z.union([ z.lazy(() => UserCreateWithoutChatParticipantsInputSchema), z.lazy(() => UserUncheckedCreateWithoutChatParticipantsInputSchema) ]),
+  where: z.lazy(() => UserWhereInputSchema).optional(),
+});
+
+export const UserUpdateToOneWithWhereWithoutChatParticipantsInputSchema: z.ZodType<Prisma.UserUpdateToOneWithWhereWithoutChatParticipantsInput> = z.strictObject({
+  where: z.lazy(() => UserWhereInputSchema).optional(),
+  data: z.union([ z.lazy(() => UserUpdateWithoutChatParticipantsInputSchema), z.lazy(() => UserUncheckedUpdateWithoutChatParticipantsInputSchema) ]),
+});
+
+export const UserUpdateWithoutChatParticipantsInputSchema: z.ZodType<Prisma.UserUpdateWithoutChatParticipantsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  email: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  emailVerified: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  image: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  phoneNumber: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  role: z.union([ z.lazy(() => RoleSchema), z.lazy(() => EnumRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => UserStatusSchema), z.lazy(() => EnumUserStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  userProfiles: z.lazy(() => UserProfileUpdateManyWithoutUserNestedInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUpdateManyWithoutUserNestedInputSchema).optional(),
+  accounts: z.lazy(() => AccountUpdateManyWithoutUserNestedInputSchema).optional(),
+  sessions: z.lazy(() => SessionUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUpdateManyWithoutUserNestedInputSchema).optional(),
+  orders: z.lazy(() => OrderUpdateManyWithoutUserNestedInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutUsersNestedInputSchema).optional(),
+  drivers: z.lazy(() => DriverUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUpdateManyWithoutUserNestedInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUpdateManyWithoutUserNestedInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
+  carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
+  payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+});
+
+export const UserUncheckedUpdateWithoutChatParticipantsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutChatParticipantsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  email: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  emailVerified: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  image: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  phoneNumber: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  role: z.union([ z.lazy(() => RoleSchema), z.lazy(() => EnumRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => UserStatusSchema), z.lazy(() => EnumUserStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  userProfiles: z.lazy(() => UserProfileUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  accounts: z.lazy(() => AccountUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  sessions: z.lazy(() => SessionUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  orders: z.lazy(() => OrderUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutUsersNestedInputSchema).optional(),
+  drivers: z.lazy(() => DriverUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+});
+
+export const ChatRoomCreateWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomCreateWithoutMessagesInput> = z.strictObject({
+  id: z.uuid().optional(),
+  type: z.lazy(() => ChatRoomTypeSchema),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  order: z.lazy(() => OrderCreateNestedOneWithoutChatRoomsInputSchema),
+  participants: z.lazy(() => ChatParticipantCreateNestedManyWithoutChatRoomInputSchema).optional(),
+});
+
+export const ChatRoomUncheckedCreateWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomUncheckedCreateWithoutMessagesInput> = z.strictObject({
+  id: z.uuid().optional(),
+  orderId: z.string(),
+  type: z.lazy(() => ChatRoomTypeSchema),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  participants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutChatRoomInputSchema).optional(),
+});
+
+export const ChatRoomCreateOrConnectWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomCreateOrConnectWithoutMessagesInput> = z.strictObject({
+  where: z.lazy(() => ChatRoomWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutMessagesInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutMessagesInputSchema) ]),
+});
+
+export const UserCreateWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserCreateWithoutChatMessagesInput> = z.strictObject({
+  id: z.uuid().optional(),
+  email: z.string(),
+  emailVerified: z.boolean().optional(),
+  image: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  role: z.lazy(() => RoleSchema).optional(),
+  status: z.lazy(() => UserStatusSchema).optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  userProfiles: z.lazy(() => UserProfileCreateNestedManyWithoutUserInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresCreateNestedManyWithoutUserInputSchema).optional(),
+  accounts: z.lazy(() => AccountCreateNestedManyWithoutUserInputSchema).optional(),
+  sessions: z.lazy(() => SessionCreateNestedManyWithoutUserInputSchema).optional(),
+  merchants: z.lazy(() => MerchantCreateNestedManyWithoutUserInputSchema).optional(),
+  orders: z.lazy(() => OrderCreateNestedManyWithoutUserInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutUsersInputSchema).optional(),
+  drivers: z.lazy(() => DriverCreateNestedManyWithoutUserInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewCreateNestedManyWithoutUserInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewCreateNestedManyWithoutUserInputSchema).optional(),
+  notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
+  carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
+  payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+});
+
+export const UserUncheckedCreateWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutChatMessagesInput> = z.strictObject({
+  id: z.uuid().optional(),
+  email: z.string(),
+  emailVerified: z.boolean().optional(),
+  image: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  role: z.lazy(() => RoleSchema).optional(),
+  status: z.lazy(() => UserStatusSchema).optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  userProfiles: z.lazy(() => UserProfileUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  accounts: z.lazy(() => AccountUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  sessions: z.lazy(() => SessionUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  orders: z.lazy(() => OrderUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutUsersInputSchema).optional(),
+  drivers: z.lazy(() => DriverUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+});
+
+export const UserCreateOrConnectWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutChatMessagesInput> = z.strictObject({
+  where: z.lazy(() => UserWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => UserCreateWithoutChatMessagesInputSchema), z.lazy(() => UserUncheckedCreateWithoutChatMessagesInputSchema) ]),
+});
+
+export const ChatRoomUpsertWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomUpsertWithoutMessagesInput> = z.strictObject({
+  update: z.union([ z.lazy(() => ChatRoomUpdateWithoutMessagesInputSchema), z.lazy(() => ChatRoomUncheckedUpdateWithoutMessagesInputSchema) ]),
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutMessagesInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutMessagesInputSchema) ]),
+  where: z.lazy(() => ChatRoomWhereInputSchema).optional(),
+});
+
+export const ChatRoomUpdateToOneWithWhereWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomUpdateToOneWithWhereWithoutMessagesInput> = z.strictObject({
+  where: z.lazy(() => ChatRoomWhereInputSchema).optional(),
+  data: z.union([ z.lazy(() => ChatRoomUpdateWithoutMessagesInputSchema), z.lazy(() => ChatRoomUncheckedUpdateWithoutMessagesInputSchema) ]),
+});
+
+export const ChatRoomUpdateWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomUpdateWithoutMessagesInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  order: z.lazy(() => OrderUpdateOneRequiredWithoutChatRoomsNestedInputSchema).optional(),
+  participants: z.lazy(() => ChatParticipantUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+});
+
+export const ChatRoomUncheckedUpdateWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateWithoutMessagesInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  participants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+});
+
+export const UserUpsertWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserUpsertWithoutChatMessagesInput> = z.strictObject({
+  update: z.union([ z.lazy(() => UserUpdateWithoutChatMessagesInputSchema), z.lazy(() => UserUncheckedUpdateWithoutChatMessagesInputSchema) ]),
+  create: z.union([ z.lazy(() => UserCreateWithoutChatMessagesInputSchema), z.lazy(() => UserUncheckedCreateWithoutChatMessagesInputSchema) ]),
+  where: z.lazy(() => UserWhereInputSchema).optional(),
+});
+
+export const UserUpdateToOneWithWhereWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserUpdateToOneWithWhereWithoutChatMessagesInput> = z.strictObject({
+  where: z.lazy(() => UserWhereInputSchema).optional(),
+  data: z.union([ z.lazy(() => UserUpdateWithoutChatMessagesInputSchema), z.lazy(() => UserUncheckedUpdateWithoutChatMessagesInputSchema) ]),
+});
+
+export const UserUpdateWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserUpdateWithoutChatMessagesInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  email: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  emailVerified: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  image: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  phoneNumber: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  role: z.union([ z.lazy(() => RoleSchema), z.lazy(() => EnumRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => UserStatusSchema), z.lazy(() => EnumUserStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  userProfiles: z.lazy(() => UserProfileUpdateManyWithoutUserNestedInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUpdateManyWithoutUserNestedInputSchema).optional(),
+  accounts: z.lazy(() => AccountUpdateManyWithoutUserNestedInputSchema).optional(),
+  sessions: z.lazy(() => SessionUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUpdateManyWithoutUserNestedInputSchema).optional(),
+  orders: z.lazy(() => OrderUpdateManyWithoutUserNestedInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutUsersNestedInputSchema).optional(),
+  drivers: z.lazy(() => DriverUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUpdateManyWithoutUserNestedInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUpdateManyWithoutUserNestedInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
+  carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
+  payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+});
+
+export const UserUncheckedUpdateWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutChatMessagesInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  email: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  emailVerified: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  image: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  phoneNumber: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  role: z.union([ z.lazy(() => RoleSchema), z.lazy(() => EnumRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => UserStatusSchema), z.lazy(() => EnumUserStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  userProfiles: z.lazy(() => UserProfileUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  accounts: z.lazy(() => AccountUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  sessions: z.lazy(() => SessionUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  orders: z.lazy(() => OrderUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutUsersNestedInputSchema).optional(),
+  drivers: z.lazy(() => DriverUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+});
+
 export const UserProfileCreateManyUserInputSchema: z.ZodType<Prisma.UserProfileCreateManyUserInput> = z.strictObject({
   id: z.uuid().optional(),
   fullName: z.string(),
@@ -15381,8 +17516,8 @@ export const UserProfileCreateManyUserInputSchema: z.ZodType<Prisma.UserProfileC
 export const UserAddresCreateManyUserInputSchema: z.ZodType<Prisma.UserAddresCreateManyUserInput> = z.strictObject({
   id: z.uuid().optional(),
   label: z.string(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   address: z.string(),
   isDefault: z.boolean(),
 });
@@ -15417,10 +17552,11 @@ export const MerchantCreateManyUserInputSchema: z.ZodType<Prisma.MerchantCreateM
   id: z.uuid().optional(),
   name: z.string(),
   description: z.string().optional().nullable(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   isOpen: z.boolean().optional(),
-  rating: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
   createdAt: z.coerce.date().optional(),
 });
 
@@ -15445,6 +17581,8 @@ export const DriverCreateManyUserInputSchema: z.ZodType<Prisma.DriverCreateManyU
   id: z.uuid().optional(),
   plateNumber: z.string(),
   isAvailable: z.boolean(),
+  rating: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }).optional().nullable(),
+  approvalStatus: z.lazy(() => ApprovalStatusSchema).optional(),
 });
 
 export const MerchantReviewCreateManyUserInputSchema: z.ZodType<Prisma.MerchantReviewCreateManyUserInput> = z.strictObject({
@@ -15460,6 +17598,7 @@ export const DriverReviewCreateManyUserInputSchema: z.ZodType<Prisma.DriverRevie
   driverId: z.string(),
   rating: z.number(),
   comment: z.string(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const NotificationCreateManyUserInputSchema: z.ZodType<Prisma.NotificationCreateManyUserInput> = z.strictObject({
@@ -15491,6 +17630,22 @@ export const PaymentCreateManyCustomerInputSchema: z.ZodType<Prisma.PaymentCreat
   createdAt: z.coerce.date().optional(),
 });
 
+export const ChatParticipantCreateManyUserInputSchema: z.ZodType<Prisma.ChatParticipantCreateManyUserInput> = z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId: z.string(),
+  role: z.lazy(() => ChatRoleSchema),
+  joinedAt: z.coerce.date().optional(),
+});
+
+export const ChatMessageCreateManySenderInputSchema: z.ZodType<Prisma.ChatMessageCreateManySenderInput> = z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId: z.string(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+});
+
 export const UserProfileUpdateWithoutUserInputSchema: z.ZodType<Prisma.UserProfileUpdateWithoutUserInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   fullName: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
@@ -15518,8 +17673,8 @@ export const UserProfileUncheckedUpdateManyWithoutUserInputSchema: z.ZodType<Pri
 export const UserAddresUpdateWithoutUserInputSchema: z.ZodType<Prisma.UserAddresUpdateWithoutUserInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   address: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isDefault: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
@@ -15527,8 +17682,8 @@ export const UserAddresUpdateWithoutUserInputSchema: z.ZodType<Prisma.UserAddres
 export const UserAddresUncheckedUpdateWithoutUserInputSchema: z.ZodType<Prisma.UserAddresUncheckedUpdateWithoutUserInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   address: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isDefault: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
@@ -15536,8 +17691,8 @@ export const UserAddresUncheckedUpdateWithoutUserInputSchema: z.ZodType<Prisma.U
 export const UserAddresUncheckedUpdateManyWithoutUserInputSchema: z.ZodType<Prisma.UserAddresUncheckedUpdateManyWithoutUserInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   address: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isDefault: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
@@ -15624,10 +17779,11 @@ export const MerchantUpdateWithoutUserInputSchema: z.ZodType<Prisma.MerchantUpda
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUpdateManyWithoutMerchantNestedInputSchema).optional(),
   menus: z.lazy(() => MenuUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -15642,10 +17798,11 @@ export const MerchantUncheckedUpdateWithoutUserInputSchema: z.ZodType<Prisma.Mer
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   merchantOperationalHours: z.lazy(() => MerchantOperationalHourUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
   menus: z.lazy(() => MenuUncheckedUpdateManyWithoutMerchantNestedInputSchema).optional(),
@@ -15660,10 +17817,11 @@ export const MerchantUncheckedUpdateManyWithoutUserInputSchema: z.ZodType<Prisma
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   name: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   description: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   isOpen: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
-  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -15678,6 +17836,7 @@ export const OrderUpdateWithoutUserInputSchema: z.ZodType<Prisma.OrderUpdateWith
   payments: z.lazy(() => PaymentUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUpdateManyWithoutOrderNestedInputSchema).optional(),
   merchant: z.lazy(() => MerchantUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   driver: z.lazy(() => DriverUpdateOneWithoutOrdersNestedInputSchema).optional(),
 });
@@ -15695,6 +17854,7 @@ export const OrderUncheckedUpdateWithoutUserInputSchema: z.ZodType<Prisma.OrderU
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
 });
 
 export const OrderUncheckedUpdateManyWithoutUserInputSchema: z.ZodType<Prisma.OrderUncheckedUpdateManyWithoutUserInput> = z.strictObject({
@@ -15732,6 +17892,8 @@ export const DriverUpdateWithoutUserInputSchema: z.ZodType<Prisma.DriverUpdateWi
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   orders: z.lazy(() => OrderUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUpdateManyWithoutDriverNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutDriverNestedInputSchema).optional(),
@@ -15742,6 +17904,8 @@ export const DriverUncheckedUpdateWithoutUserInputSchema: z.ZodType<Prisma.Drive
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
   orders: z.lazy(() => OrderUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
   driverLocations: z.lazy(() => DriverLocationUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutDriverNestedInputSchema).optional(),
@@ -15752,6 +17916,8 @@ export const DriverUncheckedUpdateManyWithoutUserInputSchema: z.ZodType<Prisma.D
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   plateNumber: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  rating: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => NullableDecimalFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  approvalStatus: z.union([ z.lazy(() => ApprovalStatusSchema), z.lazy(() => EnumApprovalStatusFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const MerchantReviewUpdateWithoutUserInputSchema: z.ZodType<Prisma.MerchantReviewUpdateWithoutUserInput> = z.strictObject({
@@ -15782,6 +17948,7 @@ export const DriverReviewUpdateWithoutUserInputSchema: z.ZodType<Prisma.DriverRe
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   rating: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   comment: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   driver: z.lazy(() => DriverUpdateOneRequiredWithoutDriverReviewsNestedInputSchema).optional(),
 });
 
@@ -15790,6 +17957,7 @@ export const DriverReviewUncheckedUpdateWithoutUserInputSchema: z.ZodType<Prisma
   driverId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   rating: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   comment: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DriverReviewUncheckedUpdateManyWithoutUserInputSchema: z.ZodType<Prisma.DriverReviewUncheckedUpdateManyWithoutUserInput> = z.strictObject({
@@ -15797,6 +17965,7 @@ export const DriverReviewUncheckedUpdateManyWithoutUserInputSchema: z.ZodType<Pr
   driverId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   rating: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   comment: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const NotificationUpdateWithoutUserInputSchema: z.ZodType<Prisma.NotificationUpdateWithoutUserInput> = z.strictObject({
@@ -15887,6 +18056,54 @@ export const PaymentUncheckedUpdateManyWithoutCustomerInputSchema: z.ZodType<Pri
   transactionId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   status: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatParticipantUpdateWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantUpdateWithoutUserInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoom: z.lazy(() => ChatRoomUpdateOneRequiredWithoutParticipantsNestedInputSchema).optional(),
+});
+
+export const ChatParticipantUncheckedUpdateWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedUpdateWithoutUserInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatParticipantUncheckedUpdateManyWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedUpdateManyWithoutUserInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatMessageUpdateWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUpdateWithoutSenderInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoom: z.lazy(() => ChatRoomUpdateOneRequiredWithoutMessagesNestedInputSchema).optional(),
+});
+
+export const ChatMessageUncheckedUpdateWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateWithoutSenderInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatMessageUncheckedUpdateManyWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateManyWithoutSenderInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -16019,6 +18236,7 @@ export const OrderUpdateWithoutMerchantInputSchema: z.ZodType<Prisma.OrderUpdate
   payments: z.lazy(() => PaymentUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUpdateManyWithoutOrderNestedInputSchema).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   driver: z.lazy(() => DriverUpdateOneWithoutOrdersNestedInputSchema).optional(),
 });
@@ -16036,6 +18254,7 @@ export const OrderUncheckedUpdateWithoutMerchantInputSchema: z.ZodType<Prisma.Or
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
 });
 
 export const OrderUncheckedUpdateManyWithoutMerchantInputSchema: z.ZodType<Prisma.OrderUncheckedUpdateManyWithoutMerchantInput> = z.strictObject({
@@ -16369,13 +18588,20 @@ export const DeliveryCreateManyOrderInputSchema: z.ZodType<Prisma.DeliveryCreate
   driverId: z.string(),
   pickedAt: z.coerce.date(),
   deliveredAt: z.coerce.date(),
-  distanceKm: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  distanceKm: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
 });
 
 export const OrderPromotionCreateManyOrderInputSchema: z.ZodType<Prisma.OrderPromotionCreateManyOrderInput> = z.strictObject({
   id: z.uuid().optional(),
   promotionId: z.string(),
   discountAmount: z.number(),
+});
+
+export const ChatRoomCreateManyOrderInputSchema: z.ZodType<Prisma.ChatRoomCreateManyOrderInput> = z.strictObject({
+  id: z.uuid().optional(),
+  type: z.lazy(() => ChatRoomTypeSchema),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
 });
 
 export const OrderItemUpdateWithoutOrderInputSchema: z.ZodType<Prisma.OrderItemUpdateWithoutOrderInput> = z.strictObject({
@@ -16462,7 +18688,7 @@ export const DeliveryUpdateWithoutOrderInputSchema: z.ZodType<Prisma.DeliveryUpd
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   pickedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   deliveredAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   driver: z.lazy(() => DriverUpdateOneRequiredWithoutDeliveriesNestedInputSchema).optional(),
 });
 
@@ -16471,7 +18697,7 @@ export const DeliveryUncheckedUpdateWithoutOrderInputSchema: z.ZodType<Prisma.De
   driverId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   pickedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   deliveredAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DeliveryUncheckedUpdateManyWithoutOrderInputSchema: z.ZodType<Prisma.DeliveryUncheckedUpdateManyWithoutOrderInput> = z.strictObject({
@@ -16479,7 +18705,7 @@ export const DeliveryUncheckedUpdateManyWithoutOrderInputSchema: z.ZodType<Prism
   driverId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   pickedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   deliveredAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const OrderPromotionUpdateWithoutOrderInputSchema: z.ZodType<Prisma.OrderPromotionUpdateWithoutOrderInput> = z.strictObject({
@@ -16498,6 +18724,31 @@ export const OrderPromotionUncheckedUpdateManyWithoutOrderInputSchema: z.ZodType
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   promotionId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   discountAmount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatRoomUpdateWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomUpdateWithoutOrderInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  participants: z.lazy(() => ChatParticipantUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+});
+
+export const ChatRoomUncheckedUpdateWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateWithoutOrderInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  participants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+});
+
+export const ChatRoomUncheckedUpdateManyWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateManyWithoutOrderInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const PaymentCallbackCreateManyPaymentInputSchema: z.ZodType<Prisma.PaymentCallbackCreateManyPaymentInput> = z.strictObject({
@@ -16536,8 +18787,8 @@ export const OrderCreateManyDriverInputSchema: z.ZodType<Prisma.OrderCreateManyD
 
 export const DriverLocationCreateManyDriverInputSchema: z.ZodType<Prisma.DriverLocationCreateManyDriverInput> = z.strictObject({
   id: z.uuid().optional(),
-  latitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
-  longitude: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  latitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  longitude: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
   recordedAt: z.coerce.date(),
 });
 
@@ -16546,7 +18797,7 @@ export const DeliveryCreateManyDriverInputSchema: z.ZodType<Prisma.DeliveryCreat
   orderId: z.string(),
   pickedAt: z.coerce.date(),
   deliveredAt: z.coerce.date(),
-  distanceKm: z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
+  distanceKm: z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),
 });
 
 export const DriverReviewCreateManyDriverInputSchema: z.ZodType<Prisma.DriverReviewCreateManyDriverInput> = z.strictObject({
@@ -16554,6 +18805,7 @@ export const DriverReviewCreateManyDriverInputSchema: z.ZodType<Prisma.DriverRev
   userId: z.string(),
   rating: z.number(),
   comment: z.string(),
+  createdAt: z.coerce.date().optional(),
 });
 
 export const OrderUpdateWithoutDriverInputSchema: z.ZodType<Prisma.OrderUpdateWithoutDriverInput> = z.strictObject({
@@ -16567,6 +18819,7 @@ export const OrderUpdateWithoutDriverInputSchema: z.ZodType<Prisma.OrderUpdateWi
   payments: z.lazy(() => PaymentUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUpdateManyWithoutOrderNestedInputSchema).optional(),
   merchant: z.lazy(() => MerchantUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutOrdersNestedInputSchema).optional(),
 });
@@ -16584,6 +18837,7 @@ export const OrderUncheckedUpdateWithoutDriverInputSchema: z.ZodType<Prisma.Orde
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+  chatRooms: z.lazy(() => ChatRoomUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
 });
 
 export const OrderUncheckedUpdateManyWithoutDriverInputSchema: z.ZodType<Prisma.OrderUncheckedUpdateManyWithoutDriverInput> = z.strictObject({
@@ -16598,22 +18852,22 @@ export const OrderUncheckedUpdateManyWithoutDriverInputSchema: z.ZodType<Prisma.
 
 export const DriverLocationUpdateWithoutDriverInputSchema: z.ZodType<Prisma.DriverLocationUpdateWithoutDriverInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   recordedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DriverLocationUncheckedUpdateWithoutDriverInputSchema: z.ZodType<Prisma.DriverLocationUncheckedUpdateWithoutDriverInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   recordedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DriverLocationUncheckedUpdateManyWithoutDriverInputSchema: z.ZodType<Prisma.DriverLocationUncheckedUpdateManyWithoutDriverInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
-  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  latitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  longitude: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   recordedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -16621,7 +18875,7 @@ export const DeliveryUpdateWithoutDriverInputSchema: z.ZodType<Prisma.DeliveryUp
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   pickedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   deliveredAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
   order: z.lazy(() => OrderUpdateOneRequiredWithoutDeliveriesNestedInputSchema).optional(),
 });
 
@@ -16630,7 +18884,7 @@ export const DeliveryUncheckedUpdateWithoutDriverInputSchema: z.ZodType<Prisma.D
   orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   pickedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   deliveredAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DeliveryUncheckedUpdateManyWithoutDriverInputSchema: z.ZodType<Prisma.DeliveryUncheckedUpdateManyWithoutDriverInput> = z.strictObject({
@@ -16638,13 +18892,14 @@ export const DeliveryUncheckedUpdateManyWithoutDriverInputSchema: z.ZodType<Pris
   orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   pickedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   deliveredAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
+  distanceKm: z.union([ z.union([z.number(),z.string(),z.instanceof(Decimal),z.instanceof(Prisma.Decimal),DecimalJsLikeSchema,]).refine((v) => isValidDecimalInput(v), { message: 'Must be a Decimal' }),z.lazy(() => DecimalFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DriverReviewUpdateWithoutDriverInputSchema: z.ZodType<Prisma.DriverReviewUpdateWithoutDriverInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   rating: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   comment: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutDriverReviewsNestedInputSchema).optional(),
 });
 
@@ -16653,6 +18908,7 @@ export const DriverReviewUncheckedUpdateWithoutDriverInputSchema: z.ZodType<Pris
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   rating: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   comment: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const DriverReviewUncheckedUpdateManyWithoutDriverInputSchema: z.ZodType<Prisma.DriverReviewUncheckedUpdateManyWithoutDriverInput> = z.strictObject({
@@ -16660,6 +18916,7 @@ export const DriverReviewUncheckedUpdateManyWithoutDriverInputSchema: z.ZodType<
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   rating: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   comment: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const OrderPromotionCreateManyPromotionInputSchema: z.ZodType<Prisma.OrderPromotionCreateManyPromotionInput> = z.strictObject({
@@ -16761,6 +19018,70 @@ export const MenuUncheckedUpdateManyWithoutImageInputSchema: z.ZodType<Prisma.Me
   description: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   isAvailable: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatParticipantCreateManyChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantCreateManyChatRoomInput> = z.strictObject({
+  id: z.uuid().optional(),
+  userId: z.string(),
+  role: z.lazy(() => ChatRoleSchema),
+  joinedAt: z.coerce.date().optional(),
+});
+
+export const ChatMessageCreateManyChatRoomInputSchema: z.ZodType<Prisma.ChatMessageCreateManyChatRoomInput> = z.strictObject({
+  id: z.uuid().optional(),
+  senderId: z.string(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+});
+
+export const ChatParticipantUpdateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantUpdateWithoutChatRoomInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  user: z.lazy(() => UserUpdateOneRequiredWithoutChatParticipantsNestedInputSchema).optional(),
+});
+
+export const ChatParticipantUncheckedUpdateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedUpdateWithoutChatRoomInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatParticipantUncheckedUpdateManyWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedUpdateManyWithoutChatRoomInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatMessageUpdateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageUpdateWithoutChatRoomInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  sender: z.lazy(() => UserUpdateOneRequiredWithoutChatMessagesNestedInputSchema).optional(),
+});
+
+export const ChatMessageUncheckedUpdateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateWithoutChatRoomInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  senderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatMessageUncheckedUpdateManyWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateManyWithoutChatRoomInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  senderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -18494,6 +20815,192 @@ export const ImageFindUniqueOrThrowArgsSchema: z.ZodType<Prisma.ImageFindUniqueO
   where: ImageWhereUniqueInputSchema, 
 }).strict();
 
+export const ChatRoomFindFirstArgsSchema: z.ZodType<Prisma.ChatRoomFindFirstArgs> = z.object({
+  select: ChatRoomSelectSchema.optional(),
+  include: ChatRoomIncludeSchema.optional(),
+  where: ChatRoomWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatRoomOrderByWithRelationInputSchema.array(), ChatRoomOrderByWithRelationInputSchema ]).optional(),
+  cursor: ChatRoomWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ ChatRoomScalarFieldEnumSchema, ChatRoomScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const ChatRoomFindFirstOrThrowArgsSchema: z.ZodType<Prisma.ChatRoomFindFirstOrThrowArgs> = z.object({
+  select: ChatRoomSelectSchema.optional(),
+  include: ChatRoomIncludeSchema.optional(),
+  where: ChatRoomWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatRoomOrderByWithRelationInputSchema.array(), ChatRoomOrderByWithRelationInputSchema ]).optional(),
+  cursor: ChatRoomWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ ChatRoomScalarFieldEnumSchema, ChatRoomScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const ChatRoomFindManyArgsSchema: z.ZodType<Prisma.ChatRoomFindManyArgs> = z.object({
+  select: ChatRoomSelectSchema.optional(),
+  include: ChatRoomIncludeSchema.optional(),
+  where: ChatRoomWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatRoomOrderByWithRelationInputSchema.array(), ChatRoomOrderByWithRelationInputSchema ]).optional(),
+  cursor: ChatRoomWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ ChatRoomScalarFieldEnumSchema, ChatRoomScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const ChatRoomAggregateArgsSchema: z.ZodType<Prisma.ChatRoomAggregateArgs> = z.object({
+  where: ChatRoomWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatRoomOrderByWithRelationInputSchema.array(), ChatRoomOrderByWithRelationInputSchema ]).optional(),
+  cursor: ChatRoomWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+}).strict();
+
+export const ChatRoomGroupByArgsSchema: z.ZodType<Prisma.ChatRoomGroupByArgs> = z.object({
+  where: ChatRoomWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatRoomOrderByWithAggregationInputSchema.array(), ChatRoomOrderByWithAggregationInputSchema ]).optional(),
+  by: ChatRoomScalarFieldEnumSchema.array(), 
+  having: ChatRoomScalarWhereWithAggregatesInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+}).strict();
+
+export const ChatRoomFindUniqueArgsSchema: z.ZodType<Prisma.ChatRoomFindUniqueArgs> = z.object({
+  select: ChatRoomSelectSchema.optional(),
+  include: ChatRoomIncludeSchema.optional(),
+  where: ChatRoomWhereUniqueInputSchema, 
+}).strict();
+
+export const ChatRoomFindUniqueOrThrowArgsSchema: z.ZodType<Prisma.ChatRoomFindUniqueOrThrowArgs> = z.object({
+  select: ChatRoomSelectSchema.optional(),
+  include: ChatRoomIncludeSchema.optional(),
+  where: ChatRoomWhereUniqueInputSchema, 
+}).strict();
+
+export const ChatParticipantFindFirstArgsSchema: z.ZodType<Prisma.ChatParticipantFindFirstArgs> = z.object({
+  select: ChatParticipantSelectSchema.optional(),
+  include: ChatParticipantIncludeSchema.optional(),
+  where: ChatParticipantWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatParticipantOrderByWithRelationInputSchema.array(), ChatParticipantOrderByWithRelationInputSchema ]).optional(),
+  cursor: ChatParticipantWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ ChatParticipantScalarFieldEnumSchema, ChatParticipantScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const ChatParticipantFindFirstOrThrowArgsSchema: z.ZodType<Prisma.ChatParticipantFindFirstOrThrowArgs> = z.object({
+  select: ChatParticipantSelectSchema.optional(),
+  include: ChatParticipantIncludeSchema.optional(),
+  where: ChatParticipantWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatParticipantOrderByWithRelationInputSchema.array(), ChatParticipantOrderByWithRelationInputSchema ]).optional(),
+  cursor: ChatParticipantWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ ChatParticipantScalarFieldEnumSchema, ChatParticipantScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const ChatParticipantFindManyArgsSchema: z.ZodType<Prisma.ChatParticipantFindManyArgs> = z.object({
+  select: ChatParticipantSelectSchema.optional(),
+  include: ChatParticipantIncludeSchema.optional(),
+  where: ChatParticipantWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatParticipantOrderByWithRelationInputSchema.array(), ChatParticipantOrderByWithRelationInputSchema ]).optional(),
+  cursor: ChatParticipantWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ ChatParticipantScalarFieldEnumSchema, ChatParticipantScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const ChatParticipantAggregateArgsSchema: z.ZodType<Prisma.ChatParticipantAggregateArgs> = z.object({
+  where: ChatParticipantWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatParticipantOrderByWithRelationInputSchema.array(), ChatParticipantOrderByWithRelationInputSchema ]).optional(),
+  cursor: ChatParticipantWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+}).strict();
+
+export const ChatParticipantGroupByArgsSchema: z.ZodType<Prisma.ChatParticipantGroupByArgs> = z.object({
+  where: ChatParticipantWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatParticipantOrderByWithAggregationInputSchema.array(), ChatParticipantOrderByWithAggregationInputSchema ]).optional(),
+  by: ChatParticipantScalarFieldEnumSchema.array(), 
+  having: ChatParticipantScalarWhereWithAggregatesInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+}).strict();
+
+export const ChatParticipantFindUniqueArgsSchema: z.ZodType<Prisma.ChatParticipantFindUniqueArgs> = z.object({
+  select: ChatParticipantSelectSchema.optional(),
+  include: ChatParticipantIncludeSchema.optional(),
+  where: ChatParticipantWhereUniqueInputSchema, 
+}).strict();
+
+export const ChatParticipantFindUniqueOrThrowArgsSchema: z.ZodType<Prisma.ChatParticipantFindUniqueOrThrowArgs> = z.object({
+  select: ChatParticipantSelectSchema.optional(),
+  include: ChatParticipantIncludeSchema.optional(),
+  where: ChatParticipantWhereUniqueInputSchema, 
+}).strict();
+
+export const ChatMessageFindFirstArgsSchema: z.ZodType<Prisma.ChatMessageFindFirstArgs> = z.object({
+  select: ChatMessageSelectSchema.optional(),
+  include: ChatMessageIncludeSchema.optional(),
+  where: ChatMessageWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatMessageOrderByWithRelationInputSchema.array(), ChatMessageOrderByWithRelationInputSchema ]).optional(),
+  cursor: ChatMessageWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ ChatMessageScalarFieldEnumSchema, ChatMessageScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const ChatMessageFindFirstOrThrowArgsSchema: z.ZodType<Prisma.ChatMessageFindFirstOrThrowArgs> = z.object({
+  select: ChatMessageSelectSchema.optional(),
+  include: ChatMessageIncludeSchema.optional(),
+  where: ChatMessageWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatMessageOrderByWithRelationInputSchema.array(), ChatMessageOrderByWithRelationInputSchema ]).optional(),
+  cursor: ChatMessageWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ ChatMessageScalarFieldEnumSchema, ChatMessageScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const ChatMessageFindManyArgsSchema: z.ZodType<Prisma.ChatMessageFindManyArgs> = z.object({
+  select: ChatMessageSelectSchema.optional(),
+  include: ChatMessageIncludeSchema.optional(),
+  where: ChatMessageWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatMessageOrderByWithRelationInputSchema.array(), ChatMessageOrderByWithRelationInputSchema ]).optional(),
+  cursor: ChatMessageWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ ChatMessageScalarFieldEnumSchema, ChatMessageScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const ChatMessageAggregateArgsSchema: z.ZodType<Prisma.ChatMessageAggregateArgs> = z.object({
+  where: ChatMessageWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatMessageOrderByWithRelationInputSchema.array(), ChatMessageOrderByWithRelationInputSchema ]).optional(),
+  cursor: ChatMessageWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+}).strict();
+
+export const ChatMessageGroupByArgsSchema: z.ZodType<Prisma.ChatMessageGroupByArgs> = z.object({
+  where: ChatMessageWhereInputSchema.optional(), 
+  orderBy: z.union([ ChatMessageOrderByWithAggregationInputSchema.array(), ChatMessageOrderByWithAggregationInputSchema ]).optional(),
+  by: ChatMessageScalarFieldEnumSchema.array(), 
+  having: ChatMessageScalarWhereWithAggregatesInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+}).strict();
+
+export const ChatMessageFindUniqueArgsSchema: z.ZodType<Prisma.ChatMessageFindUniqueArgs> = z.object({
+  select: ChatMessageSelectSchema.optional(),
+  include: ChatMessageIncludeSchema.optional(),
+  where: ChatMessageWhereUniqueInputSchema, 
+}).strict();
+
+export const ChatMessageFindUniqueOrThrowArgsSchema: z.ZodType<Prisma.ChatMessageFindUniqueOrThrowArgs> = z.object({
+  select: ChatMessageSelectSchema.optional(),
+  include: ChatMessageIncludeSchema.optional(),
+  where: ChatMessageWhereUniqueInputSchema, 
+}).strict();
+
 export const UserCreateArgsSchema: z.ZodType<Prisma.UserCreateArgs> = z.object({
   select: UserSelectSchema.optional(),
   include: UserIncludeSchema.optional(),
@@ -19995,5 +22502,167 @@ export const ImageUpdateManyAndReturnArgsSchema: z.ZodType<Prisma.ImageUpdateMan
 
 export const ImageDeleteManyArgsSchema: z.ZodType<Prisma.ImageDeleteManyArgs> = z.object({
   where: ImageWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const ChatRoomCreateArgsSchema: z.ZodType<Prisma.ChatRoomCreateArgs> = z.object({
+  select: ChatRoomSelectSchema.optional(),
+  include: ChatRoomIncludeSchema.optional(),
+  data: z.union([ ChatRoomCreateInputSchema, ChatRoomUncheckedCreateInputSchema ]),
+}).strict();
+
+export const ChatRoomUpsertArgsSchema: z.ZodType<Prisma.ChatRoomUpsertArgs> = z.object({
+  select: ChatRoomSelectSchema.optional(),
+  include: ChatRoomIncludeSchema.optional(),
+  where: ChatRoomWhereUniqueInputSchema, 
+  create: z.union([ ChatRoomCreateInputSchema, ChatRoomUncheckedCreateInputSchema ]),
+  update: z.union([ ChatRoomUpdateInputSchema, ChatRoomUncheckedUpdateInputSchema ]),
+}).strict();
+
+export const ChatRoomCreateManyArgsSchema: z.ZodType<Prisma.ChatRoomCreateManyArgs> = z.object({
+  data: z.union([ ChatRoomCreateManyInputSchema, ChatRoomCreateManyInputSchema.array() ]),
+  skipDuplicates: z.boolean().optional(),
+}).strict();
+
+export const ChatRoomCreateManyAndReturnArgsSchema: z.ZodType<Prisma.ChatRoomCreateManyAndReturnArgs> = z.object({
+  data: z.union([ ChatRoomCreateManyInputSchema, ChatRoomCreateManyInputSchema.array() ]),
+  skipDuplicates: z.boolean().optional(),
+}).strict();
+
+export const ChatRoomDeleteArgsSchema: z.ZodType<Prisma.ChatRoomDeleteArgs> = z.object({
+  select: ChatRoomSelectSchema.optional(),
+  include: ChatRoomIncludeSchema.optional(),
+  where: ChatRoomWhereUniqueInputSchema, 
+}).strict();
+
+export const ChatRoomUpdateArgsSchema: z.ZodType<Prisma.ChatRoomUpdateArgs> = z.object({
+  select: ChatRoomSelectSchema.optional(),
+  include: ChatRoomIncludeSchema.optional(),
+  data: z.union([ ChatRoomUpdateInputSchema, ChatRoomUncheckedUpdateInputSchema ]),
+  where: ChatRoomWhereUniqueInputSchema, 
+}).strict();
+
+export const ChatRoomUpdateManyArgsSchema: z.ZodType<Prisma.ChatRoomUpdateManyArgs> = z.object({
+  data: z.union([ ChatRoomUpdateManyMutationInputSchema, ChatRoomUncheckedUpdateManyInputSchema ]),
+  where: ChatRoomWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const ChatRoomUpdateManyAndReturnArgsSchema: z.ZodType<Prisma.ChatRoomUpdateManyAndReturnArgs> = z.object({
+  data: z.union([ ChatRoomUpdateManyMutationInputSchema, ChatRoomUncheckedUpdateManyInputSchema ]),
+  where: ChatRoomWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const ChatRoomDeleteManyArgsSchema: z.ZodType<Prisma.ChatRoomDeleteManyArgs> = z.object({
+  where: ChatRoomWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const ChatParticipantCreateArgsSchema: z.ZodType<Prisma.ChatParticipantCreateArgs> = z.object({
+  select: ChatParticipantSelectSchema.optional(),
+  include: ChatParticipantIncludeSchema.optional(),
+  data: z.union([ ChatParticipantCreateInputSchema, ChatParticipantUncheckedCreateInputSchema ]),
+}).strict();
+
+export const ChatParticipantUpsertArgsSchema: z.ZodType<Prisma.ChatParticipantUpsertArgs> = z.object({
+  select: ChatParticipantSelectSchema.optional(),
+  include: ChatParticipantIncludeSchema.optional(),
+  where: ChatParticipantWhereUniqueInputSchema, 
+  create: z.union([ ChatParticipantCreateInputSchema, ChatParticipantUncheckedCreateInputSchema ]),
+  update: z.union([ ChatParticipantUpdateInputSchema, ChatParticipantUncheckedUpdateInputSchema ]),
+}).strict();
+
+export const ChatParticipantCreateManyArgsSchema: z.ZodType<Prisma.ChatParticipantCreateManyArgs> = z.object({
+  data: z.union([ ChatParticipantCreateManyInputSchema, ChatParticipantCreateManyInputSchema.array() ]),
+  skipDuplicates: z.boolean().optional(),
+}).strict();
+
+export const ChatParticipantCreateManyAndReturnArgsSchema: z.ZodType<Prisma.ChatParticipantCreateManyAndReturnArgs> = z.object({
+  data: z.union([ ChatParticipantCreateManyInputSchema, ChatParticipantCreateManyInputSchema.array() ]),
+  skipDuplicates: z.boolean().optional(),
+}).strict();
+
+export const ChatParticipantDeleteArgsSchema: z.ZodType<Prisma.ChatParticipantDeleteArgs> = z.object({
+  select: ChatParticipantSelectSchema.optional(),
+  include: ChatParticipantIncludeSchema.optional(),
+  where: ChatParticipantWhereUniqueInputSchema, 
+}).strict();
+
+export const ChatParticipantUpdateArgsSchema: z.ZodType<Prisma.ChatParticipantUpdateArgs> = z.object({
+  select: ChatParticipantSelectSchema.optional(),
+  include: ChatParticipantIncludeSchema.optional(),
+  data: z.union([ ChatParticipantUpdateInputSchema, ChatParticipantUncheckedUpdateInputSchema ]),
+  where: ChatParticipantWhereUniqueInputSchema, 
+}).strict();
+
+export const ChatParticipantUpdateManyArgsSchema: z.ZodType<Prisma.ChatParticipantUpdateManyArgs> = z.object({
+  data: z.union([ ChatParticipantUpdateManyMutationInputSchema, ChatParticipantUncheckedUpdateManyInputSchema ]),
+  where: ChatParticipantWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const ChatParticipantUpdateManyAndReturnArgsSchema: z.ZodType<Prisma.ChatParticipantUpdateManyAndReturnArgs> = z.object({
+  data: z.union([ ChatParticipantUpdateManyMutationInputSchema, ChatParticipantUncheckedUpdateManyInputSchema ]),
+  where: ChatParticipantWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const ChatParticipantDeleteManyArgsSchema: z.ZodType<Prisma.ChatParticipantDeleteManyArgs> = z.object({
+  where: ChatParticipantWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const ChatMessageCreateArgsSchema: z.ZodType<Prisma.ChatMessageCreateArgs> = z.object({
+  select: ChatMessageSelectSchema.optional(),
+  include: ChatMessageIncludeSchema.optional(),
+  data: z.union([ ChatMessageCreateInputSchema, ChatMessageUncheckedCreateInputSchema ]),
+}).strict();
+
+export const ChatMessageUpsertArgsSchema: z.ZodType<Prisma.ChatMessageUpsertArgs> = z.object({
+  select: ChatMessageSelectSchema.optional(),
+  include: ChatMessageIncludeSchema.optional(),
+  where: ChatMessageWhereUniqueInputSchema, 
+  create: z.union([ ChatMessageCreateInputSchema, ChatMessageUncheckedCreateInputSchema ]),
+  update: z.union([ ChatMessageUpdateInputSchema, ChatMessageUncheckedUpdateInputSchema ]),
+}).strict();
+
+export const ChatMessageCreateManyArgsSchema: z.ZodType<Prisma.ChatMessageCreateManyArgs> = z.object({
+  data: z.union([ ChatMessageCreateManyInputSchema, ChatMessageCreateManyInputSchema.array() ]),
+  skipDuplicates: z.boolean().optional(),
+}).strict();
+
+export const ChatMessageCreateManyAndReturnArgsSchema: z.ZodType<Prisma.ChatMessageCreateManyAndReturnArgs> = z.object({
+  data: z.union([ ChatMessageCreateManyInputSchema, ChatMessageCreateManyInputSchema.array() ]),
+  skipDuplicates: z.boolean().optional(),
+}).strict();
+
+export const ChatMessageDeleteArgsSchema: z.ZodType<Prisma.ChatMessageDeleteArgs> = z.object({
+  select: ChatMessageSelectSchema.optional(),
+  include: ChatMessageIncludeSchema.optional(),
+  where: ChatMessageWhereUniqueInputSchema, 
+}).strict();
+
+export const ChatMessageUpdateArgsSchema: z.ZodType<Prisma.ChatMessageUpdateArgs> = z.object({
+  select: ChatMessageSelectSchema.optional(),
+  include: ChatMessageIncludeSchema.optional(),
+  data: z.union([ ChatMessageUpdateInputSchema, ChatMessageUncheckedUpdateInputSchema ]),
+  where: ChatMessageWhereUniqueInputSchema, 
+}).strict();
+
+export const ChatMessageUpdateManyArgsSchema: z.ZodType<Prisma.ChatMessageUpdateManyArgs> = z.object({
+  data: z.union([ ChatMessageUpdateManyMutationInputSchema, ChatMessageUncheckedUpdateManyInputSchema ]),
+  where: ChatMessageWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const ChatMessageUpdateManyAndReturnArgsSchema: z.ZodType<Prisma.ChatMessageUpdateManyAndReturnArgs> = z.object({
+  data: z.union([ ChatMessageUpdateManyMutationInputSchema, ChatMessageUncheckedUpdateManyInputSchema ]),
+  where: ChatMessageWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const ChatMessageDeleteManyArgsSchema: z.ZodType<Prisma.ChatMessageDeleteManyArgs> = z.object({
+  where: ChatMessageWhereInputSchema.optional(), 
   limit: z.number().optional(),
 }).strict();

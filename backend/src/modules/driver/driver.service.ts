@@ -4,12 +4,20 @@ import { Coordinate } from "./types";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
 import { Driver, DriverLocation, Prisma, User } from "@prisma/client";
+import { CacheService, CacheInvalidationService } from "../../common/cache";
+
+const CACHE_TTL = {
+  DRIVER_DETAIL: 300000,
+  DRIVERS_AVAILABLE: 30000,
+};
 
 @Injectable()
 export class DriverService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
+    private cacheService: CacheService,
+    private cacheInvalidation: CacheInvalidationService,
   ) {}
 
   async getDrivers() {
@@ -31,12 +39,18 @@ export class DriverService {
       if (!id)
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
 
+      const cacheKey = `driver:${id}`;
+      const cached = await this.cacheService.get(cacheKey);
+      if (cached) return cached;
+
       const driver = await this.prisma.driver.findUnique({
         where: { id },
       });
 
       if (!driver)
         throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
+
+      await this.cacheService.set(cacheKey, driver, CACHE_TTL.DRIVER_DETAIL);
 
       return driver;
     } catch (error) {
@@ -138,21 +152,13 @@ export class DriverService {
       if (!driver)
         throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
 
-      const driverLocation = await this.prisma.driverLocation.findFirst({
-        where: { driverId: driver.id },
-      });
-
-      if (!driverLocation)
-        throw new HttpException(
-          "Driver location not found",
-          HttpStatus.NOT_FOUND,
-        );
-
-      return await this.prisma.driverLocation.update({
-        where: { id: driverLocation.id },
+      // Create new location record to maintain history
+      return await this.prisma.driverLocation.create({
         data: {
+          driverId: driver.id,
           latitude: new Prisma.Decimal(location.latitude),
           longitude: new Prisma.Decimal(location.longitude),
+          recordedAt: new Date(),
         },
       });
     } catch (error) {
@@ -221,7 +227,8 @@ export class DriverService {
           data: {
             userId: user.id,
             plateNumber: body.plateNumber,
-            isAvailable: true,
+            isAvailable: false, // Not available until approved
+            approvalStatus: "PENDING",
           },
         });
 
@@ -234,10 +241,7 @@ export class DriverService {
           },
         });
 
-        await tx.user.update({
-          where: { id: user.id },
-          data: { role: "DRIVER" },
-        });
+        // Role will be changed to DRIVER only after admin approval
 
         return driver;
       });
@@ -371,6 +375,95 @@ export class DriverService {
         limit,
         totalPages: Math.ceil(total / limit),
       };
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async approveDriver(driverId: string): Promise<Driver> {
+    try {
+      const driver = await this.prisma.driver.findUnique({
+        where: { id: driverId },
+        include: { user: true },
+      });
+
+      if (!driver)
+        throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
+
+      if (driver.approvalStatus === "APPROVED")
+        throw new HttpException(
+          "Driver is already approved",
+          HttpStatus.BAD_REQUEST,
+        );
+
+      return await this.prisma.$transaction(async (tx) => {
+        const updatedDriver = await tx.driver.update({
+          where: { id: driverId },
+          data: {
+            approvalStatus: "APPROVED",
+            isAvailable: true,
+          },
+        });
+
+        // Update user role to DRIVER
+        await tx.user.update({
+          where: { id: driver.userId },
+          data: { role: "DRIVER" },
+        });
+
+        return updatedDriver;
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async rejectDriver(driverId: string): Promise<Driver> {
+    try {
+      const driver = await this.prisma.driver.findUnique({
+        where: { id: driverId },
+      });
+
+      if (!driver)
+        throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
+
+      if (driver.approvalStatus === "REJECTED")
+        throw new HttpException(
+          "Driver is already rejected",
+          HttpStatus.BAD_REQUEST,
+        );
+
+      return await this.prisma.driver.update({
+        where: { id: driverId },
+        data: {
+          approvalStatus: "REJECTED",
+          isAvailable: false,
+        },
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async getPendingDrivers() {
+    try {
+      return await this.prisma.driver.findMany({
+        where: { approvalStatus: "PENDING" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              phoneNumber: true,
+              createdAt: true,
+            },
+          },
+        },
+        orderBy: { user: { createdAt: "desc" } },
+      });
     } catch (error) {
       this.logger.error(error);
       throw error;

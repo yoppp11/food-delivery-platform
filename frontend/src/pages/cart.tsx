@@ -12,18 +12,20 @@ import {
   Tag,
   X,
   ShoppingBag,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/providers/cart-provider';
 import { formatCurrency } from '@/lib/utils';
 
 export function CartPage() {
   const { t } = useTranslation();
-  const { cart, updateItem, removeItem, clearCart, getSubtotal } = useCart();
+  const { cart, isLoading, updateItem, removeItem, clearCart, getSubtotal } = useCart();
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<{
     code: string;
@@ -45,6 +47,25 @@ export function CartPage() {
       setPromoCode('');
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30">
+        <div className="container mx-auto px-4 py-8">
+          <Skeleton className="h-10 w-48 mb-8" />
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-4">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-64 w-full" />
+            </div>
+            <div className="lg:col-span-1">
+              <Skeleton className="h-80 w-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!cart || cart.items.length === 0) {
     return (
@@ -139,9 +160,7 @@ export function CartPage() {
                             </p>
                           )}
                           <p className="text-primary font-semibold mt-1">
-                            {formatCurrency(
-                              item.menu.price + (item.variant?.price || 0)
-                            )}
+                            {formatCurrency(item.variant?.price || item.menu.price)}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">

@@ -9,6 +9,7 @@ import { WinstonModule } from "nest-winston";
 import * as winston from "winston";
 import { auth } from "./common/auth.service";
 import { LibModule } from "./common/common.module";
+import { RedisCacheModule } from "./common/cache";
 import { UserModule } from "./modules/user/user.module";
 import { UserController } from "./modules/user/user.controller";
 import { UserService } from "./modules/user/user.service";
@@ -57,14 +58,16 @@ import { ReviewModule } from "./modules/review/review.module";
 import { ReviewController } from "./modules/review/review.controller";
 import { ReviewService } from "./modules/review/review.service";
 import { DeliveryModule } from "./modules/delivery/delivery.module";
-import {
-  DeliveryController,
-  DriverDeliveryController,
-} from "./modules/delivery/delivery.controller";
+import { DeliveryController } from "./modules/delivery/delivery.controller";
 import { DeliveryService } from "./modules/delivery/delivery.service";
 import { AdminModule } from "./modules/admin/admin.module";
 import { AdminController } from "./modules/admin/admin.controller";
 import { AdminService } from "./modules/admin/admin.service";
+import { HealthModule } from "./modules/health/health.module";
+import { HealthController } from "./modules/health/health.controller";
+import { ChatModule } from "./modules/chat/chat.module";
+import { ChatController } from "./modules/chat/chat.controller";
+import { ChatService } from "./modules/chat/chat.service";
 
 @Module({
   imports: [
@@ -90,6 +93,7 @@ import { AdminService } from "./modules/admin/admin.service";
       },
     }),
     // ValidationModule.forRoot(),
+    RedisCacheModule,
     UserModule,
     LibModule,
     CategoryModule,
@@ -107,6 +111,8 @@ import { AdminService } from "./modules/admin/admin.service";
     ReviewModule,
     DeliveryModule,
     AdminModule,
+    HealthModule,
+    ChatModule,
   ],
   controllers: [
     UserController,
@@ -126,8 +132,9 @@ import { AdminService } from "./modules/admin/admin.service";
     PromotionController,
     ReviewController,
     DeliveryController,
-    DriverDeliveryController,
     AdminController,
+    HealthController,
+    ChatController,
   ],
   providers: [
     UserService,
@@ -146,6 +153,7 @@ import { AdminService } from "./modules/admin/admin.service";
     ReviewService,
     DeliveryService,
     AdminService,
+    ChatService,
   ],
 })
 export class AppModule implements NestModule {
@@ -160,6 +168,11 @@ export class AppModule implements NestModule {
         { path: "api/categories/(.*)", method: RequestMethod.GET },
         { path: "api/menus", method: RequestMethod.GET },
         { path: "api/menus/(.*)", method: RequestMethod.GET },
+        {
+          path: "api/reviews/merchants/:merchantId",
+          method: RequestMethod.GET,
+        },
+        { path: "api/reviews/drivers/:driverId", method: RequestMethod.GET },
       )
       .forRoutes({
         path: "api/*",

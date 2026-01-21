@@ -135,6 +135,7 @@ export interface OrderItem {
   price: number;
   menu?: Menu;
   variant?: MenuVariant;
+  menuVariant?: MenuVariant & { menu?: Menu };
 }
 
 export interface OrderStatusHistory {
@@ -171,8 +172,12 @@ export interface Driver {
   id: string;
   userId: string;
   plateNumber: string;
+  licensePlate?: string;
+  vehicleType?: string;
   isAvailable: boolean;
+  rating?: number;
   user?: User;
+  profile?: UserProfile;
 }
 
 export interface DriverLocation {
@@ -229,6 +234,7 @@ export interface DriverReview {
   driverId: string;
   rating: number;
   comment: string;
+  createdAt: Date;
   user?: User;
 }
 
@@ -251,6 +257,46 @@ export interface Image {
   createdAt: Date;
 }
 
+// Chat types
+export type ChatRoomType = 'CUSTOMER_MERCHANT' | 'CUSTOMER_DRIVER' | 'CUSTOMER_SUPPORT';
+export type ChatRole = 'CUSTOMER' | 'MERCHANT' | 'DRIVER' | 'SUPPORT';
+export type MessageType = 'TEXT' | 'IMAGE' | 'LOCATION' | 'SYSTEM';
+
+export interface ChatParticipant {
+  id: string;
+  chatRoomId: string;
+  userId: string;
+  role: ChatRole;
+  joinedAt: Date;
+  user: Pick<User, 'id' | 'email' | 'image'>;
+}
+
+export interface ChatMessage {
+  id: string;
+  chatRoomId: string;
+  senderId: string;
+  content: string;
+  type: MessageType;
+  isRead: boolean;
+  createdAt: Date;
+  sender?: Pick<User, 'id' | 'email' | 'image'>;
+}
+
+export interface ChatRoom {
+  id: string;
+  orderId: string;
+  type: ChatRoomType;
+  createdAt: Date;
+  updatedAt: Date;
+  participants: ChatParticipant[];
+  messages: ChatMessage[];
+  order?: {
+    id: string;
+    status: string;
+    merchantId?: string;
+  };
+}
+
 // Cart types (frontend only)
 export interface CartItem {
   id: string;
@@ -264,3 +310,6 @@ export interface Cart {
   merchant: Merchant;
   items: CartItem[];
 }
+
+// Driver types - re-export from driver.ts
+export * from './driver';

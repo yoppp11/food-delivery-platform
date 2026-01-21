@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { useSignIn, useSignUp, useForgotPassword } from '@/hooks/use-auth';
+import { useSignIn, useSignUp, useForgotPassword, useSession } from '@/hooks/use-auth';
 import type { ApiError } from '@/lib/api-client';
 
 const containerVariants = {
@@ -50,15 +50,19 @@ export function LoginPage() {
   });
 
   const signIn = useSignIn();
-  const from = location.state?.from || '/';
+  const { refetch: refetchSession } = useSession();
+  const from = location.state?.from;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     signIn.mutate(
       { email: formData.email, password: formData.password },
       {
-        onSuccess: () => {
-          navigate(from, { replace: true });
+        onSuccess: async () => {
+          const { data: sessionData } = await refetchSession();
+          const role = sessionData?.user?.role;
+          const redirectPath = from || (role === 'MERCHANT' ? '/merchant/select' : '/');
+          navigate(redirectPath, { replace: true });
         },
       }
     );
@@ -238,6 +242,14 @@ export function LoginPage() {
           {t('auth.login.noAccount')}{' '}
           <a href="/register" className="text-primary font-medium hover:underline">
             {t('auth.login.signUp')}
+          </a>
+        </motion.p>
+
+        {/* Merchant Login Link */}
+        <motion.p variants={itemVariants} className="text-center mt-2 text-sm text-muted-foreground">
+          Are you a merchant?{' '}
+          <a href="/merchant/login" className="text-primary font-medium hover:underline">
+            Login to Merchant Portal
           </a>
         </motion.p>
       </motion.div>

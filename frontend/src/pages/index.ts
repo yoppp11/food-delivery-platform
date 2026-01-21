@@ -8,3 +8,5 @@ export * from './order-detail';
 export * from './profile';
 export * from './notifications';
 export * from './auth';
+export * from './about';
+export { DriverLoginPage } from './driver/auth/login';

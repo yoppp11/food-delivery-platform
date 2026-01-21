@@ -81,3 +81,18 @@ export {
   useMerchantReviews as useReviews,
   useCreateMerchantReview,
 } from './use-reviews';
+
+export {
+  useDriverProfile,
+  useUpdateDriverProfile,
+  useToggleAvailability,
+  useUpdateLocation,
+  useDriverEarnings,
+  useEarningsHistory,
+  useAvailableOrders,
+  useAcceptOrder,
+  useMarkPickedUp,
+  useMarkDelivered,
+  useDeliveryHistory,
+  useRegisterDriver,
+} from './use-driver';

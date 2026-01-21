@@ -309,6 +309,45 @@ export class DeliveryService {
     }
   }
 
+  async getDriverActiveOrder(user: User) {
+    try {
+      const driver = await this.prisma.driver.findFirst({
+        where: { userId: user.id },
+      });
+
+      if (!driver)
+        throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
+
+      const activeOrder = await this.prisma.order.findFirst({
+        where: {
+          driverId: driver.id,
+          status: "ON_DELIVERY",
+        },
+        include: {
+          items: {
+            include: {
+              menuVariant: {
+                include: { menu: true },
+              },
+            },
+          },
+          merchant: true,
+          user: {
+            select: {
+              id: true,
+              image: true,
+            },
+          },
+        },
+      });
+
+      return activeOrder;
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
   async getDriverDeliveryHistory(
     user: User,
     page: number = 1,
@@ -348,7 +387,14 @@ export class DeliveryService {
       ]);
 
       return {
-        data: deliveries,
+        data: deliveries.map((delivery) => ({
+          id: delivery.id,
+          orderId: delivery.orderId,
+          merchantName: delivery.order.merchant.name,
+          distanceKm: Number(delivery.distanceKm),
+          earnings: Number(delivery.order.deliveryFee),
+          deliveredAt: delivery.deliveredAt,
+        })),
         total,
         page,
         limit,

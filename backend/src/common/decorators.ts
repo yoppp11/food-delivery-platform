@@ -8,9 +8,9 @@ import { Request } from "express";
 export const CurrentUser = createParamDecorator(
   (data: unknown, context: ExecutionContext) => {
     const http = context.switchToHttp();
-    const request = http.getRequest<Request & { currentUser: User }>();
+    const request = http.getRequest<Request & { user: User }>();
 
-    return request.currentUser;
+    return request.user;
   }
 );
 

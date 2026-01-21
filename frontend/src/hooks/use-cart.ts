@@ -47,6 +47,14 @@ interface BackendCart {
   cartItems: BackendCartItem[];
 }
 
+interface CreateCartItemInput {
+  menuName: string;
+  variantId: string;
+  basePrice: number;
+  quantity: number;
+  notes?: string;
+}
+
 interface CreateCartInput {
   merchantId: string;
   menuName: string;
@@ -80,7 +88,21 @@ export function useCreateCart() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateCartInput) => apiClient.post<BackendCart>('/carts', data),
+    mutationFn: (data: CreateCartInput) => {
+      const payload = {
+        merchantId: data.merchantId,
+        items: [
+          {
+            menuName: data.menuName,
+            variantId: data.variantId,
+            basePrice: data.basePrice,
+            quantity: data.quantity,
+            notes: data.notes,
+          },
+        ],
+      };
+      return apiClient.post<BackendCart>('/carts', payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.cart.all });
     },

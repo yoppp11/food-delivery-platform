@@ -24,6 +24,27 @@ export class Auth {
         "http://localhost:5173",
         "http://localhost:3000",
       ],
+      user: {
+        additionalFields: {
+          role: {
+            type: "string",
+            required: false,
+            defaultValue: "CUSTOMER",
+            input: false,
+          },
+          status: {
+            type: "string",
+            required: false,
+            defaultValue: "ACTIVE",
+            input: false,
+          },
+          phoneNumber: {
+            type: "string",
+            required: false,
+            input: false,
+          },
+        },
+      },
     });
   }
 }

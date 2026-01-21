@@ -37,6 +37,12 @@ export class DriverController {
     return await this.service.getDrivers();
   }
 
+  @Get("pending")
+  @Roles(["ADMIN"])
+  async getPendingDrivers() {
+    return await this.service.getPendingDrivers();
+  }
+
   @Get("me")
   @Roles(["DRIVER", "ADMIN"])
   async getMyProfile(@CurrentUser() user: User): Promise<Driver> {
@@ -56,7 +62,11 @@ export class DriverController {
     @Query("page") page?: number,
     @Query("limit") limit?: number,
   ) {
-    return await this.service.getEarningsHistory(user, page, limit);
+    return await this.service.getEarningsHistory(
+      user,
+      page ? Number(page) : undefined,
+      limit ? Number(limit) : undefined,
+    );
   }
 
   @Post("register")
@@ -99,5 +109,17 @@ export class DriverController {
   @Get(":id")
   async getDetailDriver(@Param("id", ParseUUIDPipe) id: string) {
     return await this.service.getDriver(id);
+  }
+
+  @Patch(":id/approve")
+  @Roles(["ADMIN"])
+  async approveDriver(@Param("id", ParseUUIDPipe) id: string) {
+    return await this.service.approveDriver(id);
+  }
+
+  @Patch(":id/reject")
+  @Roles(["ADMIN"])
+  async rejectDriver(@Param("id", ParseUUIDPipe) id: string) {
+    return await this.service.rejectDriver(id);
   }
 }

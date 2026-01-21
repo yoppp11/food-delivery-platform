@@ -898,6 +898,102 @@ async function main() {
     data: { id: uuid(), menuId: menu2_13.id, name: "Iced", price: 18000 },
   });
 
+  // Default variants for remaining Merchant 1 menus
+  // menu1_3: Nasi Gulai Ikan
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu1_3.id, name: "Regular", price: 32000 },
+  });
+  // menu1_4: Nasi Dendeng Balado
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu1_4.id, name: "Regular", price: 38000 },
+  });
+  // menu1_6: Es Jeruk
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu1_6.id, name: "Regular", price: 12000 },
+  });
+  // menu1_7: Teh Tarik
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu1_7.id, name: "Regular", price: 15000 },
+  });
+  // menu1_8: Kopi Susu
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu1_8.id, name: "Regular", price: 15000 },
+  });
+  // menu1_10: Telur Balado
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu1_10.id, name: "Regular", price: 8000 },
+  });
+  // menu1_11: Kerupuk
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu1_11.id, name: "Regular", price: 3000 },
+  });
+  // menu1_12: Sayur Nangka
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu1_12.id, name: "Regular", price: 10000 },
+  });
+  // menu1_14: Kolak Pisang
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu1_14.id, name: "Regular", price: 12000 },
+  });
+  // menu1_15: Bubur Sumsum
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu1_15.id, name: "Regular", price: 10000 },
+  });
+  // menu1_16: Es Cendol
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu1_16.id, name: "Regular", price: 15000 },
+  });
+
+  // Default variants for remaining Merchant 2 menus
+  // menu2_2: California Roll
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu2_2.id, name: "6 pcs", price: 55000 },
+  });
+  // menu2_3: Spicy Tuna Roll
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu2_3.id, name: "6 pcs", price: 65000 },
+  });
+  // menu2_4: Rainbow Roll
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu2_4.id, name: "6 pcs", price: 95000 },
+  });
+  // menu2_6: Tuna Sashimi
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu2_6.id, name: "5 pcs", price: 75000 },
+  });
+  // menu2_7: Mixed Sashimi
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu2_7.id, name: "Regular", price: 120000 },
+  });
+  // menu2_8: Octopus Sashimi
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu2_8.id, name: "5 pcs", price: 70000 },
+  });
+  // menu2_10: Shoyu Ramen
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu2_10.id, name: "Regular", price: 50000 },
+  });
+  // menu2_11: Miso Ramen
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu2_11.id, name: "Regular", price: 52000 },
+  });
+  // menu2_12: Spicy Tantanmen
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu2_12.id, name: "Regular", price: 58000 },
+  });
+  // menu2_14: Matcha Latte
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu2_14.id, name: "Regular", price: 28000 },
+  });
+  // menu2_15: Ramune
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu2_15.id, name: "Regular", price: 20000 },
+  });
+  // menu2_16: Calpis
+  await prisma.menuVariant.create({
+    data: { id: uuid(), menuId: menu2_16.id, name: "Regular", price: 18000 },
+  });
+
   // Create Drivers (at least 4)
   console.log("🚗 Creating drivers...");
   const driver1 = await prisma.driver.create({

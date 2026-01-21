@@ -82,7 +82,11 @@ export class ReviewController {
     @Query("page") page?: number,
     @Query("limit") limit?: number,
   ): Promise<ReviewListResponse> {
-    return await this.service.getDriverReviews(driverId, page, limit);
+    return await this.service.getDriverReviews(
+      driverId,
+      page ? Number(page) : undefined,
+      limit ? Number(limit) : undefined,
+    );
   }
 
   @Post("drivers/:driverId")

@@ -54,6 +54,15 @@ export const UpdateOperationalHourSchema = z.object({
 
 export type UpdateOperationalHour = z.infer<typeof UpdateOperationalHourSchema>;
 
+export const RegisterMerchantSchema = z.object({
+  name: z.string().min(4),
+  description: z.string().min(10).optional(),
+  latitude: z.number(),
+  longitude: z.number(),
+});
+
+export type RegisterMerchant = z.infer<typeof RegisterMerchantSchema>;
+
 export interface MerchantListResponse {
   data: MerchantResponse[];
   total: number;

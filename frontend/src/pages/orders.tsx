@@ -180,16 +180,19 @@ function OrderCard({ order, showTrack }: { order: Order; showTrack?: boolean }) 
           {/* Items */}
           <div className="p-4">
             <div className="space-y-2 mb-4">
-              {order.items?.slice(0, 2).map((item) => (
-                <div key={item.id} className="flex items-center justify-between text-sm">
-                  <span>
-                    {item.quantity}x Menu Item
-                  </span>
-                  <span className="text-muted-foreground">
-                    {formatCurrency(item.price * item.quantity)}
-                  </span>
-                </div>
-              ))}
+              {order.items?.slice(0, 2).map((item) => {
+                const menuName = item.menuVariant?.menu?.name || item.menu?.name || 'Menu Item';
+                return (
+                  <div key={item.id} className="flex items-center justify-between text-sm">
+                    <span>
+                      {item.quantity}x {menuName}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {formatCurrency(item.price * item.quantity)}
+                    </span>
+                  </div>
+                );
+              })}
               {order.items && order.items.length > 2 && (
                 <p className="text-sm text-muted-foreground">
                   +{order.items.length - 2} more items

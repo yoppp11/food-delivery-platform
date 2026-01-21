@@ -52,6 +52,8 @@ model User {
   notifications        Notification[]
   carts                Cart[]
   payments             Payment[]
+  chatParticipants     ChatParticipant[]
+  chatMessages         ChatMessage[]
 
   @@map("user")
 }
@@ -138,15 +140,16 @@ model Verification {
 }
 
 model Merchant {
-  id          String   @id @default(uuid())
-  ownerId     String
-  name        String
-  description String?
-  latitude    Decimal
-  longitude   Decimal
-  isOpen      Boolean  @default(false)
-  rating      Decimal?
-  createdAt   DateTime @default(now())
+  id             String         @id @default(uuid())
+  ownerId        String
+  name           String
+  description    String?
+  latitude       Decimal
+  longitude      Decimal
+  isOpen         Boolean        @default(false)
+  rating         Decimal?
+  approvalStatus ApprovalStatus @default(PENDING)
+  createdAt      DateTime       @default(now())
 
   user User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
@@ -270,6 +273,7 @@ model Order {
   payments        Payment[]
   deliveries      Delivery[]
   orderPromotions OrderPromotion[]
+  chatRooms       ChatRoom[]
 
   merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -336,10 +340,12 @@ model PaymentCallback {
 }
 
 model Driver {
-  id          String  @id @unique @default(uuid())
-  userId      String
-  plateNumber String
-  isAvailable Boolean
+  id             String         @id @unique @default(uuid())
+  userId         String
+  plateNumber    String
+  isAvailable    Boolean
+  rating         Decimal?
+  approvalStatus ApprovalStatus @default(PENDING)
 
   orders          Order[]
   driverLocations DriverLocation[]
@@ -360,6 +366,7 @@ model DriverLocation {
 
   driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
+  @@index([driverId, recordedAt(sort: Desc)])
   @@map("driverLocations")
 }
 
@@ -417,11 +424,12 @@ model MerchantReview {
 }
 
 model DriverReview {
-  id       String @id @unique @default(uuid())
-  userId   String
-  driverId String
-  rating   Int
-  comment  String
+  id        String   @id @unique @default(uuid())
+  userId    String
+  driverId  String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
@@ -452,6 +460,69 @@ model Image {
   @@map("images")
 }
 
+model ChatRoom {
+  id           String         @id @default(uuid())
+  orderId      String
+  type         ChatRoomType
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  order        Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  participants ChatParticipant[]
+  messages     ChatMessage[]
+
+  @@map("chatRooms")
+}
+
+model ChatParticipant {
+  id         String   @id @default(uuid())
+  chatRoomId String
+  userId     String
+  role       ChatRole
+  joinedAt   DateTime @default(now())
+
+  chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatRoomId, userId])
+  @@map("chatParticipants")
+}
+
+model ChatMessage {
+  id         String      @id @default(uuid())
+  chatRoomId String
+  senderId   String
+  content    String
+  type       MessageType @default(TEXT)
+  isRead     Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+
+  chatRoom   ChatRoom    @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  sender     User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("chatMessages")
+}
+
+enum ChatRoomType {
+  CUSTOMER_MERCHANT
+  CUSTOMER_DRIVER
+  CUSTOMER_SUPPORT
+}
+
+enum ChatRole {
+  CUSTOMER
+  MERCHANT
+  DRIVER
+  SUPPORT
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  LOCATION
+  SYSTEM
+}
+
 enum UserStatus {
   ACTIVE
   SUSPENDED
@@ -469,6 +540,12 @@ enum Status {
   ACTIVE
   SUSPENDED
   DELETED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum CartStatus {

@@ -21,11 +21,24 @@ export class CartService {
         status: "ACTIVE",
       },
       include: {
+        merchant: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            isOpen: true,
+            rating: true,
+          },
+        },
         cartItems: {
           include: {
             menuVariant: {
               include: {
-                menu: true,
+                menu: {
+                  include: {
+                    image: true,
+                  },
+                },
               },
             },
           },

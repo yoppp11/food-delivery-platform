@@ -272,7 +272,7 @@ export function RestaurantDetailPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center gap-6">
                     <div className="text-center">
-                      <div className="text-5xl font-bold">{merchant.rating?.toString()}</div>
+                      <div className="text-5xl font-bold">{merchant.rating?.toString() || '-'}</div>
                       <div className="flex items-center gap-1 mt-1">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star
@@ -286,25 +286,31 @@ export function RestaurantDetailPage() {
                         ))}
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {reviews?.length || 0} reviews
+                        {reviewsResponse?.total || reviews?.length || 0} reviews
                       </p>
                     </div>
                     <Separator orientation="vertical" className="h-20" />
                     <div className="flex-1 space-y-2">
-                      {[5, 4, 3, 2, 1].map((rating) => (
-                        <div key={rating} className="flex items-center gap-2">
-                          <span className="text-sm w-4">{rating}</span>
-                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-yellow-400"
-                              style={{
-                                width: `${(rating / 5) * 100}%`,
-                              }}
-                            />
+                      {[5, 4, 3, 2, 1].map((ratingValue) => {
+                        const count = reviews?.filter(
+                          (r: MerchantReview) => r.rating === ratingValue
+                        ).length || 0;
+                        const total = reviews?.length || 1;
+                        const percentage = (count / total) * 100;
+                        return (
+                          <div key={ratingValue} className="flex items-center gap-2">
+                            <span className="text-sm w-4">{ratingValue}</span>
+                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-yellow-400 transition-all"
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-muted-foreground w-8">{count}</span>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </CardContent>
@@ -312,9 +318,17 @@ export function RestaurantDetailPage() {
 
               {/* Reviews List */}
               <div className="space-y-4">
-                {reviews?.map((review: MerchantReview) => (
-                  <ReviewCard key={review.id} review={review} />
-                ))}
+                {reviews && reviews.length > 0 ? (
+                  reviews.map((review: MerchantReview) => (
+                    <ReviewCard key={review.id} review={review} />
+                  ))
+                ) : (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <p className="text-muted-foreground">No reviews yet. Be the first to review!</p>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </div>
           </TabsContent>

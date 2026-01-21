@@ -10,12 +10,20 @@ import {
   UpdateDriverReview,
   UpdateMerchantReview,
 } from "./types";
+import { CacheService, CacheInvalidationService } from "../../common/cache";
+
+const CACHE_TTL = {
+  MERCHANT_REVIEWS: 300000,
+  DRIVER_REVIEWS: 300000,
+};
 
 @Injectable()
 export class ReviewService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
+    private cacheService: CacheService,
+    private cacheInvalidation: CacheInvalidationService,
   ) {}
 
   async getMerchantReviews(
@@ -29,6 +37,10 @@ export class ReviewService {
           "Merchant ID is required",
           HttpStatus.BAD_REQUEST,
         );
+
+      const cacheKey = `reviews:merchant:${merchantId}:${page}`;
+      const cached = await this.cacheService.get<ReviewListResponse>(cacheKey);
+      if (cached) return cached;
 
       const merchant = await this.prisma.merchant.findUnique({
         where: { id: merchantId },
@@ -57,13 +69,17 @@ export class ReviewService {
         this.prisma.merchantReview.count({ where: { merchantId } }),
       ]);
 
-      return {
+      const result = {
         data: reviews,
         total,
         page,
         limit,
         totalPages: Math.ceil(total / limit),
       };
+
+      await this.cacheService.set(cacheKey, result, CACHE_TTL.MERCHANT_REVIEWS);
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -317,7 +333,7 @@ export class ReviewService {
           HttpStatus.BAD_REQUEST,
         );
 
-      return await this.prisma.driverReview.create({
+      const review = await this.prisma.driverReview.create({
         data: {
           userId: user.id,
           driverId,
@@ -325,6 +341,10 @@ export class ReviewService {
           comment: body.comment || "",
         },
       });
+
+      await this.updateDriverRating(driverId);
+
+      return review;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -353,10 +373,14 @@ export class ReviewService {
       if (review.userId !== user.id && user.role !== "ADMIN")
         throw new HttpException("Forbidden access", HttpStatus.FORBIDDEN);
 
-      return await this.prisma.driverReview.update({
+      const updated = await this.prisma.driverReview.update({
         where: { id: reviewId },
         data: body,
       });
+
+      await this.updateDriverRating(review.driverId);
+
+      return updated;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -380,16 +404,38 @@ export class ReviewService {
 
       if (!review)
         throw new HttpException("Review not found", HttpStatus.NOT_FOUND);
-
-      if (review.userId !== user.id && user.role !== "ADMIN")
-        throw new HttpException("Forbidden access", HttpStatus.FORBIDDEN);
-
-      return await this.prisma.driverReview.delete({
+      const deleted = await this.prisma.driverReview.delete({
         where: { id: reviewId },
       });
+
+      await this.updateDriverRating(review.driverId);
+
+      return deleted;
     } catch (error) {
       this.logger.error(error);
       throw error;
     }
+  }
+
+  private async updateDriverRating(driverId: string): Promise<void> {
+    const reviews = await this.prisma.driverReview.findMany({
+      where: { driverId },
+    });
+
+    if (reviews.length === 0) {
+      await this.prisma.driver.update({
+        where: { id: driverId },
+        data: { rating: null },
+      });
+      return;
+    }
+
+    const avgRating =
+      reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+
+    await this.prisma.driver.update({
+      where: { id: driverId },
+      data: { rating: Math.round(avgRating * 10) / 10 },
+    });
   }
 }

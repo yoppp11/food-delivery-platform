@@ -33,11 +33,13 @@ export class MerchantCategoryController {
   constructor(private services: MerchantCategoryService) {}
 
   @Get()
+  @Roles(["ADMIN", "MERCHANT"])
   async getAllCategories(): Promise<MerchantMenuCategory[]> {
     return await this.services.getAllCategory();
   }
 
   @Get(":id")
+  @Roles(["ADMIN", "MERCHANT"])
   async getById(
     @Param("id", ParseUUIDPipe) id: string,
   ): Promise<MerchantMenuCategory> {

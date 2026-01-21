@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { Facebook, Twitter, Instagram, Youtube, Smartphone } from 'lucide-react';
+import { Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -99,35 +99,30 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Download & Social */}
+          {/* Social Links */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg">{t('footer.download')}</h3>
-            <div className="space-y-2">
-              <Button variant="outline" className="w-full justify-start">
-                <Smartphone className="mr-2 h-4 w-4" />
-                Download iOS App
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Smartphone className="mr-2 h-4 w-4" />
-                Download Android App
-              </Button>
+            <h3 className="font-semibold text-lg">{t('footer.followUs')}</h3>
+            <div className="flex space-x-3">
+              {socialLinks.map((social) => (
+                <motion.a
+                  key={social.label}
+                  href={social.href}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-muted hover:bg-primary hover:text-primary-foreground transition-colors"
+                >
+                  <social.icon className="h-5 w-5" />
+                </motion.a>
+              ))}
             </div>
-
             <div className="pt-4">
-              <h3 className="font-semibold text-lg mb-4">{t('footer.followUs')}</h3>
-              <div className="flex space-x-3">
-                {socialLinks.map((social) => (
-                  <motion.a
-                    key={social.label}
-                    href={social.href}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-muted hover:bg-primary hover:text-primary-foreground transition-colors"
-                  >
-                    <social.icon className="h-5 w-5" />
-                  </motion.a>
-                ))}
-              </div>
+              <h3 className="font-semibold text-lg mb-2">Contact Us</h3>
+              <p className="text-muted-foreground text-sm">
+                support@foodgo.com
+              </p>
+              <p className="text-muted-foreground text-sm">
+                +62 21 1234 5678
+              </p>
             </div>
           </div>
         </div>

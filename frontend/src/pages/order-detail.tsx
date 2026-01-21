@@ -1,18 +1,18 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Package,
-  Clock,
   CheckCircle,
   Truck,
   ChefHat,
   CreditCard,
   Phone,
-  MessageCircle,
   MapPin,
   Store,
-  User,
+  XCircle,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,9 +20,21 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useOrderTracking } from '@/hooks/use-orders';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
-import type { OrderStatus } from '@/types';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { ChatButton } from '@/components/chat';
+import { useOrderTracking, useCancelOrder } from '@/hooks/use-orders';
+import { formatCurrency } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const orderSteps = [
   { status: 'CREATED', label: 'Order Created', icon: Package },
@@ -36,8 +48,27 @@ const orderSteps = [
 export function OrderDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const { data: order, isLoading } = useOrderTracking(id!);
+  const cancelOrder = useCancelOrder();
+
+  const handleCancelOrder = async () => {
+    if (!id) return;
+    setIsCancelling(true);
+    cancelOrder.mutate(id, {
+      onSuccess: () => {
+        toast.success('Order cancelled successfully');
+        setIsCancelling(false);
+      },
+      onError: () => {
+        toast.error('Failed to cancel order');
+        setIsCancelling(false);
+      },
+    });
+  };
+
+  const canCancel = order?.status === 'CREATED' || order?.status === 'PAID';
 
   if (isLoading) {
     return <OrderDetailSkeleton />;
@@ -198,7 +229,7 @@ export function OrderDetailPage() {
             )}
 
             {/* Driver Info */}
-            {['ON_DELIVERY', 'READY'].includes(order.status) && (
+            {['ON_DELIVERY', 'READY'].includes(order.status) && order.driver && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">{t('tracking.driver')}</CardTitle>
@@ -207,27 +238,36 @@ export function OrderDetailPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <Avatar className="h-14 w-14">
-                        <AvatarImage src="https://i.pravatar.cc/150?u=driver1" />
-                        <AvatarFallback>DR</AvatarFallback>
+                        <AvatarImage src={order.driver.user?.image || `https://i.pravatar.cc/150?u=${order.driver.id}`} />
+                        <AvatarFallback>
+                          {order.driver.user?.email?.substring(0, 2).toUpperCase() || 'DR'}
+                        </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">Budi Santoso</p>
-                        <p className="text-sm text-muted-foreground">
-                          Honda Vario • B 1234 XYZ
+                        <p className="font-medium">
+                          {order.driver.profile?.fullName || order.driver.user?.email || 'Driver'}
                         </p>
-                        <div className="flex items-center gap-1 mt-1">
-                          <span className="text-yellow-500">★</span>
-                          <span className="text-sm">4.9</span>
-                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {order.driver.vehicleType} • {order.driver.licensePlate}
+                        </p>
+                        {order.driver.rating && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className="text-yellow-500">★</span>
+                            <span className="text-sm">{order.driver.rating.toFixed(1)}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="icon">
                         <Phone className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="icon">
-                        <MessageCircle className="h-4 w-4" />
-                      </Button>
+                      <ChatButton
+                        orderId={order.id}
+                        type="CUSTOMER_DRIVER"
+                        label=""
+                        size="icon"
+                      />
                     </div>
                   </div>
                 </CardContent>
@@ -255,17 +295,26 @@ export function OrderDetailPage() {
 
                 {/* Items */}
                 <div className="space-y-3">
-                  {order.items?.map((item) => (
-                    <div key={item.id} className="flex justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium bg-muted px-2 py-1 rounded">
-                          {item.quantity}x
-                        </span>
-                        <span>Menu Item</span>
+                  {order.items?.map((item) => {
+                    const menuName = item.menuVariant?.menu?.name || item.menu?.name || 'Menu Item';
+                    const variantName = item.menuVariant?.name || item.variant?.name;
+                    return (
+                      <div key={item.id} className="flex justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium bg-muted px-2 py-1 rounded">
+                            {item.quantity}x
+                          </span>
+                          <div>
+                            <span>{menuName}</span>
+                            {variantName && (
+                              <p className="text-sm text-muted-foreground">{variantName}</p>
+                            )}
+                          </div>
+                        </div>
+                        <span>{formatCurrency(item.price * item.quantity)}</span>
                       </div>
-                      <span>{formatCurrency(item.price * item.quantity)}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <Separator />
@@ -360,15 +409,65 @@ export function OrderDetailPage() {
 
             {/* Help */}
             <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground mb-3">
+              <CardContent className="p-4 space-y-3">
+                <p className="text-sm text-muted-foreground">
                   Need help with your order?
                 </p>
-                <Button variant="outline" className="w-full">
-                  Contact Support
-                </Button>
+                <ChatButton
+                  orderId={order.id}
+                  type="CUSTOMER_MERCHANT"
+                  label="Chat with Restaurant"
+                  variant="outline"
+                  className="w-full"
+                />
+                <ChatButton
+                  orderId={order.id}
+                  type="CUSTOMER_SUPPORT"
+                  label="Contact Support"
+                  variant="outline"
+                  className="w-full"
+                />
               </CardContent>
             </Card>
+
+            {/* Cancel Order Button */}
+            {canCancel && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full">
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Cancel Order
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel Order?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to cancel this order? 
+                      {order.paymentStatus === 'SUCCESS' && ' Your payment will be refunded.'}
+                      This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep Order</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleCancelOrder}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      disabled={isCancelling}
+                    >
+                      {isCancelling ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Cancelling...
+                        </>
+                      ) : (
+                        'Yes, Cancel Order'
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
       </div>

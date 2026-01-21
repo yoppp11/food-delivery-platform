@@ -12,15 +12,29 @@ import {
   CreateOperationalHour,
   GetMerchantsQuery,
   MerchantListResponse,
+  RegisterMerchant,
   UpdateMerchant,
   UpdateOperationalHour,
 } from "./types";
+import { CacheService, CacheInvalidationService } from "../../common/cache";
+
+const CACHE_TTL = {
+  MERCHANT_LIST: 300000,
+  MERCHANT_DETAIL: 600000,
+  FEATURED: 900000,
+  NEARBY: 300000,
+  MENUS: 300000,
+  CATEGORIES: 600000,
+  REVIEWS: 300000,
+};
 
 @Injectable()
 export class MerchantService {
   constructor(
     private prisma: PrismaService,
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
+    private cacheService: CacheService,
+    private cacheInvalidation: CacheInvalidationService,
   ) {}
 
   private toRad(value: number): number {
@@ -50,6 +64,10 @@ export class MerchantService {
   ): Promise<MerchantListResponse> {
     try {
       const { search, isOpen, sortBy, order, page, limit, lat, lng } = query;
+
+      const cacheKey = this.cacheService.generateHashKey("merchants:list", query);
+      const cached = await this.cacheService.get<MerchantListResponse>(cacheKey);
+      if (cached) return cached;
 
       const where: Record<string, unknown> = {};
 
@@ -114,13 +132,17 @@ export class MerchantService {
         });
       }
 
-      return {
+      const result = {
         data,
         total,
         page,
         limit,
         totalPages: Math.ceil(total / limit),
       };
+
+      await this.cacheService.set(cacheKey, result, CACHE_TTL.MERCHANT_LIST);
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -132,8 +154,66 @@ export class MerchantService {
       if (!id)
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
 
+      const cacheKey = `merchant:${id}`;
+      const cached = await this.cacheService.get(cacheKey);
+      if (cached) return cached;
+
       const merchant = await this.prisma.merchant.findUnique({
         where: { id },
+        include: {
+          merchantOperationalHours: true,
+          merchantCategories: {
+            include: {
+              menus: {
+                include: {
+                  menuVariants: true,
+                  image: true,
+                },
+              },
+            },
+          },
+          merchantReviews: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  image: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          },
+        },
+      });
+
+      if (!merchant)
+        throw new HttpException("Merchant not found", HttpStatus.NOT_FOUND);
+
+      const result = {
+        ...merchant,
+        latitude: Number(merchant.latitude),
+        longitude: Number(merchant.longitude),
+        rating: merchant.rating ? Number(merchant.rating) : null,
+        reviewCount: merchant.merchantReviews.length,
+      };
+
+      await this.cacheService.set(cacheKey, result, CACHE_TTL.MERCHANT_DETAIL);
+
+      return result;
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async getMerchantByOwnerId(ownerId: string) {
+    try {
+      if (!ownerId)
+        throw new HttpException("Owner ID is required", HttpStatus.BAD_REQUEST);
+
+      const merchant = await this.prisma.merchant.findFirst({
+        where: { ownerId },
         include: {
           merchantOperationalHours: true,
           merchantCategories: {
@@ -177,14 +257,16 @@ export class MerchantService {
     }
   }
 
-  async getFeaturedMerchants(limit: number = 10) {
+  async getMerchantsByOwnerId(ownerId: string) {
     try {
+      if (!ownerId)
+        throw new HttpException("Owner ID is required", HttpStatus.BAD_REQUEST);
+
       const merchants = await this.prisma.merchant.findMany({
-        where: { isOpen: true },
-        orderBy: { rating: "desc" },
-        take: limit,
+        where: { ownerId },
         include: {
           merchantReviews: true,
+          merchantOperationalHours: true,
         },
       });
 
@@ -201,8 +283,44 @@ export class MerchantService {
     }
   }
 
+  async getFeaturedMerchants(limit: number = 10) {
+    try {
+      const cacheKey = `merchants:featured:${limit}`;
+      const cached = await this.cacheService.get(cacheKey);
+      if (cached) return cached;
+
+      const merchants = await this.prisma.merchant.findMany({
+        where: { isOpen: true },
+        orderBy: { rating: "desc" },
+        take: limit,
+        include: {
+          merchantReviews: true,
+        },
+      });
+
+      const result = merchants.map((m) => ({
+        ...m,
+        latitude: Number(m.latitude),
+        longitude: Number(m.longitude),
+        rating: m.rating ? Number(m.rating) : null,
+        reviewCount: m.merchantReviews.length,
+      }));
+
+      await this.cacheService.set(cacheKey, result, CACHE_TTL.FEATURED);
+
+      return result;
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
   async getNearbyMerchants(lat: number, lng: number, maxDistance: number = 10) {
     try {
+      const cacheKey = `merchants:nearby:${lat.toFixed(3)}:${lng.toFixed(3)}:${maxDistance}`;
+      const cached = await this.cacheService.get(cacheKey);
+      if (cached) return cached;
+
       const merchants = await this.prisma.merchant.findMany({
         where: { isOpen: true },
         include: {
@@ -212,7 +330,7 @@ export class MerchantService {
 
       const userLocation: Coordinate = { latitude: lat, longitude: lng };
 
-      return merchants
+      const result = merchants
         .map((m) => {
           const distance = this.calculateDistance(userLocation, {
             latitude: Number(m.latitude),
@@ -229,6 +347,10 @@ export class MerchantService {
         })
         .filter((m) => m.distance <= maxDistance)
         .sort((a, b) => a.distance - b.distance);
+
+      await this.cacheService.set(cacheKey, result, CACHE_TTL.NEARBY);
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -254,10 +376,14 @@ export class MerchantService {
       if (merchant.ownerId !== user.id && user.role !== "ADMIN")
         throw new HttpException("Forbidden access", HttpStatus.FORBIDDEN);
 
-      return await this.prisma.merchant.update({
+      const result = await this.prisma.merchant.update({
         where: { id },
         data: body,
       });
+
+      await this.cacheInvalidation.invalidateMerchantCache(id);
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -279,9 +405,13 @@ export class MerchantService {
       if (merchant.ownerId !== user.id && user.role !== "ADMIN")
         throw new HttpException("Forbidden access", HttpStatus.FORBIDDEN);
 
-      return await this.prisma.merchant.delete({
+      const result = await this.prisma.merchant.delete({
         where: { id },
       });
+
+      await this.cacheInvalidation.invalidateMerchantCache(id);
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -303,10 +433,14 @@ export class MerchantService {
       if (merchant.ownerId !== user.id && user.role !== "ADMIN")
         throw new HttpException("Forbidden access", HttpStatus.FORBIDDEN);
 
-      return await this.prisma.merchant.update({
+      const result = await this.prisma.merchant.update({
         where: { id },
         data: { isOpen: !merchant.isOpen },
       });
+
+      await this.cacheInvalidation.invalidateMerchantCache(id);
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -317,6 +451,10 @@ export class MerchantService {
     try {
       if (!id)
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
+
+      const cacheKey = `merchant:${id}:menus`;
+      const cached = await this.cacheService.get(cacheKey);
+      if (cached) return cached;
 
       const merchant = await this.prisma.merchant.findUnique({
         where: { id },
@@ -337,7 +475,10 @@ export class MerchantService {
       if (!merchant)
         throw new HttpException("Merchant not found", HttpStatus.NOT_FOUND);
 
-      return merchant.merchantCategories;
+      const result = merchant.merchantCategories;
+      await this.cacheService.set(cacheKey, result, CACHE_TTL.MENUS);
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -348,6 +489,10 @@ export class MerchantService {
     try {
       if (!id)
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
+
+      const cacheKey = `merchant:${id}:reviews:${page}`;
+      const cached = await this.cacheService.get(cacheKey);
+      if (cached) return cached;
 
       const merchant = await this.prisma.merchant.findUnique({
         where: { id },
@@ -376,13 +521,17 @@ export class MerchantService {
         this.prisma.merchantReview.count({ where: { merchantId: id } }),
       ]);
 
-      return {
+      const result = {
         data: reviews,
         total,
         page,
         limit,
         totalPages: Math.ceil(total / limit),
       };
+
+      await this.cacheService.set(cacheKey, result, CACHE_TTL.REVIEWS);
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -559,6 +708,133 @@ export class MerchantService {
     } catch (error) {
       this.logger.error(error, "<====");
       this.logger.error(typeof error);
+      throw error;
+    }
+  }
+
+  async registerMerchant(
+    user: User,
+    data: RegisterMerchant,
+  ): Promise<Merchant> {
+    try {
+      // Check if user already has a pending or approved merchant application
+      const existingMerchant = await this.prisma.merchant.findFirst({
+        where: {
+          ownerId: user.id,
+          approvalStatus: { in: ["PENDING", "APPROVED"] },
+        },
+      });
+
+      if (existingMerchant) {
+        throw new HttpException(
+          "You already have a pending or approved merchant application",
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const merchant = await this.prisma.merchant.create({
+        data: {
+          ownerId: user.id,
+          name: data.name,
+          description: data.description ?? null,
+          latitude: data.latitude,
+          longitude: data.longitude,
+          isOpen: false, // Closed until approved
+          approvalStatus: "PENDING",
+        },
+      });
+
+      return merchant;
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async approveMerchant(merchantId: string): Promise<Merchant> {
+    try {
+      const merchant = await this.prisma.merchant.findUnique({
+        where: { id: merchantId },
+        include: { user: true },
+      });
+
+      if (!merchant)
+        throw new HttpException("Merchant not found", HttpStatus.NOT_FOUND);
+
+      if (merchant.approvalStatus === "APPROVED")
+        throw new HttpException(
+          "Merchant is already approved",
+          HttpStatus.BAD_REQUEST,
+        );
+
+      return await this.prisma.$transaction(async (tx) => {
+        const updatedMerchant = await tx.merchant.update({
+          where: { id: merchantId },
+          data: {
+            approvalStatus: "APPROVED",
+          },
+        });
+
+        // Update user role to MERCHANT
+        await tx.user.update({
+          where: { id: merchant.ownerId },
+          data: { role: "MERCHANT" },
+        });
+
+        return updatedMerchant;
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async rejectMerchant(merchantId: string): Promise<Merchant> {
+    try {
+      const merchant = await this.prisma.merchant.findUnique({
+        where: { id: merchantId },
+      });
+
+      if (!merchant)
+        throw new HttpException("Merchant not found", HttpStatus.NOT_FOUND);
+
+      if (merchant.approvalStatus === "REJECTED")
+        throw new HttpException(
+          "Merchant is already rejected",
+          HttpStatus.BAD_REQUEST,
+        );
+
+      return await this.prisma.merchant.update({
+        where: { id: merchantId },
+        data: {
+          approvalStatus: "REJECTED",
+          isOpen: false,
+        },
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async getPendingMerchants() {
+    try {
+      return await this.prisma.merchant.findMany({
+        where: { approvalStatus: "PENDING" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              phoneNumber: true,
+              createdAt: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    } catch (error) {
+      this.logger.error(error);
       throw error;
     }
   }

@@ -23,6 +23,7 @@ import { ZodValidationPipe } from "../../common/pipes";
 import {
   CreateOperationalHourSchema,
   GetMerchantsQuerySchema,
+  RegisterMerchantSchema,
   UpdateMerchantSchema,
   UpdateOperationalHourSchema,
 } from "./types";
@@ -30,6 +31,7 @@ import type {
   CreateOperationalHour,
   GetMerchantsQuery,
   MerchantListResponse,
+  RegisterMerchant,
   UpdateMerchant,
   UpdateOperationalHour,
 } from "./types";
@@ -37,6 +39,20 @@ import type {
 @Controller("merchants")
 export class MerchantController {
   constructor(private service: MerchantService) {}
+
+  @Get("me")
+  @UseGuards(PermissionGuard)
+  @Roles(["MERCHANT"])
+  async getCurrentMerchant(@CurrentUser() user: User) {
+    return await this.service.getMerchantByOwnerId(user.id);
+  }
+
+  @Get("my-merchants")
+  @UseGuards(PermissionGuard)
+  @Roles(["MERCHANT"])
+  async getMyMerchants(@CurrentUser() user: User) {
+    return await this.service.getMerchantsByOwnerId(user.id);
+  }
 
   @Get()
   async getAllMerchants(
@@ -166,5 +182,36 @@ export class MerchantController {
     @CurrentUser() user: User,
   ): Promise<MerchantOperationalHour> {
     return await this.service.deleteOperationalHour(id, hourId, user);
+  }
+
+  @Post("register")
+  @UseGuards(PermissionGuard)
+  @Roles(["CUSTOMER"])
+  async registerMerchant(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(RegisterMerchantSchema)) body: RegisterMerchant,
+  ): Promise<Merchant> {
+    return await this.service.registerMerchant(user, body);
+  }
+
+  @Get("admin/pending")
+  @UseGuards(PermissionGuard)
+  @Roles(["ADMIN"])
+  async getPendingMerchants() {
+    return await this.service.getPendingMerchants();
+  }
+
+  @Patch(":id/approve")
+  @UseGuards(PermissionGuard)
+  @Roles(["ADMIN"])
+  async approveMerchant(@Param("id", ParseUUIDPipe) id: string) {
+    return await this.service.approveMerchant(id);
+  }
+
+  @Patch(":id/reject")
+  @UseGuards(PermissionGuard)
+  @Roles(["ADMIN"])
+  async rejectMerchant(@Param("id", ParseUUIDPipe) id: string) {
+    return await this.service.rejectMerchant(id);
   }
 }

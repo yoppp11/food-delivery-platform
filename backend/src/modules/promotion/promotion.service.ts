@@ -10,22 +10,38 @@ import {
   ValidatePromo,
   ValidatePromoResponse,
 } from "./types";
+import { CacheService, CacheInvalidationService } from "../../common/cache";
+
+const CACHE_TTL = {
+  PROMOTIONS_ACTIVE: 300000,
+  PROMOTION_CODE: 300000,
+};
 
 @Injectable()
 export class PromotionService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
+    private cacheService: CacheService,
+    private cacheInvalidation: CacheInvalidationService,
   ) {}
 
   async getAllPromotions(): Promise<Promotion[]> {
     try {
-      return await this.prisma.promotion.findMany({
+      const cacheKey = "promotions:active";
+      const cached = await this.cacheService.get<Promotion[]>(cacheKey);
+      if (cached) return cached;
+
+      const result = await this.prisma.promotion.findMany({
         where: {
           expiredAt: { gt: new Date() },
         },
         orderBy: { expiredAt: "asc" },
       });
+
+      await this.cacheService.set(cacheKey, result, CACHE_TTL.PROMOTIONS_ACTIVE);
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -176,9 +192,13 @@ export class PromotionService {
           HttpStatus.BAD_REQUEST,
         );
 
-      return await this.prisma.promotion.create({
+      const result = await this.prisma.promotion.create({
         data: body,
       });
+
+      await this.cacheInvalidation.invalidatePromotionCache();
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -209,10 +229,14 @@ export class PromotionService {
           );
       }
 
-      return await this.prisma.promotion.update({
+      const result = await this.prisma.promotion.update({
         where: { id },
         data: body,
       });
+
+      await this.cacheInvalidation.invalidatePromotionCache();
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -231,9 +255,13 @@ export class PromotionService {
       if (!promotion)
         throw new HttpException("Promotion not found", HttpStatus.NOT_FOUND);
 
-      return await this.prisma.promotion.delete({
+      const result = await this.prisma.promotion.delete({
         where: { id },
       });
+
+      await this.cacheInvalidation.invalidatePromotionCache();
+
+      return result;
     } catch (error) {
       this.logger.error(error);
       throw error;

@@ -57,16 +57,19 @@ export class OrderController {
   }
 
   @Get(":id")
+  @Roles(["CUSTOMER", "MERCHANT", "ADMIN"])
   async getById(@Param("id", ParseUUIDPipe) id: string) {
     return await this.service.getById(id);
   }
 
   @Get(":id/track")
+  @Roles(["CUSTOMER", "MERCHANT", "ADMIN", "DRIVER"])
   async getOrderTracking(@Param("id", ParseUUIDPipe) id: string) {
     return await this.service.getOrderTracking(id);
   }
 
   @Get(":id/status-history")
+  @Roles(["CUSTOMER", "MERCHANT", "ADMIN"])
   async getStatusHistory(@Param("id", ParseUUIDPipe) id: string) {
     return await this.service.getStatusHistory(id);
   }
@@ -108,10 +111,14 @@ export class MerchantOrderController {
   @Roles(["MERCHANT"])
   async getMerchantOrders(
     @CurrentUser() user: User,
-    @Query("page") page?: number,
-    @Query("limit") limit?: number,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
-    return this.service.getMerchantOrders(user, page, limit);
+    return this.service.getMerchantOrders(
+      user,
+      page ? parseInt(page, 10) : undefined,
+      limit ? parseInt(limit, 10) : undefined,
+    );
   }
 
   @Get("pending")
