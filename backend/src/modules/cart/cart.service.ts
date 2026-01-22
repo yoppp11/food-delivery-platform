@@ -13,7 +13,6 @@ export class CartService {
   ) {}
 
   async getAll(userId: string): Promise<Cart[]> {
-    this.logger.info("Fetching cart for user", { userId });
 
     return this.prisma.cart.findMany({
       where: {
@@ -42,8 +41,10 @@ export class CartService {
               },
             },
           },
+          orderBy: { id: "asc" },
         },
       },
+      orderBy: { id: "asc" },
     });
   }
 
@@ -51,21 +52,14 @@ export class CartService {
     const existingCart = await this.findUserCart(user.id);
 
     if (existingCart && existingCart.merchantId !== body.merchantId) {
-      this.logger.info("Clearing cart due to different merchant", {
-        userId: user.id,
-        oldMerchantId: existingCart.merchantId,
-        newMerchantId: body.merchantId,
-      });
       await this.deleteCart(existingCart.id);
       return this.createCart(body, user.id);
     }
 
     if (existingCart) {
-      this.logger.info("Updating existing cart", { cartId: existingCart.id });
       return this.updateCart(existingCart, body);
     }
 
-    this.logger.info("Creating new cart", { userId: user.id });
     return this.createCart(body, user.id);
   }
 
@@ -94,12 +88,31 @@ export class CartService {
         ? Math.max(1, cartItem.quantity - 1)
         : cartItem.quantity + 1;
 
-    return this.prisma.cartItem.update({
-      where: { id: cartItemId },
-      data: {
-        quantity: newQuantity,
-        itemTotal: cartItem.basePrice * newQuantity,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const updatedItem = await tx.cartItem.update({
+        where: { id: cartItemId },
+        data: {
+          quantity: newQuantity,
+          itemTotal: cartItem.basePrice * newQuantity,
+        },
+      });
+
+      // Recalculate cart subtotal
+      const allCartItems = await tx.cartItem.findMany({
+        where: { cartId: cartItem.cartId },
+      });
+
+      const subtotal = allCartItems.reduce(
+        (acc, item) => acc + item.basePrice * item.quantity,
+        0,
+      );
+
+      await tx.cart.update({
+        where: { id: cartItem.cartId },
+        data: { subtotal },
+      });
+
+      return updatedItem;
     });
   }
 
@@ -152,8 +165,27 @@ export class CartService {
       throw new HttpException("Cart item not found", HttpStatus.NOT_FOUND);
     }
 
-    return this.prisma.cartItem.delete({
-      where: { id: cartItemId },
+    return this.prisma.$transaction(async (tx) => {
+      const deletedItem = await tx.cartItem.delete({
+        where: { id: cartItemId },
+      });
+
+      // Recalculate cart subtotal
+      const remainingCartItems = await tx.cartItem.findMany({
+        where: { cartId: cartItem.cartId },
+      });
+
+      const subtotal = remainingCartItems.reduce(
+        (acc, item) => acc + item.basePrice * item.quantity,
+        0,
+      );
+
+      await tx.cart.update({
+        where: { id: cartItem.cartId },
+        data: { subtotal },
+      });
+
+      return deletedItem;
     });
   }
 
@@ -173,13 +205,6 @@ export class CartService {
           const newQuantity = existingItem.quantity + newItem.quantity;
           const newItemTotal = newItem.basePrice * newQuantity;
 
-          this.logger.info("Updating existing cart item", {
-            variantId: newItem.variantId,
-            oldQuantity: existingItem.quantity,
-            addedQuantity: newItem.quantity,
-            newQuantity,
-          });
-
           await tx.cartItem.updateMany({
             where: { cartId: existingCart.id, variantId: newItem.variantId },
             data: {
@@ -188,10 +213,6 @@ export class CartService {
             },
           });
         } else {
-          this.logger.info("Adding new cart item", {
-            variantId: newItem.variantId,
-          });
-
           await tx.cartItem.create({
             data: {
               basePrice: newItem.basePrice,
@@ -214,6 +235,8 @@ export class CartService {
         (acc, item) => acc + item.basePrice * item.quantity,
         0,
       );
+
+      this.logger.info(subtotal);
 
       return tx.cart.update({
         where: { id: existingCart.id },

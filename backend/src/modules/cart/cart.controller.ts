@@ -38,7 +38,6 @@ export class CartController {
   @Get()
   @Roles(["CUSTOMER"])
   async getAll(@CurrentUser() user: User): Promise<Cart[]> {
-    this.logger.info("service cart");
     return this.service.getAll(user.id);
   }
 

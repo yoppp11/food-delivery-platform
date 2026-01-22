@@ -14,7 +14,7 @@ const BASE_URL = process.env.BETTER_AUTH_URL || "http://localhost:3000";
 
 // Helper function to sign up a user via Better Auth API
 async function signUpUser(email: string, password: string) {
-  const response = await fetch(`${BASE_URL}/auth/sign-up/email`, {
+  const response = await fetch(`${BASE_URL}/api/auth/sign-up/email`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
