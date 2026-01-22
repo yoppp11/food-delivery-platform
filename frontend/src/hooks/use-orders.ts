@@ -5,13 +5,13 @@ import type { Order, OrderStatusHistory } from '@/types';
 
 interface CreateOrderInput {
   merchantId: string;
-  items: {
-    variantId: string;
-    quantity: number;
-    price: number;
-  }[];
-  totalPrice: number;
-  deliveryFee?: number;
+  // items: {
+  //   variantId: string;
+  //   quantity: number;
+  //   price: number;
+  // }[];
+  // totalPrice: number;
+  // deliveryFee?: number;
 }
 
 interface OrderListResponse {

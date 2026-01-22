@@ -26,12 +26,32 @@ export class OrderService {
       if (user.role !== "MERCHANT") {
         return await this.prisma.order.findMany({
           where: { userId: user.id },
-          include: { items: true },
+          include: {
+            items: {
+              include: {
+                menuVariant: {
+                  include: { menu: true },
+                },
+              },
+            },
+            merchant: true,
+          },
+          orderBy: { id: "desc" },
         });
       } else {
         return await this.prisma.order.findMany({
           where: { merchantId: user.id },
-          include: { items: true },
+          include: {
+            items: {
+              include: {
+                menuVariant: {
+                  include: { menu: true },
+                },
+              },
+            },
+            merchant: true,
+          },
+          orderBy: { id: "desc" },
         });
       }
     } catch (error) {
@@ -47,11 +67,7 @@ export class OrderService {
       if (!cart)
         throw new HttpException("Cart not found", HttpStatus.NOT_FOUND);
 
-      this.logger.info(cart);
-
       const variantIds = cart.cartItems.map((data) => data.variantId);
-
-      this.logger.info(variantIds);
 
       const variants = await this.prisma.menuVariant.findMany({
         where: {
@@ -63,8 +79,6 @@ export class OrderService {
           menu: true,
         },
       });
-
-      this.logger.info(variants);
 
       this.validateMenus(cart.cartItems, variants);
 
@@ -87,13 +101,6 @@ export class OrderService {
             userId: user.id,
             totalPrice: cart.subtotal,
             merchantId: body.merchantId,
-          },
-          include: {
-            items: {
-              include: {
-                menuVariant: true,
-              },
-            },
           },
         });
 
@@ -121,7 +128,18 @@ export class OrderService {
           data: { status: "CHECKOUT", orderId: order.id },
         });
 
-        return order;
+        return await tx.order.findUniqueOrThrow({
+          where: { id: order.id },
+          include: {
+            items: {
+              include: {
+                menuVariant: {
+                  include: { menu: true },
+                },
+              },
+            },
+          },
+        });
       });
     } catch (error) {
       this.logger.error(error);
@@ -340,11 +358,23 @@ export class OrderService {
       const order = await this.prisma.order.findUnique({
         where: { id },
         include: {
+          items: {
+            include: {
+              menuVariant: {
+                include: { menu: true },
+              },
+            },
+          },
           statusHistories: {
             orderBy: { changedAt: "asc" },
           },
           driver: {
             include: {
+              user: {
+                include: {
+                  userProfiles: true,
+                },
+              },
               driverLocations: {
                 orderBy: { recordedAt: "desc" },
                 take: 1,
@@ -358,31 +388,7 @@ export class OrderService {
       if (!order)
         throw new HttpException("Order not found", HttpStatus.NOT_FOUND);
 
-      return {
-        orderId: order.id,
-        status: order.status,
-        statusHistory: order.statusHistories,
-        driver: order.driver
-          ? {
-              id: order.driver.id,
-              plateNumber: order.driver.plateNumber,
-              location: order.driver.driverLocations[0]
-                ? {
-                    latitude: Number(order.driver.driverLocations[0].latitude),
-                    longitude: Number(
-                      order.driver.driverLocations[0].longitude,
-                    ),
-                  }
-                : null,
-            }
-          : null,
-        merchant: {
-          id: order.merchant.id,
-          name: order.merchant.name,
-          latitude: Number(order.merchant.latitude),
-          longitude: Number(order.merchant.longitude),
-        },
-      };
+      return order;
     } catch (error) {
       this.logger.error(error);
       throw error;

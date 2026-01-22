@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,6 +14,7 @@ import {
   Loader2,
   PartyPopper,
   Truck,
+  ScanQrCode,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,7 @@ import {
 import { useCart } from '@/providers/cart-provider';
 import { useAddresses } from '@/hooks/use-addresses';
 import { useCreateOrder } from '@/hooks/use-orders';
+import { useCreatePayment } from '@/hooks/use-payments';
 import { formatCurrency } from '@/lib/utils';
 import type { UserAddress } from '@/types';
 
@@ -48,52 +50,65 @@ export function CheckoutPage() {
 
   const { data: addresses } = useAddresses();
   const createOrder = useCreateOrder();
-
-  // Set default address
-  if (!selectedAddress && addresses?.length) {
-    const defaultAddr = addresses.find((a: UserAddress) => a.isDefault);
-    setSelectedAddress(defaultAddr?.id || addresses[0].id);
-  }
+  const createPayment = useCreatePayment();
 
   const subtotal = getSubtotal();
   const deliveryFee = 15000;
   const total = subtotal + deliveryFee;
 
   const paymentMethods = [
-    { id: 'ewallet', name: 'E-Wallet', icon: Wallet, description: 'GoPay, OVO, Dana' },
-    { id: 'card', name: 'Credit/Debit Card', icon: CreditCard, description: 'Visa, Mastercard' },
-    { id: 'bank', name: 'Bank Transfer', icon: Building, description: 'BCA, Mandiri, BNI' },
-    { id: 'cod', name: 'Cash on Delivery', icon: Truck, description: 'Pay when delivered' },
+    { id: 'qris', name: 'Qris', icon: ScanQrCode, description: 'Scan barcode' },
   ];
+
+  // Set default address
+  useEffect(() => {
+    if (!selectedAddress && addresses?.length) {
+      const defaultAddr = addresses.find((a: UserAddress) => a.isDefault);
+      setSelectedAddress(defaultAddr?.id || addresses[0].id);
+    }
+  }, [addresses, selectedAddress]);
+
+  // Set default payment method to match available methods
+  useEffect(() => {
+    if (selectedPayment === 'ewallet') {
+      setSelectedPayment('qris');
+    }
+  }, [selectedPayment]);
 
   const handlePlaceOrder = async () => {
     if (!cart) return;
     
     setIsProcessing(true);
-    const orderItems = cart.items.map((item) => ({
-      variantId: item.variant?.id || item.menu.id,
-      quantity: item.quantity,
-      price: item.variant?.price || item.menu.price,
-    }));
     
-    createOrder.mutate(
-      {
+    try {
+      // Create order
+      const order = await createOrder.mutateAsync({
         merchantId: cart.merchantId,
-        items: orderItems,
-        totalPrice: total,
-        deliveryFee,
-      },
-      {
-        onSuccess: (order) => {
-          setOrderId(order.id);
-          setIsProcessing(false);
-          setIsSuccess(true);
-        },
-        onError: () => {
-          setIsProcessing(false);
-        },
+      });
+      
+      console.info('Order created:', order);
+      setOrderId(order.id);
+
+      // Create payment and get redirect URL
+      const payment = await createPayment.mutateAsync({
+        orderId: order.id,
+        paymentMethod: selectedPayment as 'qris',
+      });
+      
+      console.info('Payment created:', payment);
+
+      // Redirect to payment page
+      if (payment.paymentUrl) {
+        window.location.href = payment.paymentUrl;
+      } else {
+        // Fallback if no payment URL
+        setIsProcessing(false);
+        setIsSuccess(true);
       }
-    );
+    } catch (error) {
+      console.error('Order/Payment error:', error);
+      setIsProcessing(false);
+    }
   };
 
   const handleContinue = () => {

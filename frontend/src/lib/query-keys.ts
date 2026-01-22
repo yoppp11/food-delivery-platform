@@ -166,6 +166,12 @@ export const queryKeys = {
     orderRoom: (orderId: string, type: string) => 
       [...queryKeys.chat.all, 'order', orderId, type] as const,
   },
+
+  payments: {
+    all: ['payments'] as const,
+    lists: () => [...queryKeys.payments.all, 'list'] as const,
+    detail: (id: string) => [...queryKeys.payments.all, 'detail', id] as const,
+  },
 };
 
 export default queryKeys;

@@ -139,7 +139,10 @@ export class PaymentService {
           },
         });
 
-        return payment;
+        return {
+          ...payment,
+          paymentUrl: result.payment_url,
+        };
       });
 
       //   return result;

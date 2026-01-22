@@ -245,10 +245,10 @@ export function OrderDetailPage() {
                       </Avatar>
                       <div>
                         <p className="font-medium">
-                          {order.driver.profile?.fullName || order.driver.user?.email || 'Driver'}
+                          {order.driver.user?.userProfiles?.[0]?.fullName || order.driver.user?.email || 'Driver'}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {order.driver.vehicleType} • {order.driver.licensePlate}
+                          {order.driver.plateNumber}
                         </p>
                         {order.driver.rating && (
                           <div className="flex items-center gap-1 mt-1">

@@ -15,6 +15,9 @@ COPY backend ./backend
 
 ENV PATH="/app/node_modules/.bin:$PATH"
 
+# Dummy DATABASE_URL for prisma generate (doesn't actually connect)
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
+
 RUN cd backend && prisma generate
 
 RUN cd backend && nest build
@@ -31,6 +34,9 @@ COPY --from=builder /app/backend/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/backend/package.json ./
 COPY --from=builder /app/backend/prisma ./prisma
+COPY backend/docker-entrypoint.sh ./docker-entrypoint.sh
+
+RUN chmod +x ./docker-entrypoint.sh
 
 USER nestjs
 
@@ -39,4 +45,4 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
-CMD ["node", "dist/main.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

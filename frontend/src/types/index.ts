@@ -12,6 +12,7 @@ export interface User {
   status: UserStatus;
   createdAt: Date;
   updatedAt: Date;
+  userProfiles?: UserProfile[];
 }
 
 export interface UserProfile {
@@ -112,7 +113,7 @@ export interface Order {
   id: string;
   userId: string;
   merchantId: string;
-  driverId: string;
+  driverId?: string | null;
   status: OrderStatus;
   totalPrice: number;
   deliveryFee: number;
@@ -120,10 +121,12 @@ export interface Order {
   items?: OrderItem[];
   statusHistories?: OrderStatusHistory[];
   merchant?: Merchant;
-  driver?: Driver;
+  driver?: Driver | null;
   payments?: Payment[];
   deliveries?: Delivery[];
   promotions?: OrderPromotion[];
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface OrderItem {
@@ -172,12 +175,10 @@ export interface Driver {
   id: string;
   userId: string;
   plateNumber: string;
-  licensePlate?: string;
-  vehicleType?: string;
   isAvailable: boolean;
   rating?: number;
   user?: User;
-  profile?: UserProfile;
+  driverLocations?: DriverLocation[];
 }
 
 export interface DriverLocation {

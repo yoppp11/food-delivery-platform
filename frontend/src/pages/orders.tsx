@@ -51,8 +51,7 @@ const itemVariants = {
 export function OrdersPage() {
   const { t } = useTranslation();
 
-  const { data: ordersResponse, isLoading } = useOrders();
-  const orders = ordersResponse?.data;
+  const { data: orders, isLoading } = useOrders();
 
   const activeOrders = orders?.filter((order: Order) =>
     ['CREATED', 'PAID', 'PREPARING', 'READY', 'ON_DELIVERY'].includes(order.status)

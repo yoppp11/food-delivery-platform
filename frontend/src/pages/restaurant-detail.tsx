@@ -92,9 +92,8 @@ export function RestaurantDetailPage() {
 
   const calculatePrice = () => {
     if (!selectedMenu) return 0;
-    const basePrice = selectedMenu.price;
     const variantPrice = selectedVariant?.price || 0;
-    return (basePrice + variantPrice) * quantity;
+    return variantPrice * quantity;
   };
 
   if (merchantLoading) {
@@ -358,7 +357,7 @@ export function RestaurantDetailPage() {
                       cart.items.reduce(
                         (sum, item) =>
                           sum +
-                          (item.menu.price + (item.variant?.price || 0)) * item.quantity,
+                          ((item.variant?.price || 0)) * item.quantity,
                         0
                       )
                     )}
@@ -392,7 +391,7 @@ export function RestaurantDetailPage() {
 
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-lg">
-                  {formatCurrency(selectedMenu.price)}
+                  {formatCurrency(selectedVariant!.price)}
                 </span>
                 <Badge variant={selectedMenu.isAvailable ? 'success' : 'secondary'}>
                   {selectedMenu.isAvailable
