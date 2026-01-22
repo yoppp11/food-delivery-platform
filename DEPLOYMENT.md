@@ -109,10 +109,12 @@ curl http://localhost:3001/api/health
 
 #### Backend
 1. Installs dependencies using pnpm
-2. Generates Prisma client (with dummy DATABASE_URL for build)
+2. Generates Prisma client (using prisma.config.ts with fallback URL for build)
 3. Builds NestJS application
 4. Uses multi-stage build for smaller production image
 5. Runs migrations and starts app via entrypoint script
+
+Note: This project uses Prisma v7, which requires `prisma.config.ts` for configuration instead of defining the database URL in `schema.prisma`.
 
 #### Frontend
 1. Installs dependencies using pnpm
@@ -154,9 +156,12 @@ docker-compose exec postgres psql -U postgres -d food_delivery
 
 ### Backend fails to start with "DATABASE_URL missing"
 
-This error during Docker build has been fixed by:
-- Adding `url = env("DATABASE_URL")` to Prisma schema
-- Providing dummy DATABASE_URL during build stage
+This project uses Prisma v7, which requires database configuration in `prisma.config.ts` instead of `schema.prisma`.
+
+The configuration has been set up to:
+- Use `prisma.config.ts` for database URL configuration (Prisma v7 requirement)
+- Provide a fallback URL during build so `prisma generate` works without a real database
+- Use the actual DATABASE_URL at runtime from docker-compose.yml
 
 If you still encounter this, ensure your changes are saved and rebuild:
 ```bash

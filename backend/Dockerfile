@@ -15,8 +15,8 @@ COPY backend ./backend
 
 ENV PATH="/app/node_modules/.bin:$PATH"
 
-# Dummy DATABASE_URL for prisma generate (doesn't actually connect)
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
+# Increase Node.js memory limit for build process (4GB)
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 RUN cd backend && prisma generate
 
