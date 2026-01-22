@@ -6,6 +6,7 @@ WORKDIR /app
 RUN npm install -g pnpm
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY backend/.env backend/.env.
 COPY backend/package.json ./backend/
 COPY backend/prisma ./backend/prisma/
 
@@ -17,6 +18,9 @@ ENV PATH="/app/node_modules/.bin:$PATH"
 
 # Increase Node.js memory limit for build process (4GB)
 ENV NODE_OPTIONS="--max-old-space-size=4096"
+
+# Dummy DATABASE_URL for prisma generate (no actual connection needed)
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
 
 RUN cd backend && prisma generate
 
