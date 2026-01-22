@@ -6,7 +6,6 @@ WORKDIR /app
 RUN npm install -g pnpm
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY backend/.env backend/.env.
 COPY backend/package.json ./backend/
 COPY backend/prisma ./backend/prisma/
 
