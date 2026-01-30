@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  forwardRef,
+} from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
 import { Merchant, Order, OrderItem, Payment, User } from "@prisma/client";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
@@ -10,6 +16,7 @@ import { CreatePayment } from "./types";
 export class PaymentService {
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => PaymentGateway))
     private readonly pakasir: PaymentGateway,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
@@ -127,7 +134,7 @@ export class PaymentService {
 
       if (prevPayment) return prevPayment;
 
-      return await this.prisma.$transaction(async (tx) => {
+      const payment = await this.prisma.$transaction(async (tx) => {
         const payment = await tx.payment.create({
           data: {
             customerId: user.id,
@@ -145,7 +152,9 @@ export class PaymentService {
         };
       });
 
-      //   return result;
+      this.pakasir.watchPayment(id, order.totalPrice, payment.id, user);
+
+      return payment;
     } catch (error) {
       this.logger.error(error);
       throw error;

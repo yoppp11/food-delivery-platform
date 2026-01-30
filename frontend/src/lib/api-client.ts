@@ -1,4 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const MERCHANT_ID_STORAGE_KEY = 'selected-merchant-id';
 
 export interface ApiError {
   message: string;
@@ -21,6 +22,19 @@ class ApiClient {
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
+  }
+
+  private getHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    const merchantId = localStorage.getItem(MERCHANT_ID_STORAGE_KEY);
+    if (merchantId) {
+      headers['X-Merchant-Id'] = merchantId;
+    }
+
+    return headers;
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
@@ -55,9 +69,7 @@ class ApiClient {
     const response = await fetch(url.toString(), {
       method: 'GET',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
     });
 
     return this.handleResponse<T>(response);
@@ -67,9 +79,7 @@ class ApiClient {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     });
 
@@ -80,9 +90,7 @@ class ApiClient {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'PUT',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(body),
     });
 
@@ -93,9 +101,7 @@ class ApiClient {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'PATCH',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     });
 
@@ -106,9 +112,7 @@ class ApiClient {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'DELETE',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
     });
 
     return this.handleResponse<T>(response);

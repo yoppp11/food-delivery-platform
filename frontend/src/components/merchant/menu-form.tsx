@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm, useFieldArray, type FieldArrayWithId } from 'react-hook-form';
+import { useForm, useFieldArray, Controller, type FieldArrayWithId } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ interface MenuFormData {
   price: number;
   isAvailable: boolean;
   menuVariants: Array<{
+    id?: string;
     name: string;
     price: number;
   }>;
@@ -51,6 +52,7 @@ export function MenuForm({ menu, onSubmit, isSubmitting }: MenuFormProps) {
       price: menu?.price || 0,
       isAvailable: menu?.isAvailable ?? true,
       menuVariants: menu?.menuVariants?.map((v) => ({
+        id: v.id,
         name: v.name,
         price: v.price,
       })) || [],
@@ -82,8 +84,14 @@ export function MenuForm({ menu, onSubmit, isSubmitting }: MenuFormProps) {
     formData.append('price', data.price.toString());
     formData.append('isAvailable', data.isAvailable.toString());
 
-    if (data.menuVariants.length > 0) {
-      formData.append('menuVariants', JSON.stringify(data.menuVariants));
+    const variantsWithId = data.menuVariants.map((v, index) => ({
+      id: menu?.menuVariants?.[index]?.id || v.id,
+      name: v.name,
+      price: v.price,
+    }));
+
+    if (variantsWithId.length > 0) {
+      formData.append('menuVariants', JSON.stringify(variantsWithId));
     }
 
     if (selectedFile) {
@@ -171,7 +179,17 @@ export function MenuForm({ menu, onSubmit, isSubmitting }: MenuFormProps) {
 
           <div className="flex items-center gap-4">
             <Label htmlFor="isAvailable">Available</Label>
-            <Switch id="isAvailable" {...register('isAvailable')} defaultChecked={menu?.isAvailable ?? true} />
+            <Controller
+              name="isAvailable"
+              control={control}
+              render={({ field }) => (
+                <Switch
+                  id="isAvailable"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              )}
+            />
           </div>
         </CardContent>
       </Card>

@@ -471,6 +471,8 @@ model ChatRoom {
   participants ChatParticipant[]
   messages     ChatMessage[]
 
+  @@unique([orderId, type])
+  @@index([orderId])
   @@map("chatRooms")
 }
 
@@ -492,7 +494,7 @@ model ChatMessage {
   id         String      @id @default(uuid())
   chatRoomId String
   senderId   String
-  content    String
+  content    String      @db.Text
   type       MessageType @default(TEXT)
   isRead     Boolean     @default(false)
   createdAt  DateTime    @default(now())
@@ -500,6 +502,8 @@ model ChatMessage {
   chatRoom   ChatRoom    @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
   sender     User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
+  @@index([chatRoomId, createdAt(sort: Desc)])
+  @@index([senderId])
   @@map("chatMessages")
 }
 

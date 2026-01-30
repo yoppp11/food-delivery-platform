@@ -159,22 +159,76 @@ export class MenuService {
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
       }
 
-      const updateData = await this.prisma.menu.update({
+      const existingMenu = await this.prisma.menu.findUnique({
         where: { id },
-        data: {
-          name: body.name,
-          description: body.description,
-          price: body.price,
-          isAvailable: body.isAvailable,
-
-          image: body.imageId ? { connect: { id: body.imageId } } : undefined,
-        },
+        include: { menuVariants: true },
       });
 
-      return updateData;
+      if (!existingMenu) {
+        throw new HttpException("Menu not found", HttpStatus.NOT_FOUND);
+      }
+
+      return await this.prisma.$transaction(async (tx) => {
+        const updateData = await tx.menu.update({
+          where: { id },
+          data: {
+            name: body.name,
+            description: body.description,
+            price: body.price,
+            isAvailable: body.isAvailable,
+            category: body.categoryId
+              ? { connect: { id: body.categoryId } }
+              : undefined,
+            image: body.imageId ? { connect: { id: body.imageId } } : undefined,
+          },
+        });
+
+        if (body.menuVariants !== undefined) {
+          const existingVariantIds = existingMenu.menuVariants.map((v) => v.id);
+          const incomingVariants = body.menuVariants || [];
+          const incomingVariantIds = incomingVariants
+            .filter((v) => v.id)
+            .map((v) => v.id as string);
+
+          const variantsToDelete = existingVariantIds.filter(
+            (id) => !incomingVariantIds.includes(id),
+          );
+
+          if (variantsToDelete.length > 0) {
+            await tx.menuVariant.deleteMany({
+              where: { id: { in: variantsToDelete } },
+            });
+          }
+
+          for (const variant of incomingVariants) {
+            if (variant.id && existingVariantIds.includes(variant.id)) {
+              await tx.menuVariant.update({
+                where: { id: variant.id },
+                data: {
+                  name: variant.name,
+                  price: variant.price,
+                },
+              });
+            } else {
+              await tx.menuVariant.create({
+                data: {
+                  name: variant.name,
+                  price: variant.price,
+                  menuId: id,
+                },
+              });
+            }
+          }
+        }
+
+        return await tx.menu.findUniqueOrThrow({
+          where: { id },
+          include: { menuVariants: true },
+        });
+      });
     } catch (error) {
       this.logger.error(error);
-      return error;
+      throw error;
     }
   }
 
@@ -184,8 +238,36 @@ export class MenuService {
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
       }
 
-      const deletedMenu = await this.prisma.menu.delete({
+      const existingMenu = await this.prisma.menu.findUnique({
         where: { id },
+      });
+
+      if (!existingMenu) {
+        throw new HttpException("Menu not found", HttpStatus.NOT_FOUND);
+      }
+
+      const activeCartItems = await this.prisma.cartItem.findFirst({
+        where: {
+          menuVariant: { menuId: id },
+          cart: { status: "ACTIVE" },
+        },
+      });
+
+      if (activeCartItems) {
+        throw new HttpException(
+          "Cannot delete menu with active cart items",
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const deletedMenu = await this.prisma.$transaction(async (tx) => {
+        await tx.menuVariant.deleteMany({
+          where: { menuId: id },
+        });
+
+        return await tx.menu.delete({
+          where: { id },
+        });
       });
 
       return {
@@ -194,7 +276,7 @@ export class MenuService {
       };
     } catch (error) {
       this.logger.error(error);
-      return error;
+      throw error;
     }
   }
 }

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Check, X, ChefHat, Loader2 } from 'lucide-react';
+import { Check, X, ChefHat, Loader2, Truck, PackageCheck } from 'lucide-react';
 import type { OrderStatus } from '@/types/merchant';
 
 interface OrderActionsProps {
@@ -67,6 +67,42 @@ export function OrderActions({
         )}
         Mark as Ready
       </Button>
+    );
+  }
+
+  if (status === 'READY') {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Truck className="h-4 w-4" />
+        <span>Waiting for driver pickup</span>
+      </div>
+    );
+  }
+
+  if (status === 'ON_DELIVERY') {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Truck className="h-4 w-4 animate-pulse" />
+        <span>Order is being delivered</span>
+      </div>
+    );
+  }
+
+  if (status === 'COMPLETED') {
+    return (
+      <div className="flex items-center gap-2 text-sm text-green-600">
+        <PackageCheck className="h-4 w-4" />
+        <span>Order completed</span>
+      </div>
+    );
+  }
+
+  if (status === 'CANCELLED') {
+    return (
+      <div className="flex items-center gap-2 text-sm text-destructive">
+        <X className="h-4 w-4" />
+        <span>Order cancelled</span>
+      </div>
     );
   }
 

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
+import { useSession } from './use-auth';
 
 interface BackendCartItem {
   id: string;
@@ -69,9 +70,13 @@ type EditType = 'increment' | 'decrement' | 'set';
 type DeleteType = 'item' | 'cart';
 
 export function useCarts() {
+  const { data: session } = useSession();
+  const isCustomer = session?.user?.role === 'CUSTOMER';
+
   return useQuery({
     queryKey: queryKeys.cart.all,
     queryFn: () => apiClient.get<BackendCart[]>('/carts'),
+    enabled: isCustomer,
   });
 }
 

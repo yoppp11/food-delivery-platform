@@ -33,9 +33,12 @@ export class MerchantCategoryController {
   constructor(private services: MerchantCategoryService) {}
 
   @Get()
+  @UseGuards(MerchantGuard)
   @Roles(["ADMIN", "MERCHANT"])
-  async getAllCategories(): Promise<MerchantMenuCategory[]> {
-    return await this.services.getAllCategory();
+  async getAllCategories(
+    @CurrentMerchant() merchant: Merchant,
+  ): Promise<MerchantMenuCategory[]> {
+    return await this.services.getAllCategory(merchant.id);
   }
 
   @Get(":id")

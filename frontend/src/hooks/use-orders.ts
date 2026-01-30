@@ -57,12 +57,24 @@ export function useOrder(id: string) {
   });
 }
 
-export function useOrderTracking(id: string) {
+export function useOrderTracking(id: string, options?: { pollingInterval?: number | false }) {
+  const defaultInterval = options?.pollingInterval ?? 5000;
+  
   return useQuery({
     queryKey: queryKeys.orders.tracking(id),
     queryFn: () => apiClient.get<Order>(`/orders/${id}/track`),
     enabled: !!id,
-    refetchInterval: 10000,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === 'COMPLETED' || status === 'CANCELLED') {
+        return false;
+      }
+      if (status === 'CREATED') {
+        return 3000;
+      }
+      return defaultInterval;
+    },
+    staleTime: 2000,
   });
 }
 

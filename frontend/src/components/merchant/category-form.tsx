@@ -68,15 +68,15 @@ export function CategoryListItem({
   onEdit,
   onDelete,
 }: CategoryListItemProps) {
+  const menuCount = category._count?.menus ?? category.menus?.length ?? 0;
+  
   return (
     <div className="flex items-center justify-between p-4 border rounded-lg">
       <div>
         <p className="font-medium">{category.name}</p>
-        {category.menus && (
-          <p className="text-sm text-muted-foreground">
-            {category.menus.length} menu items
-          </p>
-        )}
+        <p className="text-sm text-muted-foreground">
+          {menuCount} menu {menuCount === 1 ? 'item' : 'items'}
+        </p>
       </div>
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={onEdit}>

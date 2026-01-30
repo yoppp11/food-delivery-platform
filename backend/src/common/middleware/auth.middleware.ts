@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/only-throw-error */
 import {
   HttpException,
   HttpStatus,
   Inject,
   Injectable,
   NestMiddleware,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { Request, Response } from "express";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
@@ -12,7 +12,6 @@ import { Logger } from "winston";
 import { User } from "@prisma/client";
 import { Auth } from "../auth.service";
 import { PrismaService } from "../prisma.service";
-import { UnauthorizedError } from "../exception.filter";
 import { fromNodeHeaders } from "better-auth/node";
 
 @Injectable()
@@ -37,7 +36,7 @@ export class AuthenticationMiddleware implements NestMiddleware<
 
     if (!session) {
       this.logger.error("AuthMiddleware - No session found");
-      throw new UnauthorizedError();
+      throw new UnauthorizedException("No session found");
     }
 
     const user = await this.prisma.user.findUnique({
@@ -47,7 +46,7 @@ export class AuthenticationMiddleware implements NestMiddleware<
     });
 
     if (!user) {
-      throw new HttpException("User not found", HttpStatus.BAD_REQUEST);
+      throw new UnauthorizedException("User not found");
     }
 
     req.user = user;

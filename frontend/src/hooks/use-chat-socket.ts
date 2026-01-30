@@ -16,10 +16,17 @@ interface TypingState {
   isTyping: boolean;
 }
 
+interface ChatStatusChange {
+  orderId: string;
+  isClosed: boolean;
+}
+
 export function useChatSocket({ userId, enabled = true }: UseChatSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<Map<string, TypingState>>(new Map());
 
   useEffect(() => {
@@ -37,10 +44,29 @@ export function useChatSocket({ userId, enabled = true }: UseChatSocketOptions) 
 
     socket.on('connect', () => {
       setIsConnected(true);
+      setIsReconnecting(false);
+      setConnectionError(null);
     });
 
     socket.on('disconnect', () => {
       setIsConnected(false);
+    });
+
+    socket.on('connect_error', (error) => {
+      setConnectionError(error.message);
+    });
+
+    socket.io.on('reconnect_attempt', () => {
+      setIsReconnecting(true);
+    });
+
+    socket.io.on('reconnect_failed', () => {
+      setIsReconnecting(false);
+      setConnectionError('Failed to reconnect after multiple attempts');
+    });
+
+    socket.on('error', (data: { message: string; code?: number }) => {
+      setConnectionError(data.message);
     });
 
     socket.on('chat:message', (message: ChatMessage) => {
@@ -73,6 +99,18 @@ export function useChatSocket({ userId, enabled = true }: UseChatSocketOptions) 
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.unreadCount() });
     });
 
+    socket.on('chat:status-changed', (data: ChatStatusChange) => {
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.status(data.orderId) 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.orderRoom(data.orderId, 'CUSTOMER_MERCHANT') 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.orderRoom(data.orderId, 'CUSTOMER_DRIVER') 
+      });
+    });
+
     return () => {
       socket.disconnect();
       socketRef.current = null;
@@ -101,6 +139,8 @@ export function useChatSocket({ userId, enabled = true }: UseChatSocketOptions) 
 
   return {
     isConnected,
+    isReconnecting,
+    connectionError,
     typingUsers: Array.from(typingUsers.values()),
     joinRoom,
     leaveRoom,

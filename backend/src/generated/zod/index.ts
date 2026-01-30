@@ -4271,11 +4271,21 @@ export const ChatRoomOrderByWithRelationInputSchema: z.ZodType<Prisma.ChatRoomOr
   messages: z.lazy(() => ChatMessageOrderByRelationAggregateInputSchema).optional(),
 });
 
-export const ChatRoomWhereUniqueInputSchema: z.ZodType<Prisma.ChatRoomWhereUniqueInput> = z.object({
-  id: z.uuid(),
-})
+export const ChatRoomWhereUniqueInputSchema: z.ZodType<Prisma.ChatRoomWhereUniqueInput> = z.union([
+  z.object({
+    id: z.uuid(),
+    orderId_type: z.lazy(() => ChatRoomOrderIdTypeCompoundUniqueInputSchema),
+  }),
+  z.object({
+    id: z.uuid(),
+  }),
+  z.object({
+    orderId_type: z.lazy(() => ChatRoomOrderIdTypeCompoundUniqueInputSchema),
+  }),
+])
 .and(z.strictObject({
   id: z.uuid().optional(),
+  orderId_type: z.lazy(() => ChatRoomOrderIdTypeCompoundUniqueInputSchema).optional(),
   AND: z.union([ z.lazy(() => ChatRoomWhereInputSchema), z.lazy(() => ChatRoomWhereInputSchema).array() ]).optional(),
   OR: z.lazy(() => ChatRoomWhereInputSchema).array().optional(),
   NOT: z.union([ z.lazy(() => ChatRoomWhereInputSchema), z.lazy(() => ChatRoomWhereInputSchema).array() ]).optional(),
@@ -8339,6 +8349,11 @@ export const EnumChatRoomTypeFilterSchema: z.ZodType<Prisma.EnumChatRoomTypeFilt
   in: z.lazy(() => ChatRoomTypeSchema).array().optional(),
   notIn: z.lazy(() => ChatRoomTypeSchema).array().optional(),
   not: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => NestedEnumChatRoomTypeFilterSchema) ]).optional(),
+});
+
+export const ChatRoomOrderIdTypeCompoundUniqueInputSchema: z.ZodType<Prisma.ChatRoomOrderIdTypeCompoundUniqueInput> = z.strictObject({
+  orderId: z.string(),
+  type: z.lazy(() => ChatRoomTypeSchema),
 });
 
 export const ChatRoomCountOrderByAggregateInputSchema: z.ZodType<Prisma.ChatRoomCountOrderByAggregateInput> = z.strictObject({

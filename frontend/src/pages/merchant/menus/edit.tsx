@@ -28,11 +28,22 @@ export function EditMenuPage() {
   const updateMenuMutation = useUpdateMenu(menuId);
 
   const handleSubmit = (formData: FormData) => {
+    const menuVariantsJson = formData.get('menuVariants');
+    const menuVariants = menuVariantsJson
+      ? JSON.parse(menuVariantsJson as string)
+      : undefined;
+
     const data = {
       name: formData.get('name') as string,
       description: formData.get('description') as string,
+      categoryId: formData.get('categoryId') as string,
       price: Number(formData.get('price')),
       isAvailable: formData.get('isAvailable') === 'true',
+      menuVariants: menuVariants?.map((v: { id?: string; name: string; price: number }) => ({
+        id: v.id,
+        name: v.name,
+        price: Number(v.price),
+      })),
     };
 
     updateMenuMutation.mutate(data, {

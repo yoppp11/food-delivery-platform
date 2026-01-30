@@ -1,23 +1,26 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, X, Loader2 } from 'lucide-react';
+import { Send, X, Loader2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, ChatRoom, ChatRoomType } from '@/types';
 import { useChatMessages, useSendMessage, useMarkMessagesAsRead } from '@/hooks/use-chat';
 import { useChatSocket } from '@/hooks/use-chat-socket';
 import { useSession } from '@/hooks/use-auth';
+import { toast } from 'sonner';
 
 interface ChatWindowProps {
   chatRoom: ChatRoom;
   onClose: () => void;
+  isClosed?: boolean;
 }
 
 function getRecipientName(chatRoom: ChatRoom, currentUserId: string): string {
-  const recipient = chatRoom.participants.find((p) => p.userId !== currentUserId);
+  const recipient = chatRoom.participants?.find((p) => p.userId !== currentUserId);
   return recipient?.user?.email?.split('@')[0] || 'Chat';
 }
 
@@ -34,7 +37,7 @@ function getRoomTitle(type: ChatRoomType): string {
   }
 }
 
-export function ChatWindow({ chatRoom, onClose }: ChatWindowProps) {
+export function ChatWindow({ chatRoom, onClose, isClosed = false }: ChatWindowProps) {
   const [message, setMessage] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -45,7 +48,7 @@ export function ChatWindow({ chatRoom, onClose }: ChatWindowProps) {
   const sendMessageMutation = useSendMessage();
   const markAsReadMutation = useMarkMessagesAsRead();
 
-  const { isConnected, typingUsers, joinRoom, leaveRoom, sendTyping, markAsRead } = useChatSocket({
+  const { isConnected, isReconnecting, connectionError, typingUsers, joinRoom, leaveRoom, sendTyping, markAsRead } = useChatSocket({
     userId: currentUserId || '',
     enabled: !!currentUserId,
   });
@@ -80,8 +83,9 @@ export function ChatWindow({ chatRoom, onClose }: ChatWindowProps) {
       setMessage('');
       sendTyping(chatRoom.id, false);
       inputRef.current?.focus();
-    } catch {
-      // Error handled by mutation
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to send message';
+      toast.error(errorMessage);
     }
   };
 
@@ -118,7 +122,15 @@ export function ChatWindow({ chatRoom, onClose }: ChatWindowProps) {
           <div>
             <h3 className="font-medium text-sm">{getRoomTitle(chatRoom.type)}</h3>
             <p className="text-xs opacity-80">
-              {isConnected ? 'Online' : 'Connecting...'}
+              {connectionError ? (
+                <span className="text-red-200">Connection error</span>
+              ) : isReconnecting ? (
+                <span className="text-yellow-200">Reconnecting...</span>
+              ) : isConnected ? (
+                <span className="text-green-200">Online</span>
+              ) : (
+                'Connecting...'
+              )}
             </p>
           </div>
         </div>
@@ -185,28 +197,37 @@ export function ChatWindow({ chatRoom, onClose }: ChatWindowProps) {
       </ScrollArea>
 
       <div className="p-3 border-t border-gray-200 dark:border-gray-800">
-        <div className="flex gap-2">
-          <Input
-            ref={inputRef}
-            value={message}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
-            className="flex-1"
-            disabled={sendMessageMutation.isPending}
-          />
-          <Button
-            size="icon"
-            onClick={handleSend}
-            disabled={!message.trim() || sendMessageMutation.isPending}
-          >
-            {sendMessageMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
+        {isClosed ? (
+          <Alert className="bg-muted">
+            <Lock className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              This chat has been closed. You can view the history but cannot send new messages.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <div className="flex gap-2">
+            <Input
+              ref={inputRef}
+              value={message}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Type a message..."
+              className="flex-1"
+              disabled={sendMessageMutation.isPending}
+            />
+            <Button
+              size="icon"
+              onClick={handleSend}
+              disabled={!message.trim() || sendMessageMutation.isPending}
+            >
+              {sendMessageMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     </motion.div>
   );

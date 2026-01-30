@@ -37,8 +37,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   async handleConnection(client: AuthenticatedSocket) {
-    const userId = client.handshake.auth?.userId || client.handshake.query?.userId;
-    
+    const userId =
+      client.handshake.auth?.userId || client.handshake.query?.userId;
+
     if (!userId || typeof userId !== "string") {
       this.logger.warn(`Client ${client.id} connected without userId`);
       client.disconnect();
@@ -46,7 +47,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     client.userId = userId;
-    
+
     if (!this.connectedUsers.has(userId)) {
       this.connectedUsers.set(userId, new Set());
     }
@@ -64,7 +65,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.connectedUsers.delete(client.userId);
         }
       }
-      this.logger.info(`User ${client.userId} disconnected socket ${client.id}`);
+      this.logger.info(
+        `User ${client.userId} disconnected socket ${client.id}`,
+      );
     }
   }
 
@@ -73,20 +76,41 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() data: { chatRoomId: string },
   ) {
-    if (!client.userId) return;
-
-    const room = await this.chatService.getChatRoomById(data.chatRoomId, client.userId);
-    if (!room) {
-      client.emit("error", { message: "Chat room not found" });
+    if (!client.userId) {
+      client.emit("error", { message: "Authentication required" });
       return;
     }
 
-    client.join(`room:${data.chatRoomId}`);
-    this.logger.info(`User ${client.userId} joined room ${data.chatRoomId}`);
-    
-    await this.chatService.markMessagesAsRead(data.chatRoomId, client.userId);
-    
-    client.emit("chat:joined", { chatRoomId: data.chatRoomId });
+    if (!data.chatRoomId) {
+      client.emit("error", { message: "Chat room ID is required" });
+      return;
+    }
+
+    try {
+      const room = await this.chatService.getChatRoomById(
+        data.chatRoomId,
+        client.userId,
+      );
+      if (!room) {
+        client.emit("error", { message: "Chat room not found or access denied" });
+        return;
+      }
+
+      client.join(`room:${data.chatRoomId}`);
+      this.logger.info(`User ${client.userId} joined room ${data.chatRoomId}`);
+
+      await this.chatService.markMessagesAsRead(data.chatRoomId, client.userId);
+
+      client.to(`room:${data.chatRoomId}`).emit("chat:read", {
+        userId: client.userId,
+        chatRoomId: data.chatRoomId,
+      });
+
+      client.emit("chat:joined", { chatRoomId: data.chatRoomId });
+    } catch (error: any) {
+      this.logger.error(`Error joining room: ${error}`);
+      client.emit("error", { message: error?.message || "Failed to join room" });
+    }
   }
 
   @SubscribeMessage("chat:leave")
@@ -101,9 +125,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage("chat:message")
   async handleMessage(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { chatRoomId: string; content: string; type?: MessageType },
+    @MessageBody()
+    data: { chatRoomId: string; content: string; type?: MessageType },
   ) {
-    if (!client.userId) return;
+    if (!client.userId) {
+      client.emit("error", { message: "Authentication required" });
+      return;
+    }
+
+    if (!data.chatRoomId || !data.content) {
+      client.emit("error", { message: "Invalid message data" });
+      return;
+    }
+
+    if (data.content.trim().length === 0) {
+      client.emit("error", { message: "Message content cannot be empty" });
+      return;
+    }
 
     try {
       const message = await this.chatService.sendMessage(client.userId, {
@@ -116,9 +154,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         ...message,
         sender: { id: client.userId },
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error sending message: ${error}`);
-      client.emit("error", { message: "Failed to send message" });
+      client.emit("error", { 
+        message: error?.message || "Failed to send message",
+        code: error?.status || 500,
+      });
     }
   }
 
@@ -143,14 +184,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!client.userId) return;
 
     await this.chatService.markMessagesAsRead(data.chatRoomId, client.userId);
-    
+
     client.to(`room:${data.chatRoomId}`).emit("chat:read", {
       userId: client.userId,
       chatRoomId: data.chatRoomId,
     });
   }
 
-  notifyNewMessage(chatRoomId: string, message: unknown, participantIds: string[]) {
+  notifyNewMessage(
+    chatRoomId: string,
+    message: unknown,
+    participantIds: string[],
+  ) {
     participantIds.forEach((userId) => {
       const sockets = this.connectedUsers.get(userId);
       if (sockets) {
@@ -162,5 +207,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
       }
     });
+  }
+
+  notifyChatStatusChange(
+    orderId: string,
+    participantIds: string[],
+    isClosed: boolean,
+  ) {
+    participantIds.forEach((userId) => {
+      const sockets = this.connectedUsers.get(userId);
+      if (sockets) {
+        sockets.forEach((socketId) => {
+          this.server.to(socketId).emit("chat:status-changed", {
+            orderId,
+            isClosed,
+          });
+        });
+      }
+    });
+  }
+
+  broadcastToChatRoom(chatRoomId: string, event: string, data: unknown) {
+    this.server.to(`room:${chatRoomId}`).emit(event, data);
   }
 }

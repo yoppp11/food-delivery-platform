@@ -7,6 +7,7 @@ import { CurrentUserInterceptor } from "./common/interceptors";
 import { PrismaService } from "./common/prisma.service";
 import cookieParser from "cookie-parser";
 import * as express from "express";
+import { IoAdapter } from "@nestjs/platform-socket.io";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -23,7 +24,13 @@ async function bootstrap() {
   app.enableCors({
     origin: ["http://localhost:4000", "http://localhost:5173"],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Merchant-Id"],
   });
+  
+  // Enable WebSocket adapter with CORS
+  app.useWebSocketAdapter(new IoAdapter(app));
+  
   app.useLogger(logger);
   app.setGlobalPrefix("api");
   app.useGlobalInterceptors(new CurrentUserInterceptor(prisma, logger));

@@ -12,8 +12,20 @@ export class MerchantCategoryService {
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
   ) {}
 
-  async getAllCategory(): Promise<MerchantMenuCategory[]> {
-    return await this.prisma.merchantMenuCategory.findMany();
+  async getAllCategory(merchantId?: string): Promise<MerchantMenuCategory[]> {
+    const where: { merchantId?: string } = {};
+    if (merchantId) {
+      where.merchantId = merchantId;
+    }
+    return await this.prisma.merchantMenuCategory.findMany({
+      where,
+      include: {
+        _count: {
+          select: { menus: true },
+        },
+      },
+      orderBy: { id: "asc" },
+    });
   }
 
   async getById(id: string): Promise<MerchantMenuCategory> {
@@ -87,6 +99,24 @@ export class MerchantCategoryService {
     try {
       if (!id)
         throw new HttpException("ID is required", HttpStatus.BAD_REQUEST);
+
+      const category = await this.prisma.merchantMenuCategory.findUnique({
+        where: { id },
+        include: {
+          _count: {
+            select: { menus: true },
+          },
+        },
+      });
+
+      if (!category)
+        throw new HttpException("Category not found", HttpStatus.NOT_FOUND);
+
+      if (category._count.menus > 0)
+        throw new HttpException(
+          "Cannot delete category with existing menu items. Please remove or reassign the menus first.",
+          HttpStatus.BAD_REQUEST,
+        );
 
       await this.prisma.merchantMenuCategory.delete({
         where: { id },

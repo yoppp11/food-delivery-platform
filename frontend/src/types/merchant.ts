@@ -108,6 +108,12 @@ export interface UpdateMenuRequest {
   price?: number;
   isAvailable?: boolean;
   imageId?: string;
+  categoryId?: string;
+  menuVariants?: Array<{
+    id?: string;
+    name: string;
+    price: number;
+  }>;
 }
 
 export interface MenuApiResponse {

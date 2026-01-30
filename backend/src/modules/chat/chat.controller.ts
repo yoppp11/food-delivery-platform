@@ -1,19 +1,11 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Query,
-  Req,
-} from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Query, Req } from "@nestjs/common";
 import { ChatService } from "./chat.service";
 import type { SendMessageDto } from "./chat.service";
 import { ApiTags, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { User, ChatRoomType } from "@prisma/client";
 
 @ApiTags("chat")
-@Controller("api/chat")
+@Controller("chat")
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
@@ -25,10 +17,7 @@ export class ChatController {
 
   @Get("rooms/:id")
   @ApiOperation({ summary: "Get a specific chat room by ID" })
-  async getChatRoom(
-    @Param("id") id: string,
-    @Req() request: { user: User },
-  ) {
+  async getChatRoom(@Param("id") id: string, @Req() request: { user: User }) {
     return this.chatService.getChatRoomById(id, request.user.id);
   }
 
@@ -98,5 +87,18 @@ export class ChatController {
     @Req() request: { user: User },
   ) {
     return this.chatService.getChatRoomForOrder(orderId, type, request.user.id);
+  }
+
+  @Get("order/:orderId/status")
+  @ApiOperation({ summary: "Get chat availability status for an order" })
+  async getChatStatus(
+    @Param("orderId") orderId: string,
+    @Req() request: { user: User },
+  ): Promise<{
+    canChatWithMerchant: boolean;
+    canChatWithDriver: boolean;
+    orderStatus: string;
+  }> {
+    return await this.chatService.getChatStatus(orderId, request.user.id);
   }
 }

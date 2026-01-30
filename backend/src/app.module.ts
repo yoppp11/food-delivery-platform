@@ -29,11 +29,9 @@ import { CartController } from "./modules/cart/cart.controller";
 import { CartModule } from "./modules/cart/cart.module";
 import { CartService } from "./modules/cart/cart.service";
 import { OrderModule } from "./modules/order/order.module";
-import {
-  OrderController,
-  MerchantOrderController,
-  DriverOrderController,
-} from "./modules/order/order.controller";
+import { OrderController } from "./modules/order/order.controller";
+import { MerchantOrderController } from "./modules/order/merchant-order.controller";
+import { DriverOrderController } from "./modules/order/driver-order.controller";
 import { OrderService } from "./modules/order/order.service";
 import { PaymentGateway } from "./common/payment-gateway.service";
 import { PaymentModule } from "./modules/payment/payment.module";
@@ -68,6 +66,7 @@ import { HealthController } from "./modules/health/health.controller";
 import { ChatModule } from "./modules/chat/chat.module";
 import { ChatController } from "./modules/chat/chat.controller";
 import { ChatService } from "./modules/chat/chat.service";
+import { QueueModule } from "./modules/queue/queue.module";
 
 @Module({
   imports: [
@@ -86,6 +85,7 @@ import { ChatService } from "./modules/chat/chat.service";
       auth,
       // disableControllers: true,
       // disableGlobalAuthGuard: true,
+      disableTrustedOriginsCors: true,
       middleware: (req, _res, next) => {
         req.url = req.originalUrl;
         req.baseUrl = "";
@@ -94,6 +94,7 @@ import { ChatService } from "./modules/chat/chat.service";
     }),
     // ValidationModule.forRoot(),
     RedisCacheModule,
+    QueueModule,
     UserModule,
     LibModule,
     CategoryModule,
@@ -118,11 +119,11 @@ import { ChatService } from "./modules/chat/chat.service";
     UserController,
     MerchantCategoryController,
     MenuController,
+    MerchantOrderController,
     MerchantController,
     UploadController,
     CartController,
     OrderController,
-    MerchantOrderController,
     DriverOrderController,
     PaymentController,
     DriverController,
@@ -163,7 +164,13 @@ export class AppModule implements NestModule {
       .exclude(
         { path: "api/auth/(.*)", method: RequestMethod.ALL },
         { path: "api/merchants", method: RequestMethod.GET },
-        { path: "api/merchants/(.*)", method: RequestMethod.GET },
+        { path: "api/merchants/:id", method: RequestMethod.GET },
+        { path: "api/merchants/:id/menus", method: RequestMethod.GET },
+        { path: "api/merchants/:id/reviews", method: RequestMethod.GET },
+        {
+          path: "api/merchants/:id/operational-hours",
+          method: RequestMethod.GET,
+        },
         { path: "api/categories", method: RequestMethod.GET },
         { path: "api/categories/(.*)", method: RequestMethod.GET },
         { path: "api/menus", method: RequestMethod.GET },

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { OrderStatusBadge } from './order-status-badge';
 import { OrderActions } from './order-actions';
+import { ChatButton } from '@/components/chat';
 import { formatCurrency, formatRelativeTime } from '@/lib/utils';
 import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -65,6 +66,13 @@ export function OrderCard({
               isAccepting={isAccepting}
               isRejecting={isRejecting}
               isUpdating={isUpdating}
+            />
+            <ChatButton
+              orderId={order.id}
+              type="CUSTOMER_MERCHANT"
+              label=""
+              size="icon"
+              variant="outline"
             />
             <Link to={`/merchant/orders/${order.id}`}>
               <Button variant="outline" size="sm">

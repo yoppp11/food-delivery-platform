@@ -165,6 +165,7 @@ export const queryKeys = {
     unreadCount: () => [...queryKeys.chat.all, 'unread'] as const,
     orderRoom: (orderId: string, type: string) => 
       [...queryKeys.chat.all, 'order', orderId, type] as const,
+    status: (orderId: string) => [...queryKeys.chat.all, 'status', orderId] as const,
   },
 
   payments: {

@@ -25,7 +25,9 @@ export interface SendMessageDto {
 }
 
 export interface ChatRoomWithParticipants extends ChatRoom {
-  participants: (ChatParticipant & { user: Pick<User, "id" | "email" | "image"> })[];
+  participants: (ChatParticipant & {
+    user: Pick<User, "id" | "email" | "image">;
+  })[];
   messages: ChatMessage[];
 }
 
@@ -36,7 +38,9 @@ export class ChatService {
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
-  async getChatRoomsForUser(userId: string): Promise<ChatRoomWithParticipants[]> {
+  async getChatRoomsForUser(
+    userId: string,
+  ): Promise<ChatRoomWithParticipants[]> {
     const rooms = await this.prisma.chatRoom.findMany({
       where: {
         participants: {
@@ -136,9 +140,7 @@ export class ChatService {
         { id: order.driver.user.id, role: ChatRole.DRIVER },
       ];
     } else if (type === ChatRoomType.CUSTOMER_SUPPORT) {
-      participantUserIds = [
-        { id: order.userId, role: ChatRole.CUSTOMER },
-      ];
+      participantUserIds = [{ id: order.userId, role: ChatRole.CUSTOMER }];
     }
 
     const chatRoom = await this.prisma.chatRoom.create({
@@ -163,10 +165,23 @@ export class ChatService {
     userId: string,
     data: SendMessageDto,
   ): Promise<ChatMessage> {
+    if (!data.content || data.content.trim().length === 0) {
+      throw new HttpException("Message content cannot be empty", HttpStatus.BAD_REQUEST);
+    }
+
+    if (data.content.length > 2000) {
+      throw new HttpException("Message content is too long (max 2000 characters)", HttpStatus.BAD_REQUEST);
+    }
+
     const chatRoom = await this.prisma.chatRoom.findFirst({
       where: {
         id: data.chatRoomId,
         participants: { some: { userId } },
+      },
+      include: {
+        order: {
+          select: { id: true, status: true },
+        },
       },
     });
 
@@ -174,11 +189,19 @@ export class ChatService {
       throw new HttpException("Chat room not found", HttpStatus.NOT_FOUND);
     }
 
+    const chatAccessError = this.validateChatAccess(
+      chatRoom.type,
+      chatRoom.order.status,
+    );
+    if (chatAccessError) {
+      throw new HttpException(chatAccessError, HttpStatus.FORBIDDEN);
+    }
+
     const message = await this.prisma.chatMessage.create({
       data: {
         chatRoomId: data.chatRoomId,
         senderId: userId,
-        content: data.content,
+        content: data.content.trim(),
         type: data.type || MessageType.TEXT,
       },
     });
@@ -188,7 +211,9 @@ export class ChatService {
       data: { updatedAt: new Date() },
     });
 
-    this.logger.info(`Message sent in room ${data.chatRoomId} by user ${userId}`);
+    this.logger.info(
+      `Message sent in room ${data.chatRoomId} by user ${userId}`,
+    );
     return message;
   }
 
@@ -226,10 +251,7 @@ export class ChatService {
     return messages.reverse();
   }
 
-  async markMessagesAsRead(
-    chatRoomId: string,
-    userId: string,
-  ): Promise<void> {
+  async markMessagesAsRead(chatRoomId: string, userId: string): Promise<void> {
     const chatRoom = await this.prisma.chatRoom.findFirst({
       where: {
         id: chatRoomId,
@@ -268,8 +290,8 @@ export class ChatService {
     orderId: string,
     type: ChatRoomType,
     userId: string,
-  ): Promise<ChatRoom | null> {
-    return this.prisma.chatRoom.findFirst({
+  ): Promise<(ChatRoom & { isClosed: boolean }) | null> {
+    const room = await this.prisma.chatRoom.findFirst({
       where: {
         orderId,
         type,
@@ -283,7 +305,66 @@ export class ChatService {
             },
           },
         },
+        order: {
+          select: { id: true, status: true },
+        },
       },
     });
+
+    if (!room) return null;
+
+    const isClosed = !!this.validateChatAccess(type, room.order.status);
+
+    return { ...room, isClosed };
+  }
+
+  private validateChatAccess(
+    type: ChatRoomType,
+    orderStatus: string,
+  ): string | null {
+    const merchantChatStatuses = ["PAID", "PREPARING", "READY"];
+    const driverChatStatuses = ["ON_DELIVERY"];
+
+    if (type === ChatRoomType.CUSTOMER_MERCHANT) {
+      if (!merchantChatStatuses.includes(orderStatus)) {
+        return "Chat with merchant is closed. The order has progressed past the preparation stage.";
+      }
+    }
+
+    if (type === ChatRoomType.CUSTOMER_DRIVER) {
+      if (!driverChatStatuses.includes(orderStatus)) {
+        return "Chat with driver is only available when the order is on delivery.";
+      }
+    }
+
+    return null;
+  }
+
+  async getChatStatus(
+    orderId: string,
+    userId: string,
+  ): Promise<{
+    canChatWithMerchant: boolean;
+    canChatWithDriver: boolean;
+    orderStatus: string;
+  }> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true, driverId: true },
+    });
+
+    if (!order) {
+      throw new HttpException("Order not found", HttpStatus.NOT_FOUND);
+    }
+
+    const merchantChatStatuses = ["PAID", "PREPARING", "READY"];
+    const driverChatStatuses = ["ON_DELIVERY"];
+
+    return {
+      canChatWithMerchant: merchantChatStatuses.includes(order.status),
+      canChatWithDriver:
+        driverChatStatuses.includes(order.status) && !!order.driverId,
+      orderStatus: order.status,
+    };
   }
 }

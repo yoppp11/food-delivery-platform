@@ -38,6 +38,9 @@ export function MerchantOrdersPage() {
   const { data: ordersResponse, isLoading: ordersLoading, refetch: refetchOrders } = useMerchantOrders(page, 10);
   const { data: pendingOrders, isLoading: pendingLoading, refetch: refetchPending } = usePendingOrders();
 
+  console.info(pendingOrders)
+  console.info(ordersResponse)
+
   const acceptOrderMutation = useAcceptOrder();
   const rejectOrderMutation = useRejectOrder();
   const updateStatusMutation = useUpdateMerchantOrderStatus();
@@ -124,7 +127,12 @@ export function MerchantOrdersPage() {
             ) : !pendingOrders || pendingOrders.length === 0 ? (
               <EmptyOrders message="No pending orders" />
             ) : (
-              <motion.div variants={containerVariants} className="space-y-4">
+              <motion.div 
+                variants={containerVariants} 
+                initial="hidden"
+                animate="visible"
+                className="space-y-4"
+              >
                 {pendingOrders.map((order) => (
                   <motion.div key={order.id} variants={itemVariants}>
                     <OrderCard
@@ -148,7 +156,12 @@ export function MerchantOrdersPage() {
             ) : activeOrders.length === 0 ? (
               <EmptyOrders message="No active orders" />
             ) : (
-              <motion.div variants={containerVariants} className="space-y-4">
+              <motion.div 
+                variants={containerVariants} 
+                initial="hidden"
+                animate="visible"
+                className="space-y-4"
+              >
                 {activeOrders.map((order: MerchantOrder) => (
                   <motion.div key={order.id} variants={itemVariants}>
                     <OrderCard
@@ -172,7 +185,12 @@ export function MerchantOrdersPage() {
             ) : completedOrders.length === 0 ? (
               <EmptyOrders message="No completed orders" />
             ) : (
-              <motion.div variants={containerVariants} className="space-y-4">
+              <motion.div 
+                variants={containerVariants} 
+                initial="hidden"
+                animate="visible"
+                className="space-y-4"
+              >
                 {completedOrders.map((order: MerchantOrder) => (
                   <motion.div key={order.id} variants={itemVariants}>
                     <OrderCard order={order} />
@@ -189,7 +207,12 @@ export function MerchantOrdersPage() {
               <EmptyOrders message="No orders found" />
             ) : (
               <>
-                <motion.div variants={containerVariants} className="space-y-4">
+                <motion.div 
+                  variants={containerVariants} 
+                  initial="hidden"
+                  animate="visible"
+                  className="space-y-4"
+                >
                   {allOrders.map((order: MerchantOrder) => (
                     <motion.div key={order.id} variants={itemVariants}>
                       <OrderCard

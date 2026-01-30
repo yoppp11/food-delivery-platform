@@ -14,6 +14,12 @@ interface CreateChatRoomInput {
   type: ChatRoomType;
 }
 
+interface ChatStatusResponse {
+  canChatWithMerchant: boolean;
+  canChatWithDriver: boolean;
+  orderStatus: string;
+}
+
 export function useChatRooms() {
   return useQuery({
     queryKey: queryKeys.chat.rooms(),
@@ -49,8 +55,17 @@ export function useUnreadMessageCount() {
 export function useChatRoomForOrder(orderId: string, type: ChatRoomType) {
   return useQuery({
     queryKey: queryKeys.chat.orderRoom(orderId, type),
-    queryFn: () => apiClient.get<ChatRoom | null>(`/chat/order/${orderId}`, { type }),
+    queryFn: () => apiClient.get<(ChatRoom & { isClosed?: boolean }) | null>(`/chat/order/${orderId}`, { type }),
     enabled: !!orderId && !!type,
+  });
+}
+
+export function useChatStatus(orderId: string) {
+  return useQuery({
+    queryKey: queryKeys.chat.status(orderId),
+    queryFn: () => apiClient.get<ChatStatusResponse>(`/chat/order/${orderId}/status`),
+    enabled: !!orderId,
+    refetchInterval: 10000,
   });
 }
 

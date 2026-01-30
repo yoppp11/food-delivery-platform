@@ -77,6 +77,9 @@ export interface MerchantMenuCategory {
   name: string;
   merchantId: string;
   menus?: Menu[];
+  _count?: {
+    menus: number;
+  };
 }
 
 // Menu types

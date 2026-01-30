@@ -1,4 +1,6 @@
 import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
 import { PrismaService } from "../../common/prisma.service";
 import { WINSTON_MODULE_PROVIDER } from "nest-winston";
 import { Logger } from "winston";
@@ -12,12 +14,21 @@ import {
 } from "@prisma/client";
 import { CreateOrder, OrderStatus } from "./types";
 import { CartService } from "../cart/cart.service";
+import { DriverService } from "../driver/driver.service";
+import { OrderGateway } from "./order.gateway";
+import { NotificationService } from "../notification/notification.service";
+import type { DriverAssignmentJobData } from "../queue/driver-assignment.processor";
 
 @Injectable()
 export class OrderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cartService: CartService,
+    private readonly driverService: DriverService,
+    private readonly orderGateway: OrderGateway,
+    private readonly notificationService: NotificationService,
+    @InjectQueue("driver-assignment")
+    private readonly driverAssignmentQueue: Queue<DriverAssignmentJobData>,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
@@ -184,6 +195,7 @@ export class OrderService {
 
       const order = await this.prisma.order.findUnique({
         where: { id },
+        include: { merchant: true },
       });
 
       if (!order)
@@ -208,8 +220,8 @@ export class OrderService {
           HttpStatus.FORBIDDEN,
         );
 
-      return await this.prisma.$transaction(async (tx) => {
-        const order = await tx.order.update({
+      const updatedOrder = await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.order.update({
           where: { id },
           data: { status },
         });
@@ -223,8 +235,25 @@ export class OrderService {
           },
         });
 
-        return order;
+        return updated;
       });
+
+      if (status === "READY") {
+        await this.driverAssignmentQueue.add(
+          "assign-driver",
+          { orderId: id, merchantId: order.merchantId },
+          {
+            delay: 0,
+            attempts: 3,
+            backoff: { type: "exponential", delay: 1000 },
+          },
+        );
+        this.logger.info(`Queued driver assignment for order ${id}`);
+      }
+
+      this.orderGateway.notifyOrderUpdate(id, { status });
+
+      return updatedOrder;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -750,6 +779,15 @@ export class OrderService {
 
       const driver = await this.prisma.driver.findFirst({
         where: { userId: user.id },
+        include: {
+          user: {
+            select: { id: true, email: true, image: true },
+          },
+          driverLocations: {
+            orderBy: { recordedAt: "desc" },
+            take: 1,
+          },
+        },
       });
 
       if (!driver)
@@ -763,6 +801,7 @@ export class OrderService {
 
       const order = await this.prisma.order.findUnique({
         where: { id },
+        include: { merchant: true },
       });
 
       if (!order)
@@ -780,7 +819,7 @@ export class OrderService {
           HttpStatus.BAD_REQUEST,
         );
 
-      return await this.prisma.$transaction(async (tx) => {
+      const updatedOrder = await this.prisma.$transaction(async (tx) => {
         const updated = await tx.order.update({
           where: { id },
           data: {
@@ -815,6 +854,28 @@ export class OrderService {
 
         return updated;
       });
+
+      this.orderGateway.notifyDriverAssigned(id, {
+        id: driver.id,
+        userId: driver.userId,
+        plateNumber: driver.plateNumber,
+        user: driver.user,
+        currentLocation: driver.driverLocations[0]
+          ? {
+              latitude: Number(driver.driverLocations[0].latitude),
+              longitude: Number(driver.driverLocations[0].longitude),
+            }
+          : null,
+      });
+
+      this.orderGateway.notifyOrderUpdate(id, { status: "ON_DELIVERY" });
+
+      await this.notificationService.createOrderNotification(
+        order.userId,
+        `Your order is on the way! ${driver.user.email} is delivering your order from ${order.merchant.name}.`,
+      );
+
+      return updatedOrder;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -869,6 +930,7 @@ export class OrderService {
 
       const order = await this.prisma.order.findUnique({
         where: { id },
+        include: { merchant: true },
       });
 
       if (!order)
@@ -883,7 +945,7 @@ export class OrderService {
           HttpStatus.BAD_REQUEST,
         );
 
-      return await this.prisma.$transaction(async (tx) => {
+      const updatedOrder = await this.prisma.$transaction(async (tx) => {
         const updated = await tx.order.update({
           where: { id },
           data: { status: "COMPLETED" },
@@ -910,6 +972,15 @@ export class OrderService {
 
         return updated;
       });
+
+      this.orderGateway.notifyOrderUpdate(id, { status: "COMPLETED" });
+
+      await this.notificationService.createOrderNotification(
+        order.userId,
+        `Your order from ${order.merchant.name} has been delivered! Enjoy your meal.`,
+      );
+
+      return updatedOrder;
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -949,6 +1020,90 @@ export class OrderService {
         );
       if (item.quantity < 1)
         throw new HttpException("Invalid quantity", HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  private async autoAssignDriver(orderId: string, merchantId: string) {
+    try {
+      const nearestDriver = await this.driverService.findDriver(merchantId);
+
+      if (!nearestDriver) {
+        this.logger.info(`No available driver found for order ${orderId}`);
+        return;
+      }
+
+      const driverWithUser = await this.prisma.driver.findUnique({
+        where: { id: nearestDriver.driverId },
+        include: {
+          user: {
+            select: { id: true, email: true, image: true },
+          },
+          driverLocations: {
+            orderBy: { recordedAt: "desc" },
+            take: 1,
+          },
+        },
+      });
+
+      if (!driverWithUser) return;
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.order.update({
+          where: { id: orderId },
+          data: { driverId: nearestDriver.driverId },
+        });
+
+        await tx.delivery.create({
+          data: {
+            orderId,
+            driverId: nearestDriver.driverId,
+            pickedAt: new Date(),
+            deliveredAt: new Date(),
+            distanceKm: nearestDriver.distance,
+          },
+        });
+      });
+
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: { merchant: true },
+      });
+
+      this.orderGateway.notifyDriverAssigned(orderId, {
+        id: driverWithUser.id,
+        userId: driverWithUser.userId,
+        plateNumber: driverWithUser.plateNumber,
+        user: driverWithUser.user,
+        currentLocation: driverWithUser.driverLocations[0]
+          ? {
+              latitude: Number(driverWithUser.driverLocations[0].latitude),
+              longitude: Number(driverWithUser.driverLocations[0].longitude),
+            }
+          : null,
+      });
+
+      this.orderGateway.notifyDriverNewOrder(driverWithUser.user.id, {
+        orderId,
+        merchant: order?.merchant,
+      });
+
+      if (order) {
+        await this.notificationService.createOrderNotification(
+          order.userId,
+          `A driver has been assigned to your order! ${driverWithUser.user.email} will deliver your order.`,
+        );
+
+        await this.notificationService.createOrderNotification(
+          driverWithUser.user.id,
+          `New delivery assigned! Pick up from ${order.merchant.name}.`,
+        );
+      }
+
+      this.logger.info(
+        `Auto-assigned driver ${nearestDriver.driverId} to order ${orderId}`,
+      );
+    } catch (error) {
+      this.logger.error(`Error auto-assigning driver: ${error}`);
     }
   }
 }

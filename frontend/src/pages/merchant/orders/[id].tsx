@@ -6,7 +6,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { OrderStatusBadge } from '@/components/merchant/order-status-badge';
 import { OrderActions } from '@/components/merchant/order-actions';
-import { ArrowLeft, Clock } from 'lucide-react';
+import { ChatButton } from '@/components/chat';
+import { ArrowLeft, Clock, User } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import {
   useMerchantOrderDetail,
@@ -126,6 +127,38 @@ export function MerchantOrderDetailPage() {
                 isRejecting={isRejecting}
                 isUpdating={isUpdating}
               />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Customer
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                    <User className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium">
+                      {order.user?.name || 'Customer'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Order #{order.id.slice(-8).toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+                <ChatButton
+                  orderId={orderId}
+                  type="CUSTOMER_MERCHANT"
+                  label="Chat"
+                  variant="outline"
+                />
+              </div>
             </CardContent>
           </Card>
 
