@@ -1,15 +1,46 @@
+# Dependencies
 node_modules
+
+# Build output
 dist
-coverage
-.env.*
-*.log
+
+# Git
 .git
 .gitignore
-README.md
+git_backup/
+
+# IDE
 .vscode
 .idea
-*.md
-test
-__tests__
+*.swp
+*.swo
+
+# Environment files (we'll inject these at runtime)
+.env
+.env.*
+!.env.example
+
+# Test files
+test/
 *.spec.ts
 *.test.ts
+coverage/
+.nyc_output/
+
+# Documentation
+*.md
+!README.md
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/

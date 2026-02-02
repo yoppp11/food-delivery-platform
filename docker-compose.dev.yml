@@ -1,48 +1,61 @@
+
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: food-delivery-db-dev
+    container_name: food-delivery-postgres-dev
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: food_delivery_dev
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-food_delivery}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - food-delivery-network-dev
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-food_delivery}"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  redis:
+      start_period: 20s
+  redis-cache:
     image: redis:7-alpine
-    container_name: food-delivery-redis-dev
+    container_name: food-delivery-redis-cache-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_cache_data_dev:/data
     ports:
       - "6379:6379"
-    volumes:
-      - redis_dev_data:/data
+    networks:
+      - food-delivery-network-dev
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: food-delivery-redis-commander
-    environment:
-      REDIS_HOSTS: local:redis:6379
+  redis-queue:
+    image: redis:7-alpine
+    container_name: food-delivery-redis-queue-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_queue_data_dev:/data
     ports:
-      - "8081:8081"
-    depends_on:
-      redis:
-        condition: service_healthy
-
+      - "6380:6379"
+    networks:
+      - food-delivery-network-dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: food-delivery-pgadmin
+    restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
@@ -51,14 +64,30 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - food-delivery-network-dev
     volumes:
       - pgadmin_data:/var/lib/pgadmin
-
-volumes:
-  postgres_dev_data:
-  redis_dev_data:
-  pgadmin_data:
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: food-delivery-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: cache:redis-cache:6379,queue:redis-queue:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis-cache
+      - redis-queue
+    networks:
+      - food-delivery-network-dev
 
 networks:
-  default:
-    name: food-delivery-dev-network
+  food-delivery-network-dev:
+    driver: bridge
+
+volumes:
+  postgres_data_dev:
+  redis_cache_data_dev:
+  redis_queue_data_dev:
+  pgadmin_data:

@@ -1,70 +1,88 @@
+
+
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: food-delivery-db
+    container_name: food-delivery-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Database password is required}
       POSTGRES_DB: ${DB_NAME:-food_delivery}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    networks:
+      - food-delivery-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-food_delivery}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
-
+      start_period: 20s
   redis-cache:
     image: redis:7-alpine
     container_name: food-delivery-redis-cache
+    restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_cache_data:/data
     ports:
       - "6379:6379"
+    networks:
+      - food-delivery-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
-
   redis-queue:
     image: redis:7-alpine
     container_name: food-delivery-redis-queue
+    restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
       - redis_queue_data:/data
     ports:
       - "6380:6379"
+    networks:
+      - food-delivery-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
-
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
     container_name: food-delivery-backend
+    restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-food_delivery}
-      REDIS_CACHE_HOST: redis-cache
-      REDIS_CACHE_PORT: 6379
-      REDIS_QUEUE_HOST: redis-queue
-      REDIS_QUEUE_PORT: 6379
       NODE_ENV: production
       PORT: 3001
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-food_delivery}?schema=public
+
+      REDIS_CACHE_HOST: redis-cache
+      REDIS_CACHE_PORT: 6379
+      REDIS_CACHE_PASSWORD: ""
+      REDIS_CACHE_DB: 0
+
+      REDIS_HOST: redis-queue
+      REDIS_PORT: 6379
+
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Better Auth secret is required}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
+
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+
+      PAKASIR_SLUG: ${PAKASIR_SLUG:-demo}
+      PAKASIR_KEY: ${PAKASIR_KEY:-demo}
+
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:80,http://localhost:4000}
     ports:
       - "3001:3001"
     depends_on:
@@ -74,44 +92,44 @@ services:
         condition: service_healthy
       redis-queue:
         condition: service_healthy
+    networks:
+      - food-delivery-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      test: ["CMD-SHELL", "node -e \"const http = require('http'); http.get('http://localhost:3001/api/health/live', (r) => { process.exit(r.statusCode === 200 || r.statusCode === 401 ? 0 : 1); }).on('error', () => process.exit(1));\""]
       interval: 30s
       timeout: 10s
-      retries: 3
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
-
+      retries: 5
+      start_period: 120s
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_AUTH_URL: ${VITE_AUTH_URL:-/api/auth}
+        VITE_USE_MOCK_API: "false"
+        VITE_DEV_MODE: "false"
     container_name: food-delivery-frontend
+    restart: unless-stopped
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    networks:
+      - food-delivery-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
       interval: 30s
       timeout: 10s
       retries: 3
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 128M
+      start_period: 10s
+
+networks:
+  food-delivery-network:
+    driver: bridge
 
 volumes:
   postgres_data:
   redis_cache_data:
   redis_queue_data:
-
-networks:
-  default:
-    name: food-delivery-network

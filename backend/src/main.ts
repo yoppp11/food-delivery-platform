@@ -21,8 +21,13 @@ async function bootstrap() {
   const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
   const prisma = new PrismaService();
 
+  // Dynamic CORS configuration for production
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",")
+    : ["http://localhost:4000", "http://localhost:5173"];
+
   app.enableCors({
-    origin: ["http://localhost:4000", "http://localhost:5173"],
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Merchant-Id"],
@@ -35,6 +40,8 @@ async function bootstrap() {
   app.setGlobalPrefix("api");
   app.useGlobalInterceptors(new CurrentUserInterceptor(prisma, logger));
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT ?? 3001;
+  await app.listen(port, "0.0.0.0");
+  logger.log(`Application is running on port ${port}`);
 }
 bootstrap();

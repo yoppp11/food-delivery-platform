@@ -1,52 +1,51 @@
-# Build stage
-FROM node:20-alpine AS builder
+
+FROM node:22-alpine AS builder
+
+RUN corepack enable && corepack prepare pnpm@10.25.0 --activate
 
 WORKDIR /app
 
-RUN npm install -g pnpm
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY backend/package.json ./backend/
-COPY backend/prisma ./backend/prisma/
+COPY frontend/package.json ./frontend/
 
 RUN pnpm install --frozen-lockfile
 
 COPY backend ./backend
 
-ENV PATH="/app/node_modules/.bin:$PATH"
-
-# Increase Node.js memory limit for build process (4GB)
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-
-# Dummy DATABASE_URL for prisma generate (no actual connection needed)
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
 
-RUN cd backend && prisma generate
+WORKDIR /app/backend
 
-RUN cd backend && nest build
+ENV PATH="/app/node_modules/.bin:$PATH"
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Production stage
-FROM node:20-alpine AS production
+RUN prisma generate --schema=./prisma/schema.prisma
 
-WORKDIR /app
+RUN nest build
+
+FROM node:22-alpine AS production
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nestjs
 
-COPY --from=builder /app/backend/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/backend/package.json ./
-COPY --from=builder /app/backend/prisma ./prisma
-COPY backend/prisma.config.js ./prisma.config.js
-COPY backend/docker-entrypoint.sh ./docker-entrypoint.sh
+WORKDIR /app
 
-RUN chmod +x ./docker-entrypoint.sh
+COPY --from=builder --chown=nestjs:nodejs /app/backend/dist ./dist
+COPY --from=builder --chown=nestjs:nodejs /app/backend/prisma ./prisma
 
-USER nestjs
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV PATH="/app/node_modules/.bin:$PATH"
 
 EXPOSE 3001
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+USER nestjs
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["sh", "-c", "cd /app && prisma migrate deploy --schema=./prisma/schema.prisma --config=./prisma/prisma.config.ts && node dist/src/main.js"]

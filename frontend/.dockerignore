@@ -1,12 +1,49 @@
+# Dependencies
 node_modules
+
+# Build output
 dist
-coverage
-.env
-.env.*
-*.log
+
+# Git
 .git
 .gitignore
-README.md
+
+# IDE
 .vscode
 .idea
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Test files
+e2e/
+test-results/
+playwright-report/
+coverage/
+*.spec.ts
+*.test.ts
+*.test.tsx
+*.spec.tsx
+*.log
+
+# Documentation
 *.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+
+# Playwright
+playwright/
+
+# Other config files not needed in build
+playwright.config.ts
+vitest.config.ts

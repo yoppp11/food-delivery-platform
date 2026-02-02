@@ -163,6 +163,9 @@ export class AppModule implements NestModule {
       .apply(AuthenticationMiddleware)
       .exclude(
         { path: "api/auth/(.*)", method: RequestMethod.ALL },
+        { path: "api/health", method: RequestMethod.GET },
+        { path: "api/health/live", method: RequestMethod.GET },
+        { path: "api/health/ready", method: RequestMethod.GET },
         { path: "api/merchants", method: RequestMethod.GET },
         { path: "api/merchants/:id", method: RequestMethod.GET },
         { path: "api/merchants/:id/menus", method: RequestMethod.GET },
