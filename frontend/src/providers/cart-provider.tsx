@@ -189,7 +189,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const currentItem = cart?.items.find((item) => item.id === itemId);
     if (!currentItem) return;
 
-    const type = quantity > currentItem.quantity ? 'increment' : 'decrement';
+    const type = quantity > currentItem.quantity ? 'INCREMENT' : 'DECREMENT';
     
     updateCartItemMutation.mutate(
       { cartItemId: itemId, type, quantity },

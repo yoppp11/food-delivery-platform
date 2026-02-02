@@ -152,7 +152,6 @@ export class DriverService {
       if (!driver)
         throw new HttpException("Driver not found", HttpStatus.NOT_FOUND);
 
-      // Create new location record to maintain history
       return await this.prisma.driverLocation.create({
         data: {
           driverId: driver.id,
@@ -227,7 +226,7 @@ export class DriverService {
           data: {
             userId: user.id,
             plateNumber: body.plateNumber,
-            isAvailable: false, // Not available until approved
+            isAvailable: false, 
             approvalStatus: "PENDING",
           },
         });
@@ -240,8 +239,6 @@ export class DriverService {
             recordedAt: new Date(),
           },
         });
-
-        // Role will be changed to DRIVER only after admin approval
 
         return driver;
       });

@@ -56,7 +56,7 @@ export function ChatButton({
       return;
     }
 
-    if (existingRoom) {
+    if (existingRoom && 'id' in existingRoom && existingRoom.id) {
       if ((existingRoom as any).isClosed) {
         toast.info('This chat has been closed');
         return;
@@ -65,20 +65,20 @@ export function ChatButton({
       return;
     }
 
-    if (createdRoom) {
+    if (createdRoom && 'id' in createdRoom && createdRoom.id) {
       setIsOpen(true);
       return;
     }
 
     try {
       const newRoom = await createChatRoom.mutateAsync({ orderId, type });
-      if (newRoom) {
+      if (newRoom && 'id' in newRoom && newRoom.id) {
         setCreatedRoom(newRoom);
         setIsOpen(true);
       } else {
         toast.error('Failed to create chat room');
       }
-    } catch {
+    } catch (error) {
       toast.error('Failed to open chat');
     }
   };
@@ -86,6 +86,8 @@ export function ChatButton({
   const chatRoom = existingRoom || createdRoom;
   const isLoading = isLoadingRoom || createChatRoom.isPending;
   const isDisabled = externalDisabled || isLoading || !isChatAllowed;
+
+  const isValidChatRoom = chatRoom && 'id' in chatRoom && chatRoom.id;
 
   const buttonLabel = label !== undefined 
     ? label 
@@ -132,7 +134,7 @@ export function ChatButton({
       )}
 
       <AnimatePresence>
-        {isOpen && chatRoom && (
+        {isOpen && isValidChatRoom && (
           <ChatWindow 
             chatRoom={chatRoom} 
             onClose={() => setIsOpen(false)}

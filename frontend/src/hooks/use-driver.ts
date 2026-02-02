@@ -69,6 +69,7 @@ export function useAcceptOrder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.driver.availableOrders() });
       queryClient.invalidateQueries({ queryKey: queryKeys.driver.profile() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.driver.activeOrder() });
     },
   });
 }
@@ -104,7 +105,7 @@ export function useDriverActiveOrder() {
   return useQuery({
     queryKey: queryKeys.driver.activeOrder(),
     queryFn: driverDeliveryService.getActiveOrder,
-    refetchInterval: 10000,
+    refetchInterval: 10000
   });
 }
 

@@ -106,7 +106,7 @@ export const CartScalarFieldEnumSchema = z.enum(['id','merchantId','userId','ord
 
 export const CartItemScalarFieldEnumSchema = z.enum(['id','cartId','menuName','variantId','basePrice','quantity','itemTotal','notes']);
 
-export const OrderScalarFieldEnumSchema = z.enum(['id','userId','merchantId','driverId','status','totalPrice','deliveryFee','paymentStatus']);
+export const OrderScalarFieldEnumSchema = z.enum(['id','userId','merchantId','driverId','status','totalPrice','deliveryFee','createdAt','paymentStatus']);
 
 export const OrderItemScalarFieldEnumSchema = z.enum(['id','orderId','variantId','quantity','price']);
 
@@ -134,15 +134,21 @@ export const NotificationScalarFieldEnumSchema = z.enum(['id','userId','type','m
 
 export const ImageScalarFieldEnumSchema = z.enum(['id','imageUrl','createdAt']);
 
-export const ChatRoomScalarFieldEnumSchema = z.enum(['id','orderId','type','createdAt','updatedAt']);
+export const ChatRoomScalarFieldEnumSchema = z.enum(['id','orderId','ticketId','type','status','title','lastMessageAt','lastMessageId','closedAt','closedReason','createdAt','updatedAt']);
 
-export const ChatParticipantScalarFieldEnumSchema = z.enum(['id','chatRoomId','userId','role','joinedAt']);
+export const ChatParticipantScalarFieldEnumSchema = z.enum(['id','chatRoomId','userId','role','joinedAt','leftAt','lastSeenAt','lastReadAt','lastReadMsgId','isMuted','isBlocked']);
 
-export const ChatMessageScalarFieldEnumSchema = z.enum(['id','chatRoomId','senderId','content','type','isRead','createdAt']);
+export const ChatMessageScalarFieldEnumSchema = z.enum(['id','chatRoomId','senderId','content','type','status','metadata','replyToId','deletedAt','deletedBy','isRead','createdAt','updatedAt']);
+
+export const MessageReadReceiptScalarFieldEnumSchema = z.enum(['id','messageId','userId','readAt']);
+
+export const SupportTicketScalarFieldEnumSchema = z.enum(['id','customerId','subject','category','priority','status','assignedAdminId','resolvedAt','resolution','createdAt','updatedAt']);
 
 export const SortOrderSchema = z.enum(['asc','desc']);
 
 export const JsonNullValueInputSchema = z.enum(['JsonNull',]).transform((value) => (value === 'JsonNull' ? Prisma.JsonNull : value));
+
+export const NullableJsonNullValueInputSchema = z.enum(['DbNull','JsonNull',]).transform((value) => value === 'JsonNull' ? Prisma.JsonNull : value === 'DbNull' ? Prisma.DbNull : value);
 
 export const QueryModeSchema = z.enum(['default','insensitive']);
 
@@ -154,13 +160,33 @@ export const ChatRoomTypeSchema = z.enum(['CUSTOMER_MERCHANT','CUSTOMER_DRIVER',
 
 export type ChatRoomTypeType = `${z.infer<typeof ChatRoomTypeSchema>}`
 
-export const ChatRoleSchema = z.enum(['CUSTOMER','MERCHANT','DRIVER','SUPPORT']);
+export const ChatRoomStatusSchema = z.enum(['ACTIVE','PAUSED','CLOSED','ARCHIVED']);
+
+export type ChatRoomStatusType = `${z.infer<typeof ChatRoomStatusSchema>}`
+
+export const ChatRoleSchema = z.enum(['CUSTOMER','MERCHANT','DRIVER','ADMIN','SUPPORT']);
 
 export type ChatRoleType = `${z.infer<typeof ChatRoleSchema>}`
 
-export const MessageTypeSchema = z.enum(['TEXT','IMAGE','LOCATION','SYSTEM']);
+export const MessageTypeSchema = z.enum(['TEXT','IMAGE','LOCATION','SYSTEM','ACTION']);
 
 export type MessageTypeType = `${z.infer<typeof MessageTypeSchema>}`
+
+export const MessageStatusSchema = z.enum(['PENDING','SENT','DELIVERED','READ','FAILED']);
+
+export type MessageStatusType = `${z.infer<typeof MessageStatusSchema>}`
+
+export const SupportCategorySchema = z.enum(['GENERAL','ORDER_ISSUE','PAYMENT_ISSUE','DELIVERY_ISSUE','REFUND_REQUEST','ACCOUNT_ISSUE','TECHNICAL','FEEDBACK','OTHER']);
+
+export type SupportCategoryType = `${z.infer<typeof SupportCategorySchema>}`
+
+export const TicketPrioritySchema = z.enum(['LOW','NORMAL','HIGH','URGENT']);
+
+export type TicketPriorityType = `${z.infer<typeof TicketPrioritySchema>}`
+
+export const TicketStatusSchema = z.enum(['OPEN','IN_PROGRESS','WAITING_CUSTOMER','WAITING_ADMIN','RESOLVED','CLOSED']);
+
+export type TicketStatusType = `${z.infer<typeof TicketStatusSchema>}`
 
 export const UserStatusSchema = z.enum(['ACTIVE','SUSPENDED','DELETED']);
 
@@ -705,6 +731,7 @@ export const OrderSchema = z.object({
   driverId: z.string().nullish(),
   totalPrice: z.number().int(),
   deliveryFee: z.number().int().nullish(),
+  createdAt: z.coerce.date(),
 })
 
 export type Order = z.infer<typeof OrderSchema>
@@ -724,6 +751,7 @@ export const OrderOptionalDefaultsSchema = OrderSchema.merge(z.object({
   status: OrderStatusSchema.optional(),
   paymentStatus: PaymentStatusSchema.optional(),
   id: z.uuid().optional(),
+  createdAt: z.coerce.date().optional(),
 }))
 
 export type OrderOptionalDefaults = z.infer<typeof OrderOptionalDefaultsSchema>
@@ -1156,8 +1184,15 @@ export type ImageOptionalDefaults = z.infer<typeof ImageOptionalDefaultsSchema>
 
 export const ChatRoomSchema = z.object({
   type: ChatRoomTypeSchema,
+  status: ChatRoomStatusSchema,
   id: z.uuid(),
-  orderId: z.string(),
+  orderId: z.string().nullish(),
+  ticketId: z.string().nullish(),
+  title: z.string().nullish(),
+  lastMessageAt: z.coerce.date().nullish(),
+  lastMessageId: z.string().nullish(),
+  closedAt: z.coerce.date().nullish(),
+  closedReason: z.string().nullish(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 })
@@ -1176,6 +1211,7 @@ export type ChatRoomPartial = z.infer<typeof ChatRoomPartialSchema>
 //------------------------------------------------------
 
 export const ChatRoomOptionalDefaultsSchema = ChatRoomSchema.merge(z.object({
+  status: ChatRoomStatusSchema.optional(),
   id: z.uuid().optional(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
@@ -1193,6 +1229,12 @@ export const ChatParticipantSchema = z.object({
   chatRoomId: z.string(),
   userId: z.string(),
   joinedAt: z.coerce.date(),
+  leftAt: z.coerce.date().nullish(),
+  lastSeenAt: z.coerce.date().nullish(),
+  lastReadAt: z.coerce.date().nullish(),
+  lastReadMsgId: z.string().nullish(),
+  isMuted: z.boolean(),
+  isBlocked: z.boolean(),
 })
 
 export type ChatParticipant = z.infer<typeof ChatParticipantSchema>
@@ -1211,6 +1253,8 @@ export type ChatParticipantPartial = z.infer<typeof ChatParticipantPartialSchema
 export const ChatParticipantOptionalDefaultsSchema = ChatParticipantSchema.merge(z.object({
   id: z.uuid().optional(),
   joinedAt: z.coerce.date().optional(),
+  isMuted: z.boolean().optional(),
+  isBlocked: z.boolean().optional(),
 }))
 
 export type ChatParticipantOptionalDefaults = z.infer<typeof ChatParticipantOptionalDefaultsSchema>
@@ -1221,12 +1265,18 @@ export type ChatParticipantOptionalDefaults = z.infer<typeof ChatParticipantOpti
 
 export const ChatMessageSchema = z.object({
   type: MessageTypeSchema,
+  status: MessageStatusSchema,
   id: z.uuid(),
   chatRoomId: z.string(),
   senderId: z.string(),
   content: z.string(),
+  metadata: JsonValueSchema.nullable(),
+  replyToId: z.string().nullish(),
+  deletedAt: z.coerce.date().nullish(),
+  deletedBy: z.string().nullish(),
   isRead: z.boolean(),
   createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
 })
 
 export type ChatMessage = z.infer<typeof ChatMessageSchema>
@@ -1244,12 +1294,87 @@ export type ChatMessagePartial = z.infer<typeof ChatMessagePartialSchema>
 
 export const ChatMessageOptionalDefaultsSchema = ChatMessageSchema.merge(z.object({
   type: MessageTypeSchema.optional(),
+  status: MessageStatusSchema.optional(),
   id: z.uuid().optional(),
   isRead: z.boolean().optional(),
   createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
 }))
 
 export type ChatMessageOptionalDefaults = z.infer<typeof ChatMessageOptionalDefaultsSchema>
+
+/////////////////////////////////////////
+// MESSAGE READ RECEIPT SCHEMA
+/////////////////////////////////////////
+
+export const MessageReadReceiptSchema = z.object({
+  id: z.uuid(),
+  messageId: z.string(),
+  userId: z.string(),
+  readAt: z.coerce.date(),
+})
+
+export type MessageReadReceipt = z.infer<typeof MessageReadReceiptSchema>
+
+/////////////////////////////////////////
+// MESSAGE READ RECEIPT PARTIAL SCHEMA
+/////////////////////////////////////////
+
+export const MessageReadReceiptPartialSchema = MessageReadReceiptSchema.partial()
+
+export type MessageReadReceiptPartial = z.infer<typeof MessageReadReceiptPartialSchema>
+
+// MESSAGE READ RECEIPT OPTIONAL DEFAULTS SCHEMA
+//------------------------------------------------------
+
+export const MessageReadReceiptOptionalDefaultsSchema = MessageReadReceiptSchema.merge(z.object({
+  id: z.uuid().optional(),
+  readAt: z.coerce.date().optional(),
+}))
+
+export type MessageReadReceiptOptionalDefaults = z.infer<typeof MessageReadReceiptOptionalDefaultsSchema>
+
+/////////////////////////////////////////
+// SUPPORT TICKET SCHEMA
+/////////////////////////////////////////
+
+export const SupportTicketSchema = z.object({
+  category: SupportCategorySchema,
+  priority: TicketPrioritySchema,
+  status: TicketStatusSchema,
+  id: z.uuid(),
+  customerId: z.string(),
+  subject: z.string(),
+  assignedAdminId: z.string().nullish(),
+  resolvedAt: z.coerce.date().nullish(),
+  resolution: z.string().nullish(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+})
+
+export type SupportTicket = z.infer<typeof SupportTicketSchema>
+
+/////////////////////////////////////////
+// SUPPORT TICKET PARTIAL SCHEMA
+/////////////////////////////////////////
+
+export const SupportTicketPartialSchema = SupportTicketSchema.partial()
+
+export type SupportTicketPartial = z.infer<typeof SupportTicketPartialSchema>
+
+// SUPPORT TICKET OPTIONAL DEFAULTS SCHEMA
+//------------------------------------------------------
+
+export const SupportTicketOptionalDefaultsSchema = SupportTicketSchema.merge(z.object({
+  category: SupportCategorySchema.optional(),
+  priority: TicketPrioritySchema.optional(),
+  status: TicketStatusSchema.optional(),
+  id: z.uuid().optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+}))
+
+export type SupportTicketOptionalDefaults = z.infer<typeof SupportTicketOptionalDefaultsSchema>
 
 /////////////////////////////////////////
 // SELECT & INCLUDE
@@ -1274,6 +1399,9 @@ export const UserIncludeSchema: z.ZodType<Prisma.UserInclude> = z.object({
   payments: z.union([z.boolean(),z.lazy(() => PaymentFindManyArgsSchema)]).optional(),
   chatParticipants: z.union([z.boolean(),z.lazy(() => ChatParticipantFindManyArgsSchema)]).optional(),
   chatMessages: z.union([z.boolean(),z.lazy(() => ChatMessageFindManyArgsSchema)]).optional(),
+  messageReadReceipts: z.union([z.boolean(),z.lazy(() => MessageReadReceiptFindManyArgsSchema)]).optional(),
+  customerTickets: z.union([z.boolean(),z.lazy(() => SupportTicketFindManyArgsSchema)]).optional(),
+  adminTickets: z.union([z.boolean(),z.lazy(() => SupportTicketFindManyArgsSchema)]).optional(),
   _count: z.union([z.boolean(),z.lazy(() => UserCountOutputTypeArgsSchema)]).optional(),
 }).strict();
 
@@ -1302,6 +1430,9 @@ export const UserCountOutputTypeSelectSchema: z.ZodType<Prisma.UserCountOutputTy
   payments: z.boolean().optional(),
   chatParticipants: z.boolean().optional(),
   chatMessages: z.boolean().optional(),
+  messageReadReceipts: z.boolean().optional(),
+  customerTickets: z.boolean().optional(),
+  adminTickets: z.boolean().optional(),
 }).strict();
 
 export const UserSelectSchema: z.ZodType<Prisma.UserSelect> = z.object({
@@ -1329,6 +1460,9 @@ export const UserSelectSchema: z.ZodType<Prisma.UserSelect> = z.object({
   payments: z.union([z.boolean(),z.lazy(() => PaymentFindManyArgsSchema)]).optional(),
   chatParticipants: z.union([z.boolean(),z.lazy(() => ChatParticipantFindManyArgsSchema)]).optional(),
   chatMessages: z.union([z.boolean(),z.lazy(() => ChatMessageFindManyArgsSchema)]).optional(),
+  messageReadReceipts: z.union([z.boolean(),z.lazy(() => MessageReadReceiptFindManyArgsSchema)]).optional(),
+  customerTickets: z.union([z.boolean(),z.lazy(() => SupportTicketFindManyArgsSchema)]).optional(),
+  adminTickets: z.union([z.boolean(),z.lazy(() => SupportTicketFindManyArgsSchema)]).optional(),
   _count: z.union([z.boolean(),z.lazy(() => UserCountOutputTypeArgsSchema)]).optional(),
 }).strict()
 
@@ -1744,6 +1878,7 @@ export const OrderSelectSchema: z.ZodType<Prisma.OrderSelect> = z.object({
   status: z.boolean().optional(),
   totalPrice: z.boolean().optional(),
   deliveryFee: z.boolean().optional(),
+  createdAt: z.boolean().optional(),
   paymentStatus: z.boolean().optional(),
   items: z.union([z.boolean(),z.lazy(() => OrderItemFindManyArgsSchema)]).optional(),
   statusHistories: z.union([z.boolean(),z.lazy(() => OrderStatusHistoryFindManyArgsSchema)]).optional(),
@@ -2114,6 +2249,7 @@ export const ImageSelectSchema: z.ZodType<Prisma.ImageSelect> = z.object({
 
 export const ChatRoomIncludeSchema: z.ZodType<Prisma.ChatRoomInclude> = z.object({
   order: z.union([z.boolean(),z.lazy(() => OrderArgsSchema)]).optional(),
+  ticket: z.union([z.boolean(),z.lazy(() => SupportTicketArgsSchema)]).optional(),
   participants: z.union([z.boolean(),z.lazy(() => ChatParticipantFindManyArgsSchema)]).optional(),
   messages: z.union([z.boolean(),z.lazy(() => ChatMessageFindManyArgsSchema)]).optional(),
   _count: z.union([z.boolean(),z.lazy(() => ChatRoomCountOutputTypeArgsSchema)]).optional(),
@@ -2136,10 +2272,18 @@ export const ChatRoomCountOutputTypeSelectSchema: z.ZodType<Prisma.ChatRoomCount
 export const ChatRoomSelectSchema: z.ZodType<Prisma.ChatRoomSelect> = z.object({
   id: z.boolean().optional(),
   orderId: z.boolean().optional(),
+  ticketId: z.boolean().optional(),
   type: z.boolean().optional(),
+  status: z.boolean().optional(),
+  title: z.boolean().optional(),
+  lastMessageAt: z.boolean().optional(),
+  lastMessageId: z.boolean().optional(),
+  closedAt: z.boolean().optional(),
+  closedReason: z.boolean().optional(),
   createdAt: z.boolean().optional(),
   updatedAt: z.boolean().optional(),
   order: z.union([z.boolean(),z.lazy(() => OrderArgsSchema)]).optional(),
+  ticket: z.union([z.boolean(),z.lazy(() => SupportTicketArgsSchema)]).optional(),
   participants: z.union([z.boolean(),z.lazy(() => ChatParticipantFindManyArgsSchema)]).optional(),
   messages: z.union([z.boolean(),z.lazy(() => ChatMessageFindManyArgsSchema)]).optional(),
   _count: z.union([z.boolean(),z.lazy(() => ChatRoomCountOutputTypeArgsSchema)]).optional(),
@@ -2164,6 +2308,12 @@ export const ChatParticipantSelectSchema: z.ZodType<Prisma.ChatParticipantSelect
   userId: z.boolean().optional(),
   role: z.boolean().optional(),
   joinedAt: z.boolean().optional(),
+  leftAt: z.boolean().optional(),
+  lastSeenAt: z.boolean().optional(),
+  lastReadAt: z.boolean().optional(),
+  lastReadMsgId: z.boolean().optional(),
+  isMuted: z.boolean().optional(),
+  isBlocked: z.boolean().optional(),
   chatRoom: z.union([z.boolean(),z.lazy(() => ChatRoomArgsSchema)]).optional(),
   user: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
 }).strict()
@@ -2174,11 +2324,24 @@ export const ChatParticipantSelectSchema: z.ZodType<Prisma.ChatParticipantSelect
 export const ChatMessageIncludeSchema: z.ZodType<Prisma.ChatMessageInclude> = z.object({
   chatRoom: z.union([z.boolean(),z.lazy(() => ChatRoomArgsSchema)]).optional(),
   sender: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
+  replyTo: z.union([z.boolean(),z.lazy(() => ChatMessageArgsSchema)]).optional(),
+  replies: z.union([z.boolean(),z.lazy(() => ChatMessageFindManyArgsSchema)]).optional(),
+  readReceipts: z.union([z.boolean(),z.lazy(() => MessageReadReceiptFindManyArgsSchema)]).optional(),
+  _count: z.union([z.boolean(),z.lazy(() => ChatMessageCountOutputTypeArgsSchema)]).optional(),
 }).strict();
 
 export const ChatMessageArgsSchema: z.ZodType<Prisma.ChatMessageDefaultArgs> = z.object({
   select: z.lazy(() => ChatMessageSelectSchema).optional(),
   include: z.lazy(() => ChatMessageIncludeSchema).optional(),
+}).strict();
+
+export const ChatMessageCountOutputTypeArgsSchema: z.ZodType<Prisma.ChatMessageCountOutputTypeDefaultArgs> = z.object({
+  select: z.lazy(() => ChatMessageCountOutputTypeSelectSchema).nullish(),
+}).strict();
+
+export const ChatMessageCountOutputTypeSelectSchema: z.ZodType<Prisma.ChatMessageCountOutputTypeSelect> = z.object({
+  replies: z.boolean().optional(),
+  readReceipts: z.boolean().optional(),
 }).strict();
 
 export const ChatMessageSelectSchema: z.ZodType<Prisma.ChatMessageSelect> = z.object({
@@ -2187,10 +2350,73 @@ export const ChatMessageSelectSchema: z.ZodType<Prisma.ChatMessageSelect> = z.ob
   senderId: z.boolean().optional(),
   content: z.boolean().optional(),
   type: z.boolean().optional(),
+  status: z.boolean().optional(),
+  metadata: z.boolean().optional(),
+  replyToId: z.boolean().optional(),
+  deletedAt: z.boolean().optional(),
+  deletedBy: z.boolean().optional(),
   isRead: z.boolean().optional(),
   createdAt: z.boolean().optional(),
+  updatedAt: z.boolean().optional(),
   chatRoom: z.union([z.boolean(),z.lazy(() => ChatRoomArgsSchema)]).optional(),
   sender: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
+  replyTo: z.union([z.boolean(),z.lazy(() => ChatMessageArgsSchema)]).optional(),
+  replies: z.union([z.boolean(),z.lazy(() => ChatMessageFindManyArgsSchema)]).optional(),
+  readReceipts: z.union([z.boolean(),z.lazy(() => MessageReadReceiptFindManyArgsSchema)]).optional(),
+  _count: z.union([z.boolean(),z.lazy(() => ChatMessageCountOutputTypeArgsSchema)]).optional(),
+}).strict()
+
+// MESSAGE READ RECEIPT
+//------------------------------------------------------
+
+export const MessageReadReceiptIncludeSchema: z.ZodType<Prisma.MessageReadReceiptInclude> = z.object({
+  message: z.union([z.boolean(),z.lazy(() => ChatMessageArgsSchema)]).optional(),
+  user: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
+}).strict();
+
+export const MessageReadReceiptArgsSchema: z.ZodType<Prisma.MessageReadReceiptDefaultArgs> = z.object({
+  select: z.lazy(() => MessageReadReceiptSelectSchema).optional(),
+  include: z.lazy(() => MessageReadReceiptIncludeSchema).optional(),
+}).strict();
+
+export const MessageReadReceiptSelectSchema: z.ZodType<Prisma.MessageReadReceiptSelect> = z.object({
+  id: z.boolean().optional(),
+  messageId: z.boolean().optional(),
+  userId: z.boolean().optional(),
+  readAt: z.boolean().optional(),
+  message: z.union([z.boolean(),z.lazy(() => ChatMessageArgsSchema)]).optional(),
+  user: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
+}).strict()
+
+// SUPPORT TICKET
+//------------------------------------------------------
+
+export const SupportTicketIncludeSchema: z.ZodType<Prisma.SupportTicketInclude> = z.object({
+  customer: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
+  assignedAdmin: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
+  chatRoom: z.union([z.boolean(),z.lazy(() => ChatRoomArgsSchema)]).optional(),
+}).strict();
+
+export const SupportTicketArgsSchema: z.ZodType<Prisma.SupportTicketDefaultArgs> = z.object({
+  select: z.lazy(() => SupportTicketSelectSchema).optional(),
+  include: z.lazy(() => SupportTicketIncludeSchema).optional(),
+}).strict();
+
+export const SupportTicketSelectSchema: z.ZodType<Prisma.SupportTicketSelect> = z.object({
+  id: z.boolean().optional(),
+  customerId: z.boolean().optional(),
+  subject: z.boolean().optional(),
+  category: z.boolean().optional(),
+  priority: z.boolean().optional(),
+  status: z.boolean().optional(),
+  assignedAdminId: z.boolean().optional(),
+  resolvedAt: z.boolean().optional(),
+  resolution: z.boolean().optional(),
+  createdAt: z.boolean().optional(),
+  updatedAt: z.boolean().optional(),
+  customer: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
+  assignedAdmin: z.union([z.boolean(),z.lazy(() => UserArgsSchema)]).optional(),
+  chatRoom: z.union([z.boolean(),z.lazy(() => ChatRoomArgsSchema)]).optional(),
 }).strict()
 
 
@@ -2226,6 +2452,9 @@ export const UserWhereInputSchema: z.ZodType<Prisma.UserWhereInput> = z.strictOb
   payments: z.lazy(() => PaymentListRelationFilterSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantListRelationFilterSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageListRelationFilterSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptListRelationFilterSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketListRelationFilterSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketListRelationFilterSchema).optional(),
 });
 
 export const UserOrderByWithRelationInputSchema: z.ZodType<Prisma.UserOrderByWithRelationInput> = z.strictObject({
@@ -2253,6 +2482,9 @@ export const UserOrderByWithRelationInputSchema: z.ZodType<Prisma.UserOrderByWit
   payments: z.lazy(() => PaymentOrderByRelationAggregateInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantOrderByRelationAggregateInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageOrderByRelationAggregateInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptOrderByRelationAggregateInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketOrderByRelationAggregateInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketOrderByRelationAggregateInputSchema).optional(),
 });
 
 export const UserWhereUniqueInputSchema: z.ZodType<Prisma.UserWhereUniqueInput> = z.union([
@@ -2295,6 +2527,9 @@ export const UserWhereUniqueInputSchema: z.ZodType<Prisma.UserWhereUniqueInput> 
   payments: z.lazy(() => PaymentListRelationFilterSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantListRelationFilterSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageListRelationFilterSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptListRelationFilterSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketListRelationFilterSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketListRelationFilterSchema).optional(),
 }));
 
 export const UserOrderByWithAggregationInputSchema: z.ZodType<Prisma.UserOrderByWithAggregationInput> = z.strictObject({
@@ -3300,6 +3535,7 @@ export const OrderWhereInputSchema: z.ZodType<Prisma.OrderWhereInput> = z.strict
   status: z.union([ z.lazy(() => EnumOrderStatusFilterSchema), z.lazy(() => OrderStatusSchema) ]).optional(),
   totalPrice: z.union([ z.lazy(() => IntFilterSchema), z.number() ]).optional(),
   deliveryFee: z.union([ z.lazy(() => IntNullableFilterSchema), z.number() ]).optional().nullable(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   paymentStatus: z.union([ z.lazy(() => EnumPaymentStatusFilterSchema), z.lazy(() => PaymentStatusSchema) ]).optional(),
   items: z.lazy(() => OrderItemListRelationFilterSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryListRelationFilterSchema).optional(),
@@ -3320,6 +3556,7 @@ export const OrderOrderByWithRelationInputSchema: z.ZodType<Prisma.OrderOrderByW
   status: z.lazy(() => SortOrderSchema).optional(),
   totalPrice: z.lazy(() => SortOrderSchema).optional(),
   deliveryFee: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
   paymentStatus: z.lazy(() => SortOrderSchema).optional(),
   items: z.lazy(() => OrderItemOrderByRelationAggregateInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryOrderByRelationAggregateInputSchema).optional(),
@@ -3346,6 +3583,7 @@ export const OrderWhereUniqueInputSchema: z.ZodType<Prisma.OrderWhereUniqueInput
   status: z.union([ z.lazy(() => EnumOrderStatusFilterSchema), z.lazy(() => OrderStatusSchema) ]).optional(),
   totalPrice: z.union([ z.lazy(() => IntFilterSchema), z.number() ]).optional(),
   deliveryFee: z.union([ z.lazy(() => IntNullableFilterSchema), z.number() ]).optional().nullable(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   paymentStatus: z.union([ z.lazy(() => EnumPaymentStatusFilterSchema), z.lazy(() => PaymentStatusSchema) ]).optional(),
   items: z.lazy(() => OrderItemListRelationFilterSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryListRelationFilterSchema).optional(),
@@ -3366,6 +3604,7 @@ export const OrderOrderByWithAggregationInputSchema: z.ZodType<Prisma.OrderOrder
   status: z.lazy(() => SortOrderSchema).optional(),
   totalPrice: z.lazy(() => SortOrderSchema).optional(),
   deliveryFee: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
   paymentStatus: z.lazy(() => SortOrderSchema).optional(),
   _count: z.lazy(() => OrderCountOrderByAggregateInputSchema).optional(),
   _avg: z.lazy(() => OrderAvgOrderByAggregateInputSchema).optional(),
@@ -3385,6 +3624,7 @@ export const OrderScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.OrderSc
   status: z.union([ z.lazy(() => EnumOrderStatusWithAggregatesFilterSchema), z.lazy(() => OrderStatusSchema) ]).optional(),
   totalPrice: z.union([ z.lazy(() => IntWithAggregatesFilterSchema), z.number() ]).optional(),
   deliveryFee: z.union([ z.lazy(() => IntNullableWithAggregatesFilterSchema), z.number() ]).optional().nullable(),
+  createdAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
   paymentStatus: z.union([ z.lazy(() => EnumPaymentStatusWithAggregatesFilterSchema), z.lazy(() => PaymentStatusSchema) ]).optional(),
 });
 
@@ -4251,22 +4491,38 @@ export const ChatRoomWhereInputSchema: z.ZodType<Prisma.ChatRoomWhereInput> = z.
   OR: z.lazy(() => ChatRoomWhereInputSchema).array().optional(),
   NOT: z.union([ z.lazy(() => ChatRoomWhereInputSchema), z.lazy(() => ChatRoomWhereInputSchema).array() ]).optional(),
   id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
-  orderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  orderId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  ticketId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
   type: z.union([ z.lazy(() => EnumChatRoomTypeFilterSchema), z.lazy(() => ChatRoomTypeSchema) ]).optional(),
+  status: z.union([ z.lazy(() => EnumChatRoomStatusFilterSchema), z.lazy(() => ChatRoomStatusSchema) ]).optional(),
+  title: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  lastMessageAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastMessageId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  closedAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  closedReason: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
   createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   updatedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
-  order: z.union([ z.lazy(() => OrderScalarRelationFilterSchema), z.lazy(() => OrderWhereInputSchema) ]).optional(),
+  order: z.union([ z.lazy(() => OrderNullableScalarRelationFilterSchema), z.lazy(() => OrderWhereInputSchema) ]).optional().nullable(),
+  ticket: z.union([ z.lazy(() => SupportTicketNullableScalarRelationFilterSchema), z.lazy(() => SupportTicketWhereInputSchema) ]).optional().nullable(),
   participants: z.lazy(() => ChatParticipantListRelationFilterSchema).optional(),
   messages: z.lazy(() => ChatMessageListRelationFilterSchema).optional(),
 });
 
 export const ChatRoomOrderByWithRelationInputSchema: z.ZodType<Prisma.ChatRoomOrderByWithRelationInput> = z.strictObject({
   id: z.lazy(() => SortOrderSchema).optional(),
-  orderId: z.lazy(() => SortOrderSchema).optional(),
+  orderId: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  ticketId: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
   type: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  title: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  lastMessageAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  lastMessageId: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  closedAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  closedReason: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
   updatedAt: z.lazy(() => SortOrderSchema).optional(),
   order: z.lazy(() => OrderOrderByWithRelationInputSchema).optional(),
+  ticket: z.lazy(() => SupportTicketOrderByWithRelationInputSchema).optional(),
   participants: z.lazy(() => ChatParticipantOrderByRelationAggregateInputSchema).optional(),
   messages: z.lazy(() => ChatMessageOrderByRelationAggregateInputSchema).optional(),
 });
@@ -4274,10 +4530,26 @@ export const ChatRoomOrderByWithRelationInputSchema: z.ZodType<Prisma.ChatRoomOr
 export const ChatRoomWhereUniqueInputSchema: z.ZodType<Prisma.ChatRoomWhereUniqueInput> = z.union([
   z.object({
     id: z.uuid(),
+    ticketId: z.string(),
     orderId_type: z.lazy(() => ChatRoomOrderIdTypeCompoundUniqueInputSchema),
   }),
   z.object({
     id: z.uuid(),
+    ticketId: z.string(),
+  }),
+  z.object({
+    id: z.uuid(),
+    orderId_type: z.lazy(() => ChatRoomOrderIdTypeCompoundUniqueInputSchema),
+  }),
+  z.object({
+    id: z.uuid(),
+  }),
+  z.object({
+    ticketId: z.string(),
+    orderId_type: z.lazy(() => ChatRoomOrderIdTypeCompoundUniqueInputSchema),
+  }),
+  z.object({
+    ticketId: z.string(),
   }),
   z.object({
     orderId_type: z.lazy(() => ChatRoomOrderIdTypeCompoundUniqueInputSchema),
@@ -4285,23 +4557,38 @@ export const ChatRoomWhereUniqueInputSchema: z.ZodType<Prisma.ChatRoomWhereUniqu
 ])
 .and(z.strictObject({
   id: z.uuid().optional(),
+  ticketId: z.string().optional(),
   orderId_type: z.lazy(() => ChatRoomOrderIdTypeCompoundUniqueInputSchema).optional(),
   AND: z.union([ z.lazy(() => ChatRoomWhereInputSchema), z.lazy(() => ChatRoomWhereInputSchema).array() ]).optional(),
   OR: z.lazy(() => ChatRoomWhereInputSchema).array().optional(),
   NOT: z.union([ z.lazy(() => ChatRoomWhereInputSchema), z.lazy(() => ChatRoomWhereInputSchema).array() ]).optional(),
-  orderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  orderId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
   type: z.union([ z.lazy(() => EnumChatRoomTypeFilterSchema), z.lazy(() => ChatRoomTypeSchema) ]).optional(),
+  status: z.union([ z.lazy(() => EnumChatRoomStatusFilterSchema), z.lazy(() => ChatRoomStatusSchema) ]).optional(),
+  title: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  lastMessageAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastMessageId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  closedAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  closedReason: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
   createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   updatedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
-  order: z.union([ z.lazy(() => OrderScalarRelationFilterSchema), z.lazy(() => OrderWhereInputSchema) ]).optional(),
+  order: z.union([ z.lazy(() => OrderNullableScalarRelationFilterSchema), z.lazy(() => OrderWhereInputSchema) ]).optional().nullable(),
+  ticket: z.union([ z.lazy(() => SupportTicketNullableScalarRelationFilterSchema), z.lazy(() => SupportTicketWhereInputSchema) ]).optional().nullable(),
   participants: z.lazy(() => ChatParticipantListRelationFilterSchema).optional(),
   messages: z.lazy(() => ChatMessageListRelationFilterSchema).optional(),
 }));
 
 export const ChatRoomOrderByWithAggregationInputSchema: z.ZodType<Prisma.ChatRoomOrderByWithAggregationInput> = z.strictObject({
   id: z.lazy(() => SortOrderSchema).optional(),
-  orderId: z.lazy(() => SortOrderSchema).optional(),
+  orderId: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  ticketId: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
   type: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  title: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  lastMessageAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  lastMessageId: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  closedAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  closedReason: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
   updatedAt: z.lazy(() => SortOrderSchema).optional(),
   _count: z.lazy(() => ChatRoomCountOrderByAggregateInputSchema).optional(),
@@ -4314,8 +4601,15 @@ export const ChatRoomScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.Chat
   OR: z.lazy(() => ChatRoomScalarWhereWithAggregatesInputSchema).array().optional(),
   NOT: z.union([ z.lazy(() => ChatRoomScalarWhereWithAggregatesInputSchema), z.lazy(() => ChatRoomScalarWhereWithAggregatesInputSchema).array() ]).optional(),
   id: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
-  orderId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  orderId: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema), z.string() ]).optional().nullable(),
+  ticketId: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema), z.string() ]).optional().nullable(),
   type: z.union([ z.lazy(() => EnumChatRoomTypeWithAggregatesFilterSchema), z.lazy(() => ChatRoomTypeSchema) ]).optional(),
+  status: z.union([ z.lazy(() => EnumChatRoomStatusWithAggregatesFilterSchema), z.lazy(() => ChatRoomStatusSchema) ]).optional(),
+  title: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema), z.string() ]).optional().nullable(),
+  lastMessageAt: z.union([ z.lazy(() => DateTimeNullableWithAggregatesFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastMessageId: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema), z.string() ]).optional().nullable(),
+  closedAt: z.union([ z.lazy(() => DateTimeNullableWithAggregatesFilterSchema), z.coerce.date() ]).optional().nullable(),
+  closedReason: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema), z.string() ]).optional().nullable(),
   createdAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
   updatedAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
 });
@@ -4329,6 +4623,12 @@ export const ChatParticipantWhereInputSchema: z.ZodType<Prisma.ChatParticipantWh
   userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   role: z.union([ z.lazy(() => EnumChatRoleFilterSchema), z.lazy(() => ChatRoleSchema) ]).optional(),
   joinedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  leftAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastSeenAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastReadAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  isMuted: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
+  isBlocked: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
   chatRoom: z.union([ z.lazy(() => ChatRoomScalarRelationFilterSchema), z.lazy(() => ChatRoomWhereInputSchema) ]).optional(),
   user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
 });
@@ -4339,6 +4639,12 @@ export const ChatParticipantOrderByWithRelationInputSchema: z.ZodType<Prisma.Cha
   userId: z.lazy(() => SortOrderSchema).optional(),
   role: z.lazy(() => SortOrderSchema).optional(),
   joinedAt: z.lazy(() => SortOrderSchema).optional(),
+  leftAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  lastSeenAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  lastReadAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  lastReadMsgId: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  isMuted: z.lazy(() => SortOrderSchema).optional(),
+  isBlocked: z.lazy(() => SortOrderSchema).optional(),
   chatRoom: z.lazy(() => ChatRoomOrderByWithRelationInputSchema).optional(),
   user: z.lazy(() => UserOrderByWithRelationInputSchema).optional(),
 });
@@ -4365,6 +4671,12 @@ export const ChatParticipantWhereUniqueInputSchema: z.ZodType<Prisma.ChatPartici
   userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   role: z.union([ z.lazy(() => EnumChatRoleFilterSchema), z.lazy(() => ChatRoleSchema) ]).optional(),
   joinedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  leftAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastSeenAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastReadAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  isMuted: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
+  isBlocked: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
   chatRoom: z.union([ z.lazy(() => ChatRoomScalarRelationFilterSchema), z.lazy(() => ChatRoomWhereInputSchema) ]).optional(),
   user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
 }));
@@ -4375,6 +4687,12 @@ export const ChatParticipantOrderByWithAggregationInputSchema: z.ZodType<Prisma.
   userId: z.lazy(() => SortOrderSchema).optional(),
   role: z.lazy(() => SortOrderSchema).optional(),
   joinedAt: z.lazy(() => SortOrderSchema).optional(),
+  leftAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  lastSeenAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  lastReadAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  lastReadMsgId: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  isMuted: z.lazy(() => SortOrderSchema).optional(),
+  isBlocked: z.lazy(() => SortOrderSchema).optional(),
   _count: z.lazy(() => ChatParticipantCountOrderByAggregateInputSchema).optional(),
   _max: z.lazy(() => ChatParticipantMaxOrderByAggregateInputSchema).optional(),
   _min: z.lazy(() => ChatParticipantMinOrderByAggregateInputSchema).optional(),
@@ -4389,6 +4707,12 @@ export const ChatParticipantScalarWhereWithAggregatesInputSchema: z.ZodType<Pris
   userId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   role: z.union([ z.lazy(() => EnumChatRoleWithAggregatesFilterSchema), z.lazy(() => ChatRoleSchema) ]).optional(),
   joinedAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
+  leftAt: z.union([ z.lazy(() => DateTimeNullableWithAggregatesFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastSeenAt: z.union([ z.lazy(() => DateTimeNullableWithAggregatesFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastReadAt: z.union([ z.lazy(() => DateTimeNullableWithAggregatesFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema), z.string() ]).optional().nullable(),
+  isMuted: z.union([ z.lazy(() => BoolWithAggregatesFilterSchema), z.boolean() ]).optional(),
+  isBlocked: z.union([ z.lazy(() => BoolWithAggregatesFilterSchema), z.boolean() ]).optional(),
 });
 
 export const ChatMessageWhereInputSchema: z.ZodType<Prisma.ChatMessageWhereInput> = z.strictObject({
@@ -4400,10 +4724,19 @@ export const ChatMessageWhereInputSchema: z.ZodType<Prisma.ChatMessageWhereInput
   senderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   content: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   type: z.union([ z.lazy(() => EnumMessageTypeFilterSchema), z.lazy(() => MessageTypeSchema) ]).optional(),
+  status: z.union([ z.lazy(() => EnumMessageStatusFilterSchema), z.lazy(() => MessageStatusSchema) ]).optional(),
+  metadata: z.lazy(() => JsonNullableFilterSchema).optional(),
+  replyToId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  deletedAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  deletedBy: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
   isRead: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
   createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  updatedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   chatRoom: z.union([ z.lazy(() => ChatRoomScalarRelationFilterSchema), z.lazy(() => ChatRoomWhereInputSchema) ]).optional(),
   sender: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
+  replyTo: z.union([ z.lazy(() => ChatMessageNullableScalarRelationFilterSchema), z.lazy(() => ChatMessageWhereInputSchema) ]).optional().nullable(),
+  replies: z.lazy(() => ChatMessageListRelationFilterSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptListRelationFilterSchema).optional(),
 });
 
 export const ChatMessageOrderByWithRelationInputSchema: z.ZodType<Prisma.ChatMessageOrderByWithRelationInput> = z.strictObject({
@@ -4412,10 +4745,19 @@ export const ChatMessageOrderByWithRelationInputSchema: z.ZodType<Prisma.ChatMes
   senderId: z.lazy(() => SortOrderSchema).optional(),
   content: z.lazy(() => SortOrderSchema).optional(),
   type: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  metadata: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  replyToId: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  deletedAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  deletedBy: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
   isRead: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
   chatRoom: z.lazy(() => ChatRoomOrderByWithRelationInputSchema).optional(),
   sender: z.lazy(() => UserOrderByWithRelationInputSchema).optional(),
+  replyTo: z.lazy(() => ChatMessageOrderByWithRelationInputSchema).optional(),
+  replies: z.lazy(() => ChatMessageOrderByRelationAggregateInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptOrderByRelationAggregateInputSchema).optional(),
 });
 
 export const ChatMessageWhereUniqueInputSchema: z.ZodType<Prisma.ChatMessageWhereUniqueInput> = z.object({
@@ -4430,10 +4772,19 @@ export const ChatMessageWhereUniqueInputSchema: z.ZodType<Prisma.ChatMessageWher
   senderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   content: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   type: z.union([ z.lazy(() => EnumMessageTypeFilterSchema), z.lazy(() => MessageTypeSchema) ]).optional(),
+  status: z.union([ z.lazy(() => EnumMessageStatusFilterSchema), z.lazy(() => MessageStatusSchema) ]).optional(),
+  metadata: z.lazy(() => JsonNullableFilterSchema).optional(),
+  replyToId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  deletedAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  deletedBy: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
   isRead: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
   createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  updatedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   chatRoom: z.union([ z.lazy(() => ChatRoomScalarRelationFilterSchema), z.lazy(() => ChatRoomWhereInputSchema) ]).optional(),
   sender: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
+  replyTo: z.union([ z.lazy(() => ChatMessageNullableScalarRelationFilterSchema), z.lazy(() => ChatMessageWhereInputSchema) ]).optional().nullable(),
+  replies: z.lazy(() => ChatMessageListRelationFilterSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptListRelationFilterSchema).optional(),
 }));
 
 export const ChatMessageOrderByWithAggregationInputSchema: z.ZodType<Prisma.ChatMessageOrderByWithAggregationInput> = z.strictObject({
@@ -4442,8 +4793,14 @@ export const ChatMessageOrderByWithAggregationInputSchema: z.ZodType<Prisma.Chat
   senderId: z.lazy(() => SortOrderSchema).optional(),
   content: z.lazy(() => SortOrderSchema).optional(),
   type: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  metadata: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  replyToId: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  deletedAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  deletedBy: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
   isRead: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
   _count: z.lazy(() => ChatMessageCountOrderByAggregateInputSchema).optional(),
   _max: z.lazy(() => ChatMessageMaxOrderByAggregateInputSchema).optional(),
   _min: z.lazy(() => ChatMessageMinOrderByAggregateInputSchema).optional(),
@@ -4458,8 +4815,174 @@ export const ChatMessageScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.C
   senderId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   content: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
   type: z.union([ z.lazy(() => EnumMessageTypeWithAggregatesFilterSchema), z.lazy(() => MessageTypeSchema) ]).optional(),
+  status: z.union([ z.lazy(() => EnumMessageStatusWithAggregatesFilterSchema), z.lazy(() => MessageStatusSchema) ]).optional(),
+  metadata: z.lazy(() => JsonNullableWithAggregatesFilterSchema).optional(),
+  replyToId: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema), z.string() ]).optional().nullable(),
+  deletedAt: z.union([ z.lazy(() => DateTimeNullableWithAggregatesFilterSchema), z.coerce.date() ]).optional().nullable(),
+  deletedBy: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema), z.string() ]).optional().nullable(),
   isRead: z.union([ z.lazy(() => BoolWithAggregatesFilterSchema), z.boolean() ]).optional(),
   createdAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
+  updatedAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
+});
+
+export const MessageReadReceiptWhereInputSchema: z.ZodType<Prisma.MessageReadReceiptWhereInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => MessageReadReceiptWhereInputSchema), z.lazy(() => MessageReadReceiptWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => MessageReadReceiptWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => MessageReadReceiptWhereInputSchema), z.lazy(() => MessageReadReceiptWhereInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  messageId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  readAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  message: z.union([ z.lazy(() => ChatMessageScalarRelationFilterSchema), z.lazy(() => ChatMessageWhereInputSchema) ]).optional(),
+  user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
+});
+
+export const MessageReadReceiptOrderByWithRelationInputSchema: z.ZodType<Prisma.MessageReadReceiptOrderByWithRelationInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  messageId: z.lazy(() => SortOrderSchema).optional(),
+  userId: z.lazy(() => SortOrderSchema).optional(),
+  readAt: z.lazy(() => SortOrderSchema).optional(),
+  message: z.lazy(() => ChatMessageOrderByWithRelationInputSchema).optional(),
+  user: z.lazy(() => UserOrderByWithRelationInputSchema).optional(),
+});
+
+export const MessageReadReceiptWhereUniqueInputSchema: z.ZodType<Prisma.MessageReadReceiptWhereUniqueInput> = z.union([
+  z.object({
+    id: z.uuid(),
+    messageId_userId: z.lazy(() => MessageReadReceiptMessageIdUserIdCompoundUniqueInputSchema),
+  }),
+  z.object({
+    id: z.uuid(),
+  }),
+  z.object({
+    messageId_userId: z.lazy(() => MessageReadReceiptMessageIdUserIdCompoundUniqueInputSchema),
+  }),
+])
+.and(z.strictObject({
+  id: z.uuid().optional(),
+  messageId_userId: z.lazy(() => MessageReadReceiptMessageIdUserIdCompoundUniqueInputSchema).optional(),
+  AND: z.union([ z.lazy(() => MessageReadReceiptWhereInputSchema), z.lazy(() => MessageReadReceiptWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => MessageReadReceiptWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => MessageReadReceiptWhereInputSchema), z.lazy(() => MessageReadReceiptWhereInputSchema).array() ]).optional(),
+  messageId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  readAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  message: z.union([ z.lazy(() => ChatMessageScalarRelationFilterSchema), z.lazy(() => ChatMessageWhereInputSchema) ]).optional(),
+  user: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
+}));
+
+export const MessageReadReceiptOrderByWithAggregationInputSchema: z.ZodType<Prisma.MessageReadReceiptOrderByWithAggregationInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  messageId: z.lazy(() => SortOrderSchema).optional(),
+  userId: z.lazy(() => SortOrderSchema).optional(),
+  readAt: z.lazy(() => SortOrderSchema).optional(),
+  _count: z.lazy(() => MessageReadReceiptCountOrderByAggregateInputSchema).optional(),
+  _max: z.lazy(() => MessageReadReceiptMaxOrderByAggregateInputSchema).optional(),
+  _min: z.lazy(() => MessageReadReceiptMinOrderByAggregateInputSchema).optional(),
+});
+
+export const MessageReadReceiptScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.MessageReadReceiptScalarWhereWithAggregatesInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => MessageReadReceiptScalarWhereWithAggregatesInputSchema), z.lazy(() => MessageReadReceiptScalarWhereWithAggregatesInputSchema).array() ]).optional(),
+  OR: z.lazy(() => MessageReadReceiptScalarWhereWithAggregatesInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => MessageReadReceiptScalarWhereWithAggregatesInputSchema), z.lazy(() => MessageReadReceiptScalarWhereWithAggregatesInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  messageId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  userId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  readAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
+});
+
+export const SupportTicketWhereInputSchema: z.ZodType<Prisma.SupportTicketWhereInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => SupportTicketWhereInputSchema), z.lazy(() => SupportTicketWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => SupportTicketWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => SupportTicketWhereInputSchema), z.lazy(() => SupportTicketWhereInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  customerId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  subject: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  category: z.union([ z.lazy(() => EnumSupportCategoryFilterSchema), z.lazy(() => SupportCategorySchema) ]).optional(),
+  priority: z.union([ z.lazy(() => EnumTicketPriorityFilterSchema), z.lazy(() => TicketPrioritySchema) ]).optional(),
+  status: z.union([ z.lazy(() => EnumTicketStatusFilterSchema), z.lazy(() => TicketStatusSchema) ]).optional(),
+  assignedAdminId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  resolvedAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  resolution: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  updatedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  customer: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
+  assignedAdmin: z.union([ z.lazy(() => UserNullableScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional().nullable(),
+  chatRoom: z.union([ z.lazy(() => ChatRoomNullableScalarRelationFilterSchema), z.lazy(() => ChatRoomWhereInputSchema) ]).optional().nullable(),
+});
+
+export const SupportTicketOrderByWithRelationInputSchema: z.ZodType<Prisma.SupportTicketOrderByWithRelationInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  customerId: z.lazy(() => SortOrderSchema).optional(),
+  subject: z.lazy(() => SortOrderSchema).optional(),
+  category: z.lazy(() => SortOrderSchema).optional(),
+  priority: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  assignedAdminId: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  resolvedAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  resolution: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
+  customer: z.lazy(() => UserOrderByWithRelationInputSchema).optional(),
+  assignedAdmin: z.lazy(() => UserOrderByWithRelationInputSchema).optional(),
+  chatRoom: z.lazy(() => ChatRoomOrderByWithRelationInputSchema).optional(),
+});
+
+export const SupportTicketWhereUniqueInputSchema: z.ZodType<Prisma.SupportTicketWhereUniqueInput> = z.object({
+  id: z.uuid(),
+})
+.and(z.strictObject({
+  id: z.uuid().optional(),
+  AND: z.union([ z.lazy(() => SupportTicketWhereInputSchema), z.lazy(() => SupportTicketWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => SupportTicketWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => SupportTicketWhereInputSchema), z.lazy(() => SupportTicketWhereInputSchema).array() ]).optional(),
+  customerId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  subject: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  category: z.union([ z.lazy(() => EnumSupportCategoryFilterSchema), z.lazy(() => SupportCategorySchema) ]).optional(),
+  priority: z.union([ z.lazy(() => EnumTicketPriorityFilterSchema), z.lazy(() => TicketPrioritySchema) ]).optional(),
+  status: z.union([ z.lazy(() => EnumTicketStatusFilterSchema), z.lazy(() => TicketStatusSchema) ]).optional(),
+  assignedAdminId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  resolvedAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  resolution: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  updatedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  customer: z.union([ z.lazy(() => UserScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional(),
+  assignedAdmin: z.union([ z.lazy(() => UserNullableScalarRelationFilterSchema), z.lazy(() => UserWhereInputSchema) ]).optional().nullable(),
+  chatRoom: z.union([ z.lazy(() => ChatRoomNullableScalarRelationFilterSchema), z.lazy(() => ChatRoomWhereInputSchema) ]).optional().nullable(),
+}));
+
+export const SupportTicketOrderByWithAggregationInputSchema: z.ZodType<Prisma.SupportTicketOrderByWithAggregationInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  customerId: z.lazy(() => SortOrderSchema).optional(),
+  subject: z.lazy(() => SortOrderSchema).optional(),
+  category: z.lazy(() => SortOrderSchema).optional(),
+  priority: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  assignedAdminId: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  resolvedAt: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  resolution: z.union([ z.lazy(() => SortOrderSchema), z.lazy(() => SortOrderInputSchema) ]).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
+  _count: z.lazy(() => SupportTicketCountOrderByAggregateInputSchema).optional(),
+  _max: z.lazy(() => SupportTicketMaxOrderByAggregateInputSchema).optional(),
+  _min: z.lazy(() => SupportTicketMinOrderByAggregateInputSchema).optional(),
+});
+
+export const SupportTicketScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.SupportTicketScalarWhereWithAggregatesInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => SupportTicketScalarWhereWithAggregatesInputSchema), z.lazy(() => SupportTicketScalarWhereWithAggregatesInputSchema).array() ]).optional(),
+  OR: z.lazy(() => SupportTicketScalarWhereWithAggregatesInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => SupportTicketScalarWhereWithAggregatesInputSchema), z.lazy(() => SupportTicketScalarWhereWithAggregatesInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  customerId: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  subject: z.union([ z.lazy(() => StringWithAggregatesFilterSchema), z.string() ]).optional(),
+  category: z.union([ z.lazy(() => EnumSupportCategoryWithAggregatesFilterSchema), z.lazy(() => SupportCategorySchema) ]).optional(),
+  priority: z.union([ z.lazy(() => EnumTicketPriorityWithAggregatesFilterSchema), z.lazy(() => TicketPrioritySchema) ]).optional(),
+  status: z.union([ z.lazy(() => EnumTicketStatusWithAggregatesFilterSchema), z.lazy(() => TicketStatusSchema) ]).optional(),
+  assignedAdminId: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema), z.string() ]).optional().nullable(),
+  resolvedAt: z.union([ z.lazy(() => DateTimeNullableWithAggregatesFilterSchema), z.coerce.date() ]).optional().nullable(),
+  resolution: z.union([ z.lazy(() => StringNullableWithAggregatesFilterSchema), z.string() ]).optional().nullable(),
+  createdAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
+  updatedAt: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema), z.coerce.date() ]).optional(),
 });
 
 export const UserCreateInputSchema: z.ZodType<Prisma.UserCreateInput> = z.strictObject({
@@ -4487,6 +5010,9 @@ export const UserCreateInputSchema: z.ZodType<Prisma.UserCreateInput> = z.strict
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateInputSchema: z.ZodType<Prisma.UserUncheckedCreateInput> = z.strictObject({
@@ -4514,6 +5040,9 @@ export const UserUncheckedCreateInputSchema: z.ZodType<Prisma.UserUncheckedCreat
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUpdateInputSchema: z.ZodType<Prisma.UserUpdateInput> = z.strictObject({
@@ -4541,6 +5070,9 @@ export const UserUpdateInputSchema: z.ZodType<Prisma.UserUpdateInput> = z.strict
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateInputSchema: z.ZodType<Prisma.UserUncheckedUpdateInput> = z.strictObject({
@@ -4568,6 +5100,9 @@ export const UserUncheckedUpdateInputSchema: z.ZodType<Prisma.UserUncheckedUpdat
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserCreateManyInputSchema: z.ZodType<Prisma.UserCreateManyInput> = z.strictObject({
@@ -5553,6 +6088,7 @@ export const OrderCreateInputSchema: z.ZodType<Prisma.OrderCreateInput> = z.stri
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -5573,6 +6109,7 @@ export const OrderUncheckedCreateInputSchema: z.ZodType<Prisma.OrderUncheckedCre
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -5587,6 +6124,7 @@ export const OrderUpdateInputSchema: z.ZodType<Prisma.OrderUpdateInput> = z.stri
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -5607,6 +6145,7 @@ export const OrderUncheckedUpdateInputSchema: z.ZodType<Prisma.OrderUncheckedUpd
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -5624,6 +6163,7 @@ export const OrderCreateManyInputSchema: z.ZodType<Prisma.OrderCreateManyInput> 
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
 });
 
@@ -5632,6 +6172,7 @@ export const OrderUpdateManyMutationInputSchema: z.ZodType<Prisma.OrderUpdateMan
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -5643,6 +6184,7 @@ export const OrderUncheckedUpdateManyInputSchema: z.ZodType<Prisma.OrderUnchecke
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -6439,17 +6981,31 @@ export const ImageUncheckedUpdateManyInputSchema: z.ZodType<Prisma.ImageUnchecke
 export const ChatRoomCreateInputSchema: z.ZodType<Prisma.ChatRoomCreateInput> = z.strictObject({
   id: z.uuid().optional(),
   type: z.lazy(() => ChatRoomTypeSchema),
+  status: z.lazy(() => ChatRoomStatusSchema).optional(),
+  title: z.string().optional().nullable(),
+  lastMessageAt: z.coerce.date().optional().nullable(),
+  lastMessageId: z.string().optional().nullable(),
+  closedAt: z.coerce.date().optional().nullable(),
+  closedReason: z.string().optional().nullable(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
-  order: z.lazy(() => OrderCreateNestedOneWithoutChatRoomsInputSchema),
+  order: z.lazy(() => OrderCreateNestedOneWithoutChatRoomsInputSchema).optional(),
+  ticket: z.lazy(() => SupportTicketCreateNestedOneWithoutChatRoomInputSchema).optional(),
   participants: z.lazy(() => ChatParticipantCreateNestedManyWithoutChatRoomInputSchema).optional(),
   messages: z.lazy(() => ChatMessageCreateNestedManyWithoutChatRoomInputSchema).optional(),
 });
 
 export const ChatRoomUncheckedCreateInputSchema: z.ZodType<Prisma.ChatRoomUncheckedCreateInput> = z.strictObject({
   id: z.uuid().optional(),
-  orderId: z.string(),
+  orderId: z.string().optional().nullable(),
+  ticketId: z.string().optional().nullable(),
   type: z.lazy(() => ChatRoomTypeSchema),
+  status: z.lazy(() => ChatRoomStatusSchema).optional(),
+  title: z.string().optional().nullable(),
+  lastMessageAt: z.coerce.date().optional().nullable(),
+  lastMessageId: z.string().optional().nullable(),
+  closedAt: z.coerce.date().optional().nullable(),
+  closedReason: z.string().optional().nullable(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
   participants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutChatRoomInputSchema).optional(),
@@ -6459,17 +7015,31 @@ export const ChatRoomUncheckedCreateInputSchema: z.ZodType<Prisma.ChatRoomUnchec
 export const ChatRoomUpdateInputSchema: z.ZodType<Prisma.ChatRoomUpdateInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  order: z.lazy(() => OrderUpdateOneRequiredWithoutChatRoomsNestedInputSchema).optional(),
+  order: z.lazy(() => OrderUpdateOneWithoutChatRoomsNestedInputSchema).optional(),
+  ticket: z.lazy(() => SupportTicketUpdateOneWithoutChatRoomNestedInputSchema).optional(),
   participants: z.lazy(() => ChatParticipantUpdateManyWithoutChatRoomNestedInputSchema).optional(),
   messages: z.lazy(() => ChatMessageUpdateManyWithoutChatRoomNestedInputSchema).optional(),
 });
 
 export const ChatRoomUncheckedUpdateInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  orderId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  ticketId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   participants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutChatRoomNestedInputSchema).optional(),
@@ -6478,8 +7048,15 @@ export const ChatRoomUncheckedUpdateInputSchema: z.ZodType<Prisma.ChatRoomUnchec
 
 export const ChatRoomCreateManyInputSchema: z.ZodType<Prisma.ChatRoomCreateManyInput> = z.strictObject({
   id: z.uuid().optional(),
-  orderId: z.string(),
+  orderId: z.string().optional().nullable(),
+  ticketId: z.string().optional().nullable(),
   type: z.lazy(() => ChatRoomTypeSchema),
+  status: z.lazy(() => ChatRoomStatusSchema).optional(),
+  title: z.string().optional().nullable(),
+  lastMessageAt: z.coerce.date().optional().nullable(),
+  lastMessageId: z.string().optional().nullable(),
+  closedAt: z.coerce.date().optional().nullable(),
+  closedReason: z.string().optional().nullable(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
 });
@@ -6487,14 +7064,27 @@ export const ChatRoomCreateManyInputSchema: z.ZodType<Prisma.ChatRoomCreateManyI
 export const ChatRoomUpdateManyMutationInputSchema: z.ZodType<Prisma.ChatRoomUpdateManyMutationInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const ChatRoomUncheckedUpdateManyInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateManyInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  orderId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  ticketId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
@@ -6503,6 +7093,12 @@ export const ChatParticipantCreateInputSchema: z.ZodType<Prisma.ChatParticipantC
   id: z.uuid().optional(),
   role: z.lazy(() => ChatRoleSchema),
   joinedAt: z.coerce.date().optional(),
+  leftAt: z.coerce.date().optional().nullable(),
+  lastSeenAt: z.coerce.date().optional().nullable(),
+  lastReadAt: z.coerce.date().optional().nullable(),
+  lastReadMsgId: z.string().optional().nullable(),
+  isMuted: z.boolean().optional(),
+  isBlocked: z.boolean().optional(),
   chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutParticipantsInputSchema),
   user: z.lazy(() => UserCreateNestedOneWithoutChatParticipantsInputSchema),
 });
@@ -6513,12 +7109,24 @@ export const ChatParticipantUncheckedCreateInputSchema: z.ZodType<Prisma.ChatPar
   userId: z.string(),
   role: z.lazy(() => ChatRoleSchema),
   joinedAt: z.coerce.date().optional(),
+  leftAt: z.coerce.date().optional().nullable(),
+  lastSeenAt: z.coerce.date().optional().nullable(),
+  lastReadAt: z.coerce.date().optional().nullable(),
+  lastReadMsgId: z.string().optional().nullable(),
+  isMuted: z.boolean().optional(),
+  isBlocked: z.boolean().optional(),
 });
 
 export const ChatParticipantUpdateInputSchema: z.ZodType<Prisma.ChatParticipantUpdateInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
   joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  leftAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastSeenAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isMuted: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  isBlocked: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   chatRoom: z.lazy(() => ChatRoomUpdateOneRequiredWithoutParticipantsNestedInputSchema).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutChatParticipantsNestedInputSchema).optional(),
 });
@@ -6529,6 +7137,12 @@ export const ChatParticipantUncheckedUpdateInputSchema: z.ZodType<Prisma.ChatPar
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
   joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  leftAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastSeenAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isMuted: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  isBlocked: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const ChatParticipantCreateManyInputSchema: z.ZodType<Prisma.ChatParticipantCreateManyInput> = z.strictObject({
@@ -6537,12 +7151,24 @@ export const ChatParticipantCreateManyInputSchema: z.ZodType<Prisma.ChatParticip
   userId: z.string(),
   role: z.lazy(() => ChatRoleSchema),
   joinedAt: z.coerce.date().optional(),
+  leftAt: z.coerce.date().optional().nullable(),
+  lastSeenAt: z.coerce.date().optional().nullable(),
+  lastReadAt: z.coerce.date().optional().nullable(),
+  lastReadMsgId: z.string().optional().nullable(),
+  isMuted: z.boolean().optional(),
+  isBlocked: z.boolean().optional(),
 });
 
 export const ChatParticipantUpdateManyMutationInputSchema: z.ZodType<Prisma.ChatParticipantUpdateManyMutationInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
   joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  leftAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastSeenAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isMuted: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  isBlocked: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const ChatParticipantUncheckedUpdateManyInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedUpdateManyInput> = z.strictObject({
@@ -6551,16 +7177,30 @@ export const ChatParticipantUncheckedUpdateManyInputSchema: z.ZodType<Prisma.Cha
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
   joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  leftAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastSeenAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isMuted: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  isBlocked: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const ChatMessageCreateInputSchema: z.ZodType<Prisma.ChatMessageCreateInput> = z.strictObject({
   id: z.uuid().optional(),
   content: z.string(),
   type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
   isRead: z.boolean().optional(),
   createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
   chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutMessagesInputSchema),
   sender: z.lazy(() => UserCreateNestedOneWithoutChatMessagesInputSchema),
+  replyTo: z.lazy(() => ChatMessageCreateNestedOneWithoutRepliesInputSchema).optional(),
+  replies: z.lazy(() => ChatMessageCreateNestedManyWithoutReplyToInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutMessageInputSchema).optional(),
 });
 
 export const ChatMessageUncheckedCreateInputSchema: z.ZodType<Prisma.ChatMessageUncheckedCreateInput> = z.strictObject({
@@ -6569,18 +7209,34 @@ export const ChatMessageUncheckedCreateInputSchema: z.ZodType<Prisma.ChatMessage
   senderId: z.string(),
   content: z.string(),
   type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.string().optional().nullable(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
   isRead: z.boolean().optional(),
   createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  replies: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutReplyToInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutMessageInputSchema).optional(),
 });
 
 export const ChatMessageUpdateInputSchema: z.ZodType<Prisma.ChatMessageUpdateInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   chatRoom: z.lazy(() => ChatRoomUpdateOneRequiredWithoutMessagesNestedInputSchema).optional(),
   sender: z.lazy(() => UserUpdateOneRequiredWithoutChatMessagesNestedInputSchema).optional(),
+  replyTo: z.lazy(() => ChatMessageUpdateOneWithoutRepliesNestedInputSchema).optional(),
+  replies: z.lazy(() => ChatMessageUpdateManyWithoutReplyToNestedInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutMessageNestedInputSchema).optional(),
 });
 
 export const ChatMessageUncheckedUpdateInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateInput> = z.strictObject({
@@ -6589,8 +7245,16 @@ export const ChatMessageUncheckedUpdateInputSchema: z.ZodType<Prisma.ChatMessage
   senderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  replies: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutReplyToNestedInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutMessageNestedInputSchema).optional(),
 });
 
 export const ChatMessageCreateManyInputSchema: z.ZodType<Prisma.ChatMessageCreateManyInput> = z.strictObject({
@@ -6599,16 +7263,27 @@ export const ChatMessageCreateManyInputSchema: z.ZodType<Prisma.ChatMessageCreat
   senderId: z.string(),
   content: z.string(),
   type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.string().optional().nullable(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
   isRead: z.boolean().optional(),
   createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
 });
 
 export const ChatMessageUpdateManyMutationInputSchema: z.ZodType<Prisma.ChatMessageUpdateManyMutationInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const ChatMessageUncheckedUpdateManyInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateManyInput> = z.strictObject({
@@ -6617,8 +7292,161 @@ export const ChatMessageUncheckedUpdateManyInputSchema: z.ZodType<Prisma.ChatMes
   senderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const MessageReadReceiptCreateInputSchema: z.ZodType<Prisma.MessageReadReceiptCreateInput> = z.strictObject({
+  id: z.uuid().optional(),
+  readAt: z.coerce.date().optional(),
+  message: z.lazy(() => ChatMessageCreateNestedOneWithoutReadReceiptsInputSchema),
+  user: z.lazy(() => UserCreateNestedOneWithoutMessageReadReceiptsInputSchema),
+});
+
+export const MessageReadReceiptUncheckedCreateInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedCreateInput> = z.strictObject({
+  id: z.uuid().optional(),
+  messageId: z.string(),
+  userId: z.string(),
+  readAt: z.coerce.date().optional(),
+});
+
+export const MessageReadReceiptUpdateInputSchema: z.ZodType<Prisma.MessageReadReceiptUpdateInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  readAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  message: z.lazy(() => ChatMessageUpdateOneRequiredWithoutReadReceiptsNestedInputSchema).optional(),
+  user: z.lazy(() => UserUpdateOneRequiredWithoutMessageReadReceiptsNestedInputSchema).optional(),
+});
+
+export const MessageReadReceiptUncheckedUpdateInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedUpdateInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  messageId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  readAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const MessageReadReceiptCreateManyInputSchema: z.ZodType<Prisma.MessageReadReceiptCreateManyInput> = z.strictObject({
+  id: z.uuid().optional(),
+  messageId: z.string(),
+  userId: z.string(),
+  readAt: z.coerce.date().optional(),
+});
+
+export const MessageReadReceiptUpdateManyMutationInputSchema: z.ZodType<Prisma.MessageReadReceiptUpdateManyMutationInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  readAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const MessageReadReceiptUncheckedUpdateManyInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedUpdateManyInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  messageId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  readAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const SupportTicketCreateInputSchema: z.ZodType<Prisma.SupportTicketCreateInput> = z.strictObject({
+  id: z.uuid().optional(),
+  subject: z.string(),
+  category: z.lazy(() => SupportCategorySchema).optional(),
+  priority: z.lazy(() => TicketPrioritySchema).optional(),
+  status: z.lazy(() => TicketStatusSchema).optional(),
+  resolvedAt: z.coerce.date().optional().nullable(),
+  resolution: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  customer: z.lazy(() => UserCreateNestedOneWithoutCustomerTicketsInputSchema),
+  assignedAdmin: z.lazy(() => UserCreateNestedOneWithoutAdminTicketsInputSchema).optional(),
+  chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutTicketInputSchema).optional(),
+});
+
+export const SupportTicketUncheckedCreateInputSchema: z.ZodType<Prisma.SupportTicketUncheckedCreateInput> = z.strictObject({
+  id: z.uuid().optional(),
+  customerId: z.string(),
+  subject: z.string(),
+  category: z.lazy(() => SupportCategorySchema).optional(),
+  priority: z.lazy(() => TicketPrioritySchema).optional(),
+  status: z.lazy(() => TicketStatusSchema).optional(),
+  assignedAdminId: z.string().optional().nullable(),
+  resolvedAt: z.coerce.date().optional().nullable(),
+  resolution: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  chatRoom: z.lazy(() => ChatRoomUncheckedCreateNestedOneWithoutTicketInputSchema).optional(),
+});
+
+export const SupportTicketUpdateInputSchema: z.ZodType<Prisma.SupportTicketUpdateInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  subject: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  category: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => EnumSupportCategoryFieldUpdateOperationsInputSchema) ]).optional(),
+  priority: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => EnumTicketPriorityFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => EnumTicketStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  resolvedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolution: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  customer: z.lazy(() => UserUpdateOneRequiredWithoutCustomerTicketsNestedInputSchema).optional(),
+  assignedAdmin: z.lazy(() => UserUpdateOneWithoutAdminTicketsNestedInputSchema).optional(),
+  chatRoom: z.lazy(() => ChatRoomUpdateOneWithoutTicketNestedInputSchema).optional(),
+});
+
+export const SupportTicketUncheckedUpdateInputSchema: z.ZodType<Prisma.SupportTicketUncheckedUpdateInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  customerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  subject: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  category: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => EnumSupportCategoryFieldUpdateOperationsInputSchema) ]).optional(),
+  priority: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => EnumTicketPriorityFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => EnumTicketStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  assignedAdminId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolvedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolution: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoom: z.lazy(() => ChatRoomUncheckedUpdateOneWithoutTicketNestedInputSchema).optional(),
+});
+
+export const SupportTicketCreateManyInputSchema: z.ZodType<Prisma.SupportTicketCreateManyInput> = z.strictObject({
+  id: z.uuid().optional(),
+  customerId: z.string(),
+  subject: z.string(),
+  category: z.lazy(() => SupportCategorySchema).optional(),
+  priority: z.lazy(() => TicketPrioritySchema).optional(),
+  status: z.lazy(() => TicketStatusSchema).optional(),
+  assignedAdminId: z.string().optional().nullable(),
+  resolvedAt: z.coerce.date().optional().nullable(),
+  resolution: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+});
+
+export const SupportTicketUpdateManyMutationInputSchema: z.ZodType<Prisma.SupportTicketUpdateManyMutationInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  subject: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  category: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => EnumSupportCategoryFieldUpdateOperationsInputSchema) ]).optional(),
+  priority: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => EnumTicketPriorityFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => EnumTicketStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  resolvedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolution: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const SupportTicketUncheckedUpdateManyInputSchema: z.ZodType<Prisma.SupportTicketUncheckedUpdateManyInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  customerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  subject: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  category: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => EnumSupportCategoryFieldUpdateOperationsInputSchema) ]).optional(),
+  priority: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => EnumTicketPriorityFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => EnumTicketStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  assignedAdminId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolvedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolution: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const StringFilterSchema: z.ZodType<Prisma.StringFilter> = z.strictObject({
@@ -6771,6 +7599,18 @@ export const ChatMessageListRelationFilterSchema: z.ZodType<Prisma.ChatMessageLi
   none: z.lazy(() => ChatMessageWhereInputSchema).optional(),
 });
 
+export const MessageReadReceiptListRelationFilterSchema: z.ZodType<Prisma.MessageReadReceiptListRelationFilter> = z.strictObject({
+  every: z.lazy(() => MessageReadReceiptWhereInputSchema).optional(),
+  some: z.lazy(() => MessageReadReceiptWhereInputSchema).optional(),
+  none: z.lazy(() => MessageReadReceiptWhereInputSchema).optional(),
+});
+
+export const SupportTicketListRelationFilterSchema: z.ZodType<Prisma.SupportTicketListRelationFilter> = z.strictObject({
+  every: z.lazy(() => SupportTicketWhereInputSchema).optional(),
+  some: z.lazy(() => SupportTicketWhereInputSchema).optional(),
+  none: z.lazy(() => SupportTicketWhereInputSchema).optional(),
+});
+
 export const SortOrderInputSchema: z.ZodType<Prisma.SortOrderInput> = z.strictObject({
   sort: z.lazy(() => SortOrderSchema),
   nulls: z.lazy(() => NullsOrderSchema).optional(),
@@ -6833,6 +7673,14 @@ export const ChatParticipantOrderByRelationAggregateInputSchema: z.ZodType<Prism
 });
 
 export const ChatMessageOrderByRelationAggregateInputSchema: z.ZodType<Prisma.ChatMessageOrderByRelationAggregateInput> = z.strictObject({
+  _count: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const MessageReadReceiptOrderByRelationAggregateInputSchema: z.ZodType<Prisma.MessageReadReceiptOrderByRelationAggregateInput> = z.strictObject({
+  _count: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const SupportTicketOrderByRelationAggregateInputSchema: z.ZodType<Prisma.SupportTicketOrderByRelationAggregateInput> = z.strictObject({
   _count: z.lazy(() => SortOrderSchema).optional(),
 });
 
@@ -7719,6 +8567,7 @@ export const OrderCountOrderByAggregateInputSchema: z.ZodType<Prisma.OrderCountO
   status: z.lazy(() => SortOrderSchema).optional(),
   totalPrice: z.lazy(() => SortOrderSchema).optional(),
   deliveryFee: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
   paymentStatus: z.lazy(() => SortOrderSchema).optional(),
 });
 
@@ -7735,6 +8584,7 @@ export const OrderMaxOrderByAggregateInputSchema: z.ZodType<Prisma.OrderMaxOrder
   status: z.lazy(() => SortOrderSchema).optional(),
   totalPrice: z.lazy(() => SortOrderSchema).optional(),
   deliveryFee: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
   paymentStatus: z.lazy(() => SortOrderSchema).optional(),
 });
 
@@ -7746,6 +8596,7 @@ export const OrderMinOrderByAggregateInputSchema: z.ZodType<Prisma.OrderMinOrder
   status: z.lazy(() => SortOrderSchema).optional(),
   totalPrice: z.lazy(() => SortOrderSchema).optional(),
   deliveryFee: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
   paymentStatus: z.lazy(() => SortOrderSchema).optional(),
 });
 
@@ -8351,6 +9202,23 @@ export const EnumChatRoomTypeFilterSchema: z.ZodType<Prisma.EnumChatRoomTypeFilt
   not: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => NestedEnumChatRoomTypeFilterSchema) ]).optional(),
 });
 
+export const EnumChatRoomStatusFilterSchema: z.ZodType<Prisma.EnumChatRoomStatusFilter> = z.strictObject({
+  equals: z.lazy(() => ChatRoomStatusSchema).optional(),
+  in: z.lazy(() => ChatRoomStatusSchema).array().optional(),
+  notIn: z.lazy(() => ChatRoomStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => NestedEnumChatRoomStatusFilterSchema) ]).optional(),
+});
+
+export const OrderNullableScalarRelationFilterSchema: z.ZodType<Prisma.OrderNullableScalarRelationFilter> = z.strictObject({
+  is: z.lazy(() => OrderWhereInputSchema).optional().nullable(),
+  isNot: z.lazy(() => OrderWhereInputSchema).optional().nullable(),
+});
+
+export const SupportTicketNullableScalarRelationFilterSchema: z.ZodType<Prisma.SupportTicketNullableScalarRelationFilter> = z.strictObject({
+  is: z.lazy(() => SupportTicketWhereInputSchema).optional().nullable(),
+  isNot: z.lazy(() => SupportTicketWhereInputSchema).optional().nullable(),
+});
+
 export const ChatRoomOrderIdTypeCompoundUniqueInputSchema: z.ZodType<Prisma.ChatRoomOrderIdTypeCompoundUniqueInput> = z.strictObject({
   orderId: z.string(),
   type: z.lazy(() => ChatRoomTypeSchema),
@@ -8359,7 +9227,14 @@ export const ChatRoomOrderIdTypeCompoundUniqueInputSchema: z.ZodType<Prisma.Chat
 export const ChatRoomCountOrderByAggregateInputSchema: z.ZodType<Prisma.ChatRoomCountOrderByAggregateInput> = z.strictObject({
   id: z.lazy(() => SortOrderSchema).optional(),
   orderId: z.lazy(() => SortOrderSchema).optional(),
+  ticketId: z.lazy(() => SortOrderSchema).optional(),
   type: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  title: z.lazy(() => SortOrderSchema).optional(),
+  lastMessageAt: z.lazy(() => SortOrderSchema).optional(),
+  lastMessageId: z.lazy(() => SortOrderSchema).optional(),
+  closedAt: z.lazy(() => SortOrderSchema).optional(),
+  closedReason: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
   updatedAt: z.lazy(() => SortOrderSchema).optional(),
 });
@@ -8367,7 +9242,14 @@ export const ChatRoomCountOrderByAggregateInputSchema: z.ZodType<Prisma.ChatRoom
 export const ChatRoomMaxOrderByAggregateInputSchema: z.ZodType<Prisma.ChatRoomMaxOrderByAggregateInput> = z.strictObject({
   id: z.lazy(() => SortOrderSchema).optional(),
   orderId: z.lazy(() => SortOrderSchema).optional(),
+  ticketId: z.lazy(() => SortOrderSchema).optional(),
   type: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  title: z.lazy(() => SortOrderSchema).optional(),
+  lastMessageAt: z.lazy(() => SortOrderSchema).optional(),
+  lastMessageId: z.lazy(() => SortOrderSchema).optional(),
+  closedAt: z.lazy(() => SortOrderSchema).optional(),
+  closedReason: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
   updatedAt: z.lazy(() => SortOrderSchema).optional(),
 });
@@ -8375,7 +9257,14 @@ export const ChatRoomMaxOrderByAggregateInputSchema: z.ZodType<Prisma.ChatRoomMa
 export const ChatRoomMinOrderByAggregateInputSchema: z.ZodType<Prisma.ChatRoomMinOrderByAggregateInput> = z.strictObject({
   id: z.lazy(() => SortOrderSchema).optional(),
   orderId: z.lazy(() => SortOrderSchema).optional(),
+  ticketId: z.lazy(() => SortOrderSchema).optional(),
   type: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  title: z.lazy(() => SortOrderSchema).optional(),
+  lastMessageAt: z.lazy(() => SortOrderSchema).optional(),
+  lastMessageId: z.lazy(() => SortOrderSchema).optional(),
+  closedAt: z.lazy(() => SortOrderSchema).optional(),
+  closedReason: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
   updatedAt: z.lazy(() => SortOrderSchema).optional(),
 });
@@ -8388,6 +9277,16 @@ export const EnumChatRoomTypeWithAggregatesFilterSchema: z.ZodType<Prisma.EnumCh
   _count: z.lazy(() => NestedIntFilterSchema).optional(),
   _min: z.lazy(() => NestedEnumChatRoomTypeFilterSchema).optional(),
   _max: z.lazy(() => NestedEnumChatRoomTypeFilterSchema).optional(),
+});
+
+export const EnumChatRoomStatusWithAggregatesFilterSchema: z.ZodType<Prisma.EnumChatRoomStatusWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => ChatRoomStatusSchema).optional(),
+  in: z.lazy(() => ChatRoomStatusSchema).array().optional(),
+  notIn: z.lazy(() => ChatRoomStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => NestedEnumChatRoomStatusWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumChatRoomStatusFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumChatRoomStatusFilterSchema).optional(),
 });
 
 export const EnumChatRoleFilterSchema: z.ZodType<Prisma.EnumChatRoleFilter> = z.strictObject({
@@ -8413,6 +9312,12 @@ export const ChatParticipantCountOrderByAggregateInputSchema: z.ZodType<Prisma.C
   userId: z.lazy(() => SortOrderSchema).optional(),
   role: z.lazy(() => SortOrderSchema).optional(),
   joinedAt: z.lazy(() => SortOrderSchema).optional(),
+  leftAt: z.lazy(() => SortOrderSchema).optional(),
+  lastSeenAt: z.lazy(() => SortOrderSchema).optional(),
+  lastReadAt: z.lazy(() => SortOrderSchema).optional(),
+  lastReadMsgId: z.lazy(() => SortOrderSchema).optional(),
+  isMuted: z.lazy(() => SortOrderSchema).optional(),
+  isBlocked: z.lazy(() => SortOrderSchema).optional(),
 });
 
 export const ChatParticipantMaxOrderByAggregateInputSchema: z.ZodType<Prisma.ChatParticipantMaxOrderByAggregateInput> = z.strictObject({
@@ -8421,6 +9326,12 @@ export const ChatParticipantMaxOrderByAggregateInputSchema: z.ZodType<Prisma.Cha
   userId: z.lazy(() => SortOrderSchema).optional(),
   role: z.lazy(() => SortOrderSchema).optional(),
   joinedAt: z.lazy(() => SortOrderSchema).optional(),
+  leftAt: z.lazy(() => SortOrderSchema).optional(),
+  lastSeenAt: z.lazy(() => SortOrderSchema).optional(),
+  lastReadAt: z.lazy(() => SortOrderSchema).optional(),
+  lastReadMsgId: z.lazy(() => SortOrderSchema).optional(),
+  isMuted: z.lazy(() => SortOrderSchema).optional(),
+  isBlocked: z.lazy(() => SortOrderSchema).optional(),
 });
 
 export const ChatParticipantMinOrderByAggregateInputSchema: z.ZodType<Prisma.ChatParticipantMinOrderByAggregateInput> = z.strictObject({
@@ -8429,6 +9340,12 @@ export const ChatParticipantMinOrderByAggregateInputSchema: z.ZodType<Prisma.Cha
   userId: z.lazy(() => SortOrderSchema).optional(),
   role: z.lazy(() => SortOrderSchema).optional(),
   joinedAt: z.lazy(() => SortOrderSchema).optional(),
+  leftAt: z.lazy(() => SortOrderSchema).optional(),
+  lastSeenAt: z.lazy(() => SortOrderSchema).optional(),
+  lastReadAt: z.lazy(() => SortOrderSchema).optional(),
+  lastReadMsgId: z.lazy(() => SortOrderSchema).optional(),
+  isMuted: z.lazy(() => SortOrderSchema).optional(),
+  isBlocked: z.lazy(() => SortOrderSchema).optional(),
 });
 
 export const EnumChatRoleWithAggregatesFilterSchema: z.ZodType<Prisma.EnumChatRoleWithAggregatesFilter> = z.strictObject({
@@ -8448,14 +9365,49 @@ export const EnumMessageTypeFilterSchema: z.ZodType<Prisma.EnumMessageTypeFilter
   not: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => NestedEnumMessageTypeFilterSchema) ]).optional(),
 });
 
+export const EnumMessageStatusFilterSchema: z.ZodType<Prisma.EnumMessageStatusFilter> = z.strictObject({
+  equals: z.lazy(() => MessageStatusSchema).optional(),
+  in: z.lazy(() => MessageStatusSchema).array().optional(),
+  notIn: z.lazy(() => MessageStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => NestedEnumMessageStatusFilterSchema) ]).optional(),
+});
+
+export const JsonNullableFilterSchema: z.ZodType<Prisma.JsonNullableFilter> = z.strictObject({
+  equals: InputJsonValueSchema.optional(),
+  path: z.string().array().optional(),
+  mode: z.lazy(() => QueryModeSchema).optional(),
+  string_contains: z.string().optional(),
+  string_starts_with: z.string().optional(),
+  string_ends_with: z.string().optional(),
+  array_starts_with: InputJsonValueSchema.optional().nullable(),
+  array_ends_with: InputJsonValueSchema.optional().nullable(),
+  array_contains: InputJsonValueSchema.optional().nullable(),
+  lt: InputJsonValueSchema.optional(),
+  lte: InputJsonValueSchema.optional(),
+  gt: InputJsonValueSchema.optional(),
+  gte: InputJsonValueSchema.optional(),
+  not: InputJsonValueSchema.optional(),
+});
+
+export const ChatMessageNullableScalarRelationFilterSchema: z.ZodType<Prisma.ChatMessageNullableScalarRelationFilter> = z.strictObject({
+  is: z.lazy(() => ChatMessageWhereInputSchema).optional().nullable(),
+  isNot: z.lazy(() => ChatMessageWhereInputSchema).optional().nullable(),
+});
+
 export const ChatMessageCountOrderByAggregateInputSchema: z.ZodType<Prisma.ChatMessageCountOrderByAggregateInput> = z.strictObject({
   id: z.lazy(() => SortOrderSchema).optional(),
   chatRoomId: z.lazy(() => SortOrderSchema).optional(),
   senderId: z.lazy(() => SortOrderSchema).optional(),
   content: z.lazy(() => SortOrderSchema).optional(),
   type: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  metadata: z.lazy(() => SortOrderSchema).optional(),
+  replyToId: z.lazy(() => SortOrderSchema).optional(),
+  deletedAt: z.lazy(() => SortOrderSchema).optional(),
+  deletedBy: z.lazy(() => SortOrderSchema).optional(),
   isRead: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
 });
 
 export const ChatMessageMaxOrderByAggregateInputSchema: z.ZodType<Prisma.ChatMessageMaxOrderByAggregateInput> = z.strictObject({
@@ -8464,8 +9416,13 @@ export const ChatMessageMaxOrderByAggregateInputSchema: z.ZodType<Prisma.ChatMes
   senderId: z.lazy(() => SortOrderSchema).optional(),
   content: z.lazy(() => SortOrderSchema).optional(),
   type: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  replyToId: z.lazy(() => SortOrderSchema).optional(),
+  deletedAt: z.lazy(() => SortOrderSchema).optional(),
+  deletedBy: z.lazy(() => SortOrderSchema).optional(),
   isRead: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
 });
 
 export const ChatMessageMinOrderByAggregateInputSchema: z.ZodType<Prisma.ChatMessageMinOrderByAggregateInput> = z.strictObject({
@@ -8474,8 +9431,13 @@ export const ChatMessageMinOrderByAggregateInputSchema: z.ZodType<Prisma.ChatMes
   senderId: z.lazy(() => SortOrderSchema).optional(),
   content: z.lazy(() => SortOrderSchema).optional(),
   type: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  replyToId: z.lazy(() => SortOrderSchema).optional(),
+  deletedAt: z.lazy(() => SortOrderSchema).optional(),
+  deletedBy: z.lazy(() => SortOrderSchema).optional(),
   isRead: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
 });
 
 export const EnumMessageTypeWithAggregatesFilterSchema: z.ZodType<Prisma.EnumMessageTypeWithAggregatesFilter> = z.strictObject({
@@ -8486,6 +9448,170 @@ export const EnumMessageTypeWithAggregatesFilterSchema: z.ZodType<Prisma.EnumMes
   _count: z.lazy(() => NestedIntFilterSchema).optional(),
   _min: z.lazy(() => NestedEnumMessageTypeFilterSchema).optional(),
   _max: z.lazy(() => NestedEnumMessageTypeFilterSchema).optional(),
+});
+
+export const EnumMessageStatusWithAggregatesFilterSchema: z.ZodType<Prisma.EnumMessageStatusWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => MessageStatusSchema).optional(),
+  in: z.lazy(() => MessageStatusSchema).array().optional(),
+  notIn: z.lazy(() => MessageStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => NestedEnumMessageStatusWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumMessageStatusFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumMessageStatusFilterSchema).optional(),
+});
+
+export const JsonNullableWithAggregatesFilterSchema: z.ZodType<Prisma.JsonNullableWithAggregatesFilter> = z.strictObject({
+  equals: InputJsonValueSchema.optional(),
+  path: z.string().array().optional(),
+  mode: z.lazy(() => QueryModeSchema).optional(),
+  string_contains: z.string().optional(),
+  string_starts_with: z.string().optional(),
+  string_ends_with: z.string().optional(),
+  array_starts_with: InputJsonValueSchema.optional().nullable(),
+  array_ends_with: InputJsonValueSchema.optional().nullable(),
+  array_contains: InputJsonValueSchema.optional().nullable(),
+  lt: InputJsonValueSchema.optional(),
+  lte: InputJsonValueSchema.optional(),
+  gt: InputJsonValueSchema.optional(),
+  gte: InputJsonValueSchema.optional(),
+  not: InputJsonValueSchema.optional(),
+  _count: z.lazy(() => NestedIntNullableFilterSchema).optional(),
+  _min: z.lazy(() => NestedJsonNullableFilterSchema).optional(),
+  _max: z.lazy(() => NestedJsonNullableFilterSchema).optional(),
+});
+
+export const ChatMessageScalarRelationFilterSchema: z.ZodType<Prisma.ChatMessageScalarRelationFilter> = z.strictObject({
+  is: z.lazy(() => ChatMessageWhereInputSchema).optional(),
+  isNot: z.lazy(() => ChatMessageWhereInputSchema).optional(),
+});
+
+export const MessageReadReceiptMessageIdUserIdCompoundUniqueInputSchema: z.ZodType<Prisma.MessageReadReceiptMessageIdUserIdCompoundUniqueInput> = z.strictObject({
+  messageId: z.string(),
+  userId: z.string(),
+});
+
+export const MessageReadReceiptCountOrderByAggregateInputSchema: z.ZodType<Prisma.MessageReadReceiptCountOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  messageId: z.lazy(() => SortOrderSchema).optional(),
+  userId: z.lazy(() => SortOrderSchema).optional(),
+  readAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const MessageReadReceiptMaxOrderByAggregateInputSchema: z.ZodType<Prisma.MessageReadReceiptMaxOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  messageId: z.lazy(() => SortOrderSchema).optional(),
+  userId: z.lazy(() => SortOrderSchema).optional(),
+  readAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const MessageReadReceiptMinOrderByAggregateInputSchema: z.ZodType<Prisma.MessageReadReceiptMinOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  messageId: z.lazy(() => SortOrderSchema).optional(),
+  userId: z.lazy(() => SortOrderSchema).optional(),
+  readAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const EnumSupportCategoryFilterSchema: z.ZodType<Prisma.EnumSupportCategoryFilter> = z.strictObject({
+  equals: z.lazy(() => SupportCategorySchema).optional(),
+  in: z.lazy(() => SupportCategorySchema).array().optional(),
+  notIn: z.lazy(() => SupportCategorySchema).array().optional(),
+  not: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => NestedEnumSupportCategoryFilterSchema) ]).optional(),
+});
+
+export const EnumTicketPriorityFilterSchema: z.ZodType<Prisma.EnumTicketPriorityFilter> = z.strictObject({
+  equals: z.lazy(() => TicketPrioritySchema).optional(),
+  in: z.lazy(() => TicketPrioritySchema).array().optional(),
+  notIn: z.lazy(() => TicketPrioritySchema).array().optional(),
+  not: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => NestedEnumTicketPriorityFilterSchema) ]).optional(),
+});
+
+export const EnumTicketStatusFilterSchema: z.ZodType<Prisma.EnumTicketStatusFilter> = z.strictObject({
+  equals: z.lazy(() => TicketStatusSchema).optional(),
+  in: z.lazy(() => TicketStatusSchema).array().optional(),
+  notIn: z.lazy(() => TicketStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => NestedEnumTicketStatusFilterSchema) ]).optional(),
+});
+
+export const UserNullableScalarRelationFilterSchema: z.ZodType<Prisma.UserNullableScalarRelationFilter> = z.strictObject({
+  is: z.lazy(() => UserWhereInputSchema).optional().nullable(),
+  isNot: z.lazy(() => UserWhereInputSchema).optional().nullable(),
+});
+
+export const ChatRoomNullableScalarRelationFilterSchema: z.ZodType<Prisma.ChatRoomNullableScalarRelationFilter> = z.strictObject({
+  is: z.lazy(() => ChatRoomWhereInputSchema).optional().nullable(),
+  isNot: z.lazy(() => ChatRoomWhereInputSchema).optional().nullable(),
+});
+
+export const SupportTicketCountOrderByAggregateInputSchema: z.ZodType<Prisma.SupportTicketCountOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  customerId: z.lazy(() => SortOrderSchema).optional(),
+  subject: z.lazy(() => SortOrderSchema).optional(),
+  category: z.lazy(() => SortOrderSchema).optional(),
+  priority: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  assignedAdminId: z.lazy(() => SortOrderSchema).optional(),
+  resolvedAt: z.lazy(() => SortOrderSchema).optional(),
+  resolution: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const SupportTicketMaxOrderByAggregateInputSchema: z.ZodType<Prisma.SupportTicketMaxOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  customerId: z.lazy(() => SortOrderSchema).optional(),
+  subject: z.lazy(() => SortOrderSchema).optional(),
+  category: z.lazy(() => SortOrderSchema).optional(),
+  priority: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  assignedAdminId: z.lazy(() => SortOrderSchema).optional(),
+  resolvedAt: z.lazy(() => SortOrderSchema).optional(),
+  resolution: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const SupportTicketMinOrderByAggregateInputSchema: z.ZodType<Prisma.SupportTicketMinOrderByAggregateInput> = z.strictObject({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  customerId: z.lazy(() => SortOrderSchema).optional(),
+  subject: z.lazy(() => SortOrderSchema).optional(),
+  category: z.lazy(() => SortOrderSchema).optional(),
+  priority: z.lazy(() => SortOrderSchema).optional(),
+  status: z.lazy(() => SortOrderSchema).optional(),
+  assignedAdminId: z.lazy(() => SortOrderSchema).optional(),
+  resolvedAt: z.lazy(() => SortOrderSchema).optional(),
+  resolution: z.lazy(() => SortOrderSchema).optional(),
+  createdAt: z.lazy(() => SortOrderSchema).optional(),
+  updatedAt: z.lazy(() => SortOrderSchema).optional(),
+});
+
+export const EnumSupportCategoryWithAggregatesFilterSchema: z.ZodType<Prisma.EnumSupportCategoryWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => SupportCategorySchema).optional(),
+  in: z.lazy(() => SupportCategorySchema).array().optional(),
+  notIn: z.lazy(() => SupportCategorySchema).array().optional(),
+  not: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => NestedEnumSupportCategoryWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumSupportCategoryFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumSupportCategoryFilterSchema).optional(),
+});
+
+export const EnumTicketPriorityWithAggregatesFilterSchema: z.ZodType<Prisma.EnumTicketPriorityWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => TicketPrioritySchema).optional(),
+  in: z.lazy(() => TicketPrioritySchema).array().optional(),
+  notIn: z.lazy(() => TicketPrioritySchema).array().optional(),
+  not: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => NestedEnumTicketPriorityWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumTicketPriorityFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumTicketPriorityFilterSchema).optional(),
+});
+
+export const EnumTicketStatusWithAggregatesFilterSchema: z.ZodType<Prisma.EnumTicketStatusWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => TicketStatusSchema).optional(),
+  in: z.lazy(() => TicketStatusSchema).array().optional(),
+  notIn: z.lazy(() => TicketStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => NestedEnumTicketStatusWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumTicketStatusFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumTicketStatusFilterSchema).optional(),
 });
 
 export const UserProfileCreateNestedManyWithoutUserInputSchema: z.ZodType<Prisma.UserProfileCreateNestedManyWithoutUserInput> = z.strictObject({
@@ -8593,6 +9719,27 @@ export const ChatMessageCreateNestedManyWithoutSenderInputSchema: z.ZodType<Pris
   connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
 });
 
+export const MessageReadReceiptCreateNestedManyWithoutUserInputSchema: z.ZodType<Prisma.MessageReadReceiptCreateNestedManyWithoutUserInput> = z.strictObject({
+  create: z.union([ z.lazy(() => MessageReadReceiptCreateWithoutUserInputSchema), z.lazy(() => MessageReadReceiptCreateWithoutUserInputSchema).array(), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutUserInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => MessageReadReceiptCreateOrConnectWithoutUserInputSchema), z.lazy(() => MessageReadReceiptCreateOrConnectWithoutUserInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => MessageReadReceiptCreateManyUserInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const SupportTicketCreateNestedManyWithoutCustomerInputSchema: z.ZodType<Prisma.SupportTicketCreateNestedManyWithoutCustomerInput> = z.strictObject({
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutCustomerInputSchema), z.lazy(() => SupportTicketCreateWithoutCustomerInputSchema).array(), z.lazy(() => SupportTicketUncheckedCreateWithoutCustomerInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutCustomerInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => SupportTicketCreateOrConnectWithoutCustomerInputSchema), z.lazy(() => SupportTicketCreateOrConnectWithoutCustomerInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => SupportTicketCreateManyCustomerInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema: z.ZodType<Prisma.SupportTicketCreateNestedManyWithoutAssignedAdminInput> = z.strictObject({
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketCreateWithoutAssignedAdminInputSchema).array(), z.lazy(() => SupportTicketUncheckedCreateWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutAssignedAdminInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => SupportTicketCreateOrConnectWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketCreateOrConnectWithoutAssignedAdminInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => SupportTicketCreateManyAssignedAdminInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+});
+
 export const UserProfileUncheckedCreateNestedManyWithoutUserInputSchema: z.ZodType<Prisma.UserProfileUncheckedCreateNestedManyWithoutUserInput> = z.strictObject({
   create: z.union([ z.lazy(() => UserProfileCreateWithoutUserInputSchema), z.lazy(() => UserProfileCreateWithoutUserInputSchema).array(), z.lazy(() => UserProfileUncheckedCreateWithoutUserInputSchema), z.lazy(() => UserProfileUncheckedCreateWithoutUserInputSchema).array() ]).optional(),
   connectOrCreate: z.union([ z.lazy(() => UserProfileCreateOrConnectWithoutUserInputSchema), z.lazy(() => UserProfileCreateOrConnectWithoutUserInputSchema).array() ]).optional(),
@@ -8696,6 +9843,27 @@ export const ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema: z.Zod
   connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutSenderInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutSenderInputSchema).array() ]).optional(),
   createMany: z.lazy(() => ChatMessageCreateManySenderInputEnvelopeSchema).optional(),
   connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedCreateNestedManyWithoutUserInput> = z.strictObject({
+  create: z.union([ z.lazy(() => MessageReadReceiptCreateWithoutUserInputSchema), z.lazy(() => MessageReadReceiptCreateWithoutUserInputSchema).array(), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutUserInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => MessageReadReceiptCreateOrConnectWithoutUserInputSchema), z.lazy(() => MessageReadReceiptCreateOrConnectWithoutUserInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => MessageReadReceiptCreateManyUserInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema: z.ZodType<Prisma.SupportTicketUncheckedCreateNestedManyWithoutCustomerInput> = z.strictObject({
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutCustomerInputSchema), z.lazy(() => SupportTicketCreateWithoutCustomerInputSchema).array(), z.lazy(() => SupportTicketUncheckedCreateWithoutCustomerInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutCustomerInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => SupportTicketCreateOrConnectWithoutCustomerInputSchema), z.lazy(() => SupportTicketCreateOrConnectWithoutCustomerInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => SupportTicketCreateManyCustomerInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema: z.ZodType<Prisma.SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInput> = z.strictObject({
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketCreateWithoutAssignedAdminInputSchema).array(), z.lazy(() => SupportTicketUncheckedCreateWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutAssignedAdminInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => SupportTicketCreateOrConnectWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketCreateOrConnectWithoutAssignedAdminInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => SupportTicketCreateManyAssignedAdminInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
 });
 
 export const StringFieldUpdateOperationsInputSchema: z.ZodType<Prisma.StringFieldUpdateOperationsInput> = z.strictObject({
@@ -8932,6 +10100,48 @@ export const ChatMessageUpdateManyWithoutSenderNestedInputSchema: z.ZodType<Pris
   deleteMany: z.union([ z.lazy(() => ChatMessageScalarWhereInputSchema), z.lazy(() => ChatMessageScalarWhereInputSchema).array() ]).optional(),
 });
 
+export const MessageReadReceiptUpdateManyWithoutUserNestedInputSchema: z.ZodType<Prisma.MessageReadReceiptUpdateManyWithoutUserNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => MessageReadReceiptCreateWithoutUserInputSchema), z.lazy(() => MessageReadReceiptCreateWithoutUserInputSchema).array(), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutUserInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => MessageReadReceiptCreateOrConnectWithoutUserInputSchema), z.lazy(() => MessageReadReceiptCreateOrConnectWithoutUserInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => MessageReadReceiptUpsertWithWhereUniqueWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUpsertWithWhereUniqueWithoutUserInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => MessageReadReceiptCreateManyUserInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => MessageReadReceiptUpdateWithWhereUniqueWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUpdateWithWhereUniqueWithoutUserInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => MessageReadReceiptUpdateManyWithWhereWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUpdateManyWithWhereWithoutUserInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => MessageReadReceiptScalarWhereInputSchema), z.lazy(() => MessageReadReceiptScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const SupportTicketUpdateManyWithoutCustomerNestedInputSchema: z.ZodType<Prisma.SupportTicketUpdateManyWithoutCustomerNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutCustomerInputSchema), z.lazy(() => SupportTicketCreateWithoutCustomerInputSchema).array(), z.lazy(() => SupportTicketUncheckedCreateWithoutCustomerInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutCustomerInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => SupportTicketCreateOrConnectWithoutCustomerInputSchema), z.lazy(() => SupportTicketCreateOrConnectWithoutCustomerInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => SupportTicketUpsertWithWhereUniqueWithoutCustomerInputSchema), z.lazy(() => SupportTicketUpsertWithWhereUniqueWithoutCustomerInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => SupportTicketCreateManyCustomerInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => SupportTicketUpdateWithWhereUniqueWithoutCustomerInputSchema), z.lazy(() => SupportTicketUpdateWithWhereUniqueWithoutCustomerInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => SupportTicketUpdateManyWithWhereWithoutCustomerInputSchema), z.lazy(() => SupportTicketUpdateManyWithWhereWithoutCustomerInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => SupportTicketScalarWhereInputSchema), z.lazy(() => SupportTicketScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema: z.ZodType<Prisma.SupportTicketUpdateManyWithoutAssignedAdminNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketCreateWithoutAssignedAdminInputSchema).array(), z.lazy(() => SupportTicketUncheckedCreateWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutAssignedAdminInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => SupportTicketCreateOrConnectWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketCreateOrConnectWithoutAssignedAdminInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => SupportTicketUpsertWithWhereUniqueWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUpsertWithWhereUniqueWithoutAssignedAdminInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => SupportTicketCreateManyAssignedAdminInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => SupportTicketUpdateWithWhereUniqueWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUpdateWithWhereUniqueWithoutAssignedAdminInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => SupportTicketUpdateManyWithWhereWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUpdateManyWithWhereWithoutAssignedAdminInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => SupportTicketScalarWhereInputSchema), z.lazy(() => SupportTicketScalarWhereInputSchema).array() ]).optional(),
+});
+
 export const UserProfileUncheckedUpdateManyWithoutUserNestedInputSchema: z.ZodType<Prisma.UserProfileUncheckedUpdateManyWithoutUserNestedInput> = z.strictObject({
   create: z.union([ z.lazy(() => UserProfileCreateWithoutUserInputSchema), z.lazy(() => UserProfileCreateWithoutUserInputSchema).array(), z.lazy(() => UserProfileUncheckedCreateWithoutUserInputSchema), z.lazy(() => UserProfileUncheckedCreateWithoutUserInputSchema).array() ]).optional(),
   connectOrCreate: z.union([ z.lazy(() => UserProfileCreateOrConnectWithoutUserInputSchema), z.lazy(() => UserProfileCreateOrConnectWithoutUserInputSchema).array() ]).optional(),
@@ -9140,6 +10350,48 @@ export const ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema: z.Zod
   update: z.union([ z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutSenderInputSchema), z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutSenderInputSchema).array() ]).optional(),
   updateMany: z.union([ z.lazy(() => ChatMessageUpdateManyWithWhereWithoutSenderInputSchema), z.lazy(() => ChatMessageUpdateManyWithWhereWithoutSenderInputSchema).array() ]).optional(),
   deleteMany: z.union([ z.lazy(() => ChatMessageScalarWhereInputSchema), z.lazy(() => ChatMessageScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => MessageReadReceiptCreateWithoutUserInputSchema), z.lazy(() => MessageReadReceiptCreateWithoutUserInputSchema).array(), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutUserInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => MessageReadReceiptCreateOrConnectWithoutUserInputSchema), z.lazy(() => MessageReadReceiptCreateOrConnectWithoutUserInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => MessageReadReceiptUpsertWithWhereUniqueWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUpsertWithWhereUniqueWithoutUserInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => MessageReadReceiptCreateManyUserInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => MessageReadReceiptUpdateWithWhereUniqueWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUpdateWithWhereUniqueWithoutUserInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => MessageReadReceiptUpdateManyWithWhereWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUpdateManyWithWhereWithoutUserInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => MessageReadReceiptScalarWhereInputSchema), z.lazy(() => MessageReadReceiptScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema: z.ZodType<Prisma.SupportTicketUncheckedUpdateManyWithoutCustomerNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutCustomerInputSchema), z.lazy(() => SupportTicketCreateWithoutCustomerInputSchema).array(), z.lazy(() => SupportTicketUncheckedCreateWithoutCustomerInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutCustomerInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => SupportTicketCreateOrConnectWithoutCustomerInputSchema), z.lazy(() => SupportTicketCreateOrConnectWithoutCustomerInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => SupportTicketUpsertWithWhereUniqueWithoutCustomerInputSchema), z.lazy(() => SupportTicketUpsertWithWhereUniqueWithoutCustomerInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => SupportTicketCreateManyCustomerInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => SupportTicketUpdateWithWhereUniqueWithoutCustomerInputSchema), z.lazy(() => SupportTicketUpdateWithWhereUniqueWithoutCustomerInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => SupportTicketUpdateManyWithWhereWithoutCustomerInputSchema), z.lazy(() => SupportTicketUpdateManyWithWhereWithoutCustomerInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => SupportTicketScalarWhereInputSchema), z.lazy(() => SupportTicketScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema: z.ZodType<Prisma.SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketCreateWithoutAssignedAdminInputSchema).array(), z.lazy(() => SupportTicketUncheckedCreateWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutAssignedAdminInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => SupportTicketCreateOrConnectWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketCreateOrConnectWithoutAssignedAdminInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => SupportTicketUpsertWithWhereUniqueWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUpsertWithWhereUniqueWithoutAssignedAdminInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => SupportTicketCreateManyAssignedAdminInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => SupportTicketWhereUniqueInputSchema), z.lazy(() => SupportTicketWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => SupportTicketUpdateWithWhereUniqueWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUpdateWithWhereUniqueWithoutAssignedAdminInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => SupportTicketUpdateManyWithWhereWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUpdateManyWithWhereWithoutAssignedAdminInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => SupportTicketScalarWhereInputSchema), z.lazy(() => SupportTicketScalarWhereInputSchema).array() ]).optional(),
 });
 
 export const UserCreateNestedOneWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserCreateNestedOneWithoutUserProfilesInput> = z.strictObject({
@@ -10844,6 +12096,12 @@ export const OrderCreateNestedOneWithoutChatRoomsInputSchema: z.ZodType<Prisma.O
   connect: z.lazy(() => OrderWhereUniqueInputSchema).optional(),
 });
 
+export const SupportTicketCreateNestedOneWithoutChatRoomInputSchema: z.ZodType<Prisma.SupportTicketCreateNestedOneWithoutChatRoomInput> = z.strictObject({
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutChatRoomInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutChatRoomInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => SupportTicketCreateOrConnectWithoutChatRoomInputSchema).optional(),
+  connect: z.lazy(() => SupportTicketWhereUniqueInputSchema).optional(),
+});
+
 export const ChatParticipantCreateNestedManyWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantCreateNestedManyWithoutChatRoomInput> = z.strictObject({
   create: z.union([ z.lazy(() => ChatParticipantCreateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantCreateWithoutChatRoomInputSchema).array(), z.lazy(() => ChatParticipantUncheckedCreateWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantUncheckedCreateWithoutChatRoomInputSchema).array() ]).optional(),
   connectOrCreate: z.union([ z.lazy(() => ChatParticipantCreateOrConnectWithoutChatRoomInputSchema), z.lazy(() => ChatParticipantCreateOrConnectWithoutChatRoomInputSchema).array() ]).optional(),
@@ -10876,12 +12134,28 @@ export const EnumChatRoomTypeFieldUpdateOperationsInputSchema: z.ZodType<Prisma.
   set: z.lazy(() => ChatRoomTypeSchema).optional(),
 });
 
-export const OrderUpdateOneRequiredWithoutChatRoomsNestedInputSchema: z.ZodType<Prisma.OrderUpdateOneRequiredWithoutChatRoomsNestedInput> = z.strictObject({
+export const EnumChatRoomStatusFieldUpdateOperationsInputSchema: z.ZodType<Prisma.EnumChatRoomStatusFieldUpdateOperationsInput> = z.strictObject({
+  set: z.lazy(() => ChatRoomStatusSchema).optional(),
+});
+
+export const OrderUpdateOneWithoutChatRoomsNestedInputSchema: z.ZodType<Prisma.OrderUpdateOneWithoutChatRoomsNestedInput> = z.strictObject({
   create: z.union([ z.lazy(() => OrderCreateWithoutChatRoomsInputSchema), z.lazy(() => OrderUncheckedCreateWithoutChatRoomsInputSchema) ]).optional(),
   connectOrCreate: z.lazy(() => OrderCreateOrConnectWithoutChatRoomsInputSchema).optional(),
   upsert: z.lazy(() => OrderUpsertWithoutChatRoomsInputSchema).optional(),
+  disconnect: z.union([ z.boolean(),z.lazy(() => OrderWhereInputSchema) ]).optional(),
+  delete: z.union([ z.boolean(),z.lazy(() => OrderWhereInputSchema) ]).optional(),
   connect: z.lazy(() => OrderWhereUniqueInputSchema).optional(),
   update: z.union([ z.lazy(() => OrderUpdateToOneWithWhereWithoutChatRoomsInputSchema), z.lazy(() => OrderUpdateWithoutChatRoomsInputSchema), z.lazy(() => OrderUncheckedUpdateWithoutChatRoomsInputSchema) ]).optional(),
+});
+
+export const SupportTicketUpdateOneWithoutChatRoomNestedInputSchema: z.ZodType<Prisma.SupportTicketUpdateOneWithoutChatRoomNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutChatRoomInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutChatRoomInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => SupportTicketCreateOrConnectWithoutChatRoomInputSchema).optional(),
+  upsert: z.lazy(() => SupportTicketUpsertWithoutChatRoomInputSchema).optional(),
+  disconnect: z.union([ z.boolean(),z.lazy(() => SupportTicketWhereInputSchema) ]).optional(),
+  delete: z.union([ z.boolean(),z.lazy(() => SupportTicketWhereInputSchema) ]).optional(),
+  connect: z.lazy(() => SupportTicketWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => SupportTicketUpdateToOneWithWhereWithoutChatRoomInputSchema), z.lazy(() => SupportTicketUpdateWithoutChatRoomInputSchema), z.lazy(() => SupportTicketUncheckedUpdateWithoutChatRoomInputSchema) ]).optional(),
 });
 
 export const ChatParticipantUpdateManyWithoutChatRoomNestedInputSchema: z.ZodType<Prisma.ChatParticipantUpdateManyWithoutChatRoomNestedInput> = z.strictObject({
@@ -10984,8 +12258,46 @@ export const UserCreateNestedOneWithoutChatMessagesInputSchema: z.ZodType<Prisma
   connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
 });
 
+export const ChatMessageCreateNestedOneWithoutRepliesInputSchema: z.ZodType<Prisma.ChatMessageCreateNestedOneWithoutRepliesInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutRepliesInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutRepliesInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => ChatMessageCreateOrConnectWithoutRepliesInputSchema).optional(),
+  connect: z.lazy(() => ChatMessageWhereUniqueInputSchema).optional(),
+});
+
+export const ChatMessageCreateNestedManyWithoutReplyToInputSchema: z.ZodType<Prisma.ChatMessageCreateNestedManyWithoutReplyToInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutReplyToInputSchema), z.lazy(() => ChatMessageCreateWithoutReplyToInputSchema).array(), z.lazy(() => ChatMessageUncheckedCreateWithoutReplyToInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutReplyToInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutReplyToInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutReplyToInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatMessageCreateManyReplyToInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const MessageReadReceiptCreateNestedManyWithoutMessageInputSchema: z.ZodType<Prisma.MessageReadReceiptCreateNestedManyWithoutMessageInput> = z.strictObject({
+  create: z.union([ z.lazy(() => MessageReadReceiptCreateWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptCreateWithoutMessageInputSchema).array(), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutMessageInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => MessageReadReceiptCreateOrConnectWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptCreateOrConnectWithoutMessageInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => MessageReadReceiptCreateManyMessageInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const ChatMessageUncheckedCreateNestedManyWithoutReplyToInputSchema: z.ZodType<Prisma.ChatMessageUncheckedCreateNestedManyWithoutReplyToInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutReplyToInputSchema), z.lazy(() => ChatMessageCreateWithoutReplyToInputSchema).array(), z.lazy(() => ChatMessageUncheckedCreateWithoutReplyToInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutReplyToInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutReplyToInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutReplyToInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatMessageCreateManyReplyToInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+});
+
+export const MessageReadReceiptUncheckedCreateNestedManyWithoutMessageInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedCreateNestedManyWithoutMessageInput> = z.strictObject({
+  create: z.union([ z.lazy(() => MessageReadReceiptCreateWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptCreateWithoutMessageInputSchema).array(), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutMessageInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => MessageReadReceiptCreateOrConnectWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptCreateOrConnectWithoutMessageInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => MessageReadReceiptCreateManyMessageInputEnvelopeSchema).optional(),
+  connect: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+});
+
 export const EnumMessageTypeFieldUpdateOperationsInputSchema: z.ZodType<Prisma.EnumMessageTypeFieldUpdateOperationsInput> = z.strictObject({
   set: z.lazy(() => MessageTypeSchema).optional(),
+});
+
+export const EnumMessageStatusFieldUpdateOperationsInputSchema: z.ZodType<Prisma.EnumMessageStatusFieldUpdateOperationsInput> = z.strictObject({
+  set: z.lazy(() => MessageStatusSchema).optional(),
 });
 
 export const ChatRoomUpdateOneRequiredWithoutMessagesNestedInputSchema: z.ZodType<Prisma.ChatRoomUpdateOneRequiredWithoutMessagesNestedInput> = z.strictObject({
@@ -11002,6 +12314,174 @@ export const UserUpdateOneRequiredWithoutChatMessagesNestedInputSchema: z.ZodTyp
   upsert: z.lazy(() => UserUpsertWithoutChatMessagesInputSchema).optional(),
   connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
   update: z.union([ z.lazy(() => UserUpdateToOneWithWhereWithoutChatMessagesInputSchema), z.lazy(() => UserUpdateWithoutChatMessagesInputSchema), z.lazy(() => UserUncheckedUpdateWithoutChatMessagesInputSchema) ]).optional(),
+});
+
+export const ChatMessageUpdateOneWithoutRepliesNestedInputSchema: z.ZodType<Prisma.ChatMessageUpdateOneWithoutRepliesNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutRepliesInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutRepliesInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => ChatMessageCreateOrConnectWithoutRepliesInputSchema).optional(),
+  upsert: z.lazy(() => ChatMessageUpsertWithoutRepliesInputSchema).optional(),
+  disconnect: z.union([ z.boolean(),z.lazy(() => ChatMessageWhereInputSchema) ]).optional(),
+  delete: z.union([ z.boolean(),z.lazy(() => ChatMessageWhereInputSchema) ]).optional(),
+  connect: z.lazy(() => ChatMessageWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => ChatMessageUpdateToOneWithWhereWithoutRepliesInputSchema), z.lazy(() => ChatMessageUpdateWithoutRepliesInputSchema), z.lazy(() => ChatMessageUncheckedUpdateWithoutRepliesInputSchema) ]).optional(),
+});
+
+export const ChatMessageUpdateManyWithoutReplyToNestedInputSchema: z.ZodType<Prisma.ChatMessageUpdateManyWithoutReplyToNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutReplyToInputSchema), z.lazy(() => ChatMessageCreateWithoutReplyToInputSchema).array(), z.lazy(() => ChatMessageUncheckedCreateWithoutReplyToInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutReplyToInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutReplyToInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutReplyToInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => ChatMessageUpsertWithWhereUniqueWithoutReplyToInputSchema), z.lazy(() => ChatMessageUpsertWithWhereUniqueWithoutReplyToInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatMessageCreateManyReplyToInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutReplyToInputSchema), z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutReplyToInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => ChatMessageUpdateManyWithWhereWithoutReplyToInputSchema), z.lazy(() => ChatMessageUpdateManyWithWhereWithoutReplyToInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => ChatMessageScalarWhereInputSchema), z.lazy(() => ChatMessageScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const MessageReadReceiptUpdateManyWithoutMessageNestedInputSchema: z.ZodType<Prisma.MessageReadReceiptUpdateManyWithoutMessageNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => MessageReadReceiptCreateWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptCreateWithoutMessageInputSchema).array(), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutMessageInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => MessageReadReceiptCreateOrConnectWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptCreateOrConnectWithoutMessageInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => MessageReadReceiptUpsertWithWhereUniqueWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUpsertWithWhereUniqueWithoutMessageInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => MessageReadReceiptCreateManyMessageInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => MessageReadReceiptUpdateWithWhereUniqueWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUpdateWithWhereUniqueWithoutMessageInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => MessageReadReceiptUpdateManyWithWhereWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUpdateManyWithWhereWithoutMessageInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => MessageReadReceiptScalarWhereInputSchema), z.lazy(() => MessageReadReceiptScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const ChatMessageUncheckedUpdateManyWithoutReplyToNestedInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateManyWithoutReplyToNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutReplyToInputSchema), z.lazy(() => ChatMessageCreateWithoutReplyToInputSchema).array(), z.lazy(() => ChatMessageUncheckedCreateWithoutReplyToInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutReplyToInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => ChatMessageCreateOrConnectWithoutReplyToInputSchema), z.lazy(() => ChatMessageCreateOrConnectWithoutReplyToInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => ChatMessageUpsertWithWhereUniqueWithoutReplyToInputSchema), z.lazy(() => ChatMessageUpsertWithWhereUniqueWithoutReplyToInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => ChatMessageCreateManyReplyToInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => ChatMessageWhereUniqueInputSchema), z.lazy(() => ChatMessageWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutReplyToInputSchema), z.lazy(() => ChatMessageUpdateWithWhereUniqueWithoutReplyToInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => ChatMessageUpdateManyWithWhereWithoutReplyToInputSchema), z.lazy(() => ChatMessageUpdateManyWithWhereWithoutReplyToInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => ChatMessageScalarWhereInputSchema), z.lazy(() => ChatMessageScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const MessageReadReceiptUncheckedUpdateManyWithoutMessageNestedInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedUpdateManyWithoutMessageNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => MessageReadReceiptCreateWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptCreateWithoutMessageInputSchema).array(), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutMessageInputSchema).array() ]).optional(),
+  connectOrCreate: z.union([ z.lazy(() => MessageReadReceiptCreateOrConnectWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptCreateOrConnectWithoutMessageInputSchema).array() ]).optional(),
+  upsert: z.union([ z.lazy(() => MessageReadReceiptUpsertWithWhereUniqueWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUpsertWithWhereUniqueWithoutMessageInputSchema).array() ]).optional(),
+  createMany: z.lazy(() => MessageReadReceiptCreateManyMessageInputEnvelopeSchema).optional(),
+  set: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  disconnect: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  delete: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  connect: z.union([ z.lazy(() => MessageReadReceiptWhereUniqueInputSchema), z.lazy(() => MessageReadReceiptWhereUniqueInputSchema).array() ]).optional(),
+  update: z.union([ z.lazy(() => MessageReadReceiptUpdateWithWhereUniqueWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUpdateWithWhereUniqueWithoutMessageInputSchema).array() ]).optional(),
+  updateMany: z.union([ z.lazy(() => MessageReadReceiptUpdateManyWithWhereWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUpdateManyWithWhereWithoutMessageInputSchema).array() ]).optional(),
+  deleteMany: z.union([ z.lazy(() => MessageReadReceiptScalarWhereInputSchema), z.lazy(() => MessageReadReceiptScalarWhereInputSchema).array() ]).optional(),
+});
+
+export const ChatMessageCreateNestedOneWithoutReadReceiptsInputSchema: z.ZodType<Prisma.ChatMessageCreateNestedOneWithoutReadReceiptsInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutReadReceiptsInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutReadReceiptsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => ChatMessageCreateOrConnectWithoutReadReceiptsInputSchema).optional(),
+  connect: z.lazy(() => ChatMessageWhereUniqueInputSchema).optional(),
+});
+
+export const UserCreateNestedOneWithoutMessageReadReceiptsInputSchema: z.ZodType<Prisma.UserCreateNestedOneWithoutMessageReadReceiptsInput> = z.strictObject({
+  create: z.union([ z.lazy(() => UserCreateWithoutMessageReadReceiptsInputSchema), z.lazy(() => UserUncheckedCreateWithoutMessageReadReceiptsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => UserCreateOrConnectWithoutMessageReadReceiptsInputSchema).optional(),
+  connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
+});
+
+export const ChatMessageUpdateOneRequiredWithoutReadReceiptsNestedInputSchema: z.ZodType<Prisma.ChatMessageUpdateOneRequiredWithoutReadReceiptsNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutReadReceiptsInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutReadReceiptsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => ChatMessageCreateOrConnectWithoutReadReceiptsInputSchema).optional(),
+  upsert: z.lazy(() => ChatMessageUpsertWithoutReadReceiptsInputSchema).optional(),
+  connect: z.lazy(() => ChatMessageWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => ChatMessageUpdateToOneWithWhereWithoutReadReceiptsInputSchema), z.lazy(() => ChatMessageUpdateWithoutReadReceiptsInputSchema), z.lazy(() => ChatMessageUncheckedUpdateWithoutReadReceiptsInputSchema) ]).optional(),
+});
+
+export const UserUpdateOneRequiredWithoutMessageReadReceiptsNestedInputSchema: z.ZodType<Prisma.UserUpdateOneRequiredWithoutMessageReadReceiptsNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => UserCreateWithoutMessageReadReceiptsInputSchema), z.lazy(() => UserUncheckedCreateWithoutMessageReadReceiptsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => UserCreateOrConnectWithoutMessageReadReceiptsInputSchema).optional(),
+  upsert: z.lazy(() => UserUpsertWithoutMessageReadReceiptsInputSchema).optional(),
+  connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => UserUpdateToOneWithWhereWithoutMessageReadReceiptsInputSchema), z.lazy(() => UserUpdateWithoutMessageReadReceiptsInputSchema), z.lazy(() => UserUncheckedUpdateWithoutMessageReadReceiptsInputSchema) ]).optional(),
+});
+
+export const UserCreateNestedOneWithoutCustomerTicketsInputSchema: z.ZodType<Prisma.UserCreateNestedOneWithoutCustomerTicketsInput> = z.strictObject({
+  create: z.union([ z.lazy(() => UserCreateWithoutCustomerTicketsInputSchema), z.lazy(() => UserUncheckedCreateWithoutCustomerTicketsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => UserCreateOrConnectWithoutCustomerTicketsInputSchema).optional(),
+  connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
+});
+
+export const UserCreateNestedOneWithoutAdminTicketsInputSchema: z.ZodType<Prisma.UserCreateNestedOneWithoutAdminTicketsInput> = z.strictObject({
+  create: z.union([ z.lazy(() => UserCreateWithoutAdminTicketsInputSchema), z.lazy(() => UserUncheckedCreateWithoutAdminTicketsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => UserCreateOrConnectWithoutAdminTicketsInputSchema).optional(),
+  connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
+});
+
+export const ChatRoomCreateNestedOneWithoutTicketInputSchema: z.ZodType<Prisma.ChatRoomCreateNestedOneWithoutTicketInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutTicketInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutTicketInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => ChatRoomCreateOrConnectWithoutTicketInputSchema).optional(),
+  connect: z.lazy(() => ChatRoomWhereUniqueInputSchema).optional(),
+});
+
+export const ChatRoomUncheckedCreateNestedOneWithoutTicketInputSchema: z.ZodType<Prisma.ChatRoomUncheckedCreateNestedOneWithoutTicketInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutTicketInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutTicketInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => ChatRoomCreateOrConnectWithoutTicketInputSchema).optional(),
+  connect: z.lazy(() => ChatRoomWhereUniqueInputSchema).optional(),
+});
+
+export const EnumSupportCategoryFieldUpdateOperationsInputSchema: z.ZodType<Prisma.EnumSupportCategoryFieldUpdateOperationsInput> = z.strictObject({
+  set: z.lazy(() => SupportCategorySchema).optional(),
+});
+
+export const EnumTicketPriorityFieldUpdateOperationsInputSchema: z.ZodType<Prisma.EnumTicketPriorityFieldUpdateOperationsInput> = z.strictObject({
+  set: z.lazy(() => TicketPrioritySchema).optional(),
+});
+
+export const EnumTicketStatusFieldUpdateOperationsInputSchema: z.ZodType<Prisma.EnumTicketStatusFieldUpdateOperationsInput> = z.strictObject({
+  set: z.lazy(() => TicketStatusSchema).optional(),
+});
+
+export const UserUpdateOneRequiredWithoutCustomerTicketsNestedInputSchema: z.ZodType<Prisma.UserUpdateOneRequiredWithoutCustomerTicketsNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => UserCreateWithoutCustomerTicketsInputSchema), z.lazy(() => UserUncheckedCreateWithoutCustomerTicketsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => UserCreateOrConnectWithoutCustomerTicketsInputSchema).optional(),
+  upsert: z.lazy(() => UserUpsertWithoutCustomerTicketsInputSchema).optional(),
+  connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => UserUpdateToOneWithWhereWithoutCustomerTicketsInputSchema), z.lazy(() => UserUpdateWithoutCustomerTicketsInputSchema), z.lazy(() => UserUncheckedUpdateWithoutCustomerTicketsInputSchema) ]).optional(),
+});
+
+export const UserUpdateOneWithoutAdminTicketsNestedInputSchema: z.ZodType<Prisma.UserUpdateOneWithoutAdminTicketsNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => UserCreateWithoutAdminTicketsInputSchema), z.lazy(() => UserUncheckedCreateWithoutAdminTicketsInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => UserCreateOrConnectWithoutAdminTicketsInputSchema).optional(),
+  upsert: z.lazy(() => UserUpsertWithoutAdminTicketsInputSchema).optional(),
+  disconnect: z.union([ z.boolean(),z.lazy(() => UserWhereInputSchema) ]).optional(),
+  delete: z.union([ z.boolean(),z.lazy(() => UserWhereInputSchema) ]).optional(),
+  connect: z.lazy(() => UserWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => UserUpdateToOneWithWhereWithoutAdminTicketsInputSchema), z.lazy(() => UserUpdateWithoutAdminTicketsInputSchema), z.lazy(() => UserUncheckedUpdateWithoutAdminTicketsInputSchema) ]).optional(),
+});
+
+export const ChatRoomUpdateOneWithoutTicketNestedInputSchema: z.ZodType<Prisma.ChatRoomUpdateOneWithoutTicketNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutTicketInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutTicketInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => ChatRoomCreateOrConnectWithoutTicketInputSchema).optional(),
+  upsert: z.lazy(() => ChatRoomUpsertWithoutTicketInputSchema).optional(),
+  disconnect: z.union([ z.boolean(),z.lazy(() => ChatRoomWhereInputSchema) ]).optional(),
+  delete: z.union([ z.boolean(),z.lazy(() => ChatRoomWhereInputSchema) ]).optional(),
+  connect: z.lazy(() => ChatRoomWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => ChatRoomUpdateToOneWithWhereWithoutTicketInputSchema), z.lazy(() => ChatRoomUpdateWithoutTicketInputSchema), z.lazy(() => ChatRoomUncheckedUpdateWithoutTicketInputSchema) ]).optional(),
+});
+
+export const ChatRoomUncheckedUpdateOneWithoutTicketNestedInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateOneWithoutTicketNestedInput> = z.strictObject({
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutTicketInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutTicketInputSchema) ]).optional(),
+  connectOrCreate: z.lazy(() => ChatRoomCreateOrConnectWithoutTicketInputSchema).optional(),
+  upsert: z.lazy(() => ChatRoomUpsertWithoutTicketInputSchema).optional(),
+  disconnect: z.union([ z.boolean(),z.lazy(() => ChatRoomWhereInputSchema) ]).optional(),
+  delete: z.union([ z.boolean(),z.lazy(() => ChatRoomWhereInputSchema) ]).optional(),
+  connect: z.lazy(() => ChatRoomWhereUniqueInputSchema).optional(),
+  update: z.union([ z.lazy(() => ChatRoomUpdateToOneWithWhereWithoutTicketInputSchema), z.lazy(() => ChatRoomUpdateWithoutTicketInputSchema), z.lazy(() => ChatRoomUncheckedUpdateWithoutTicketInputSchema) ]).optional(),
 });
 
 export const NestedStringFilterSchema: z.ZodType<Prisma.NestedStringFilter> = z.strictObject({
@@ -11453,6 +12933,13 @@ export const NestedEnumChatRoomTypeFilterSchema: z.ZodType<Prisma.NestedEnumChat
   not: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => NestedEnumChatRoomTypeFilterSchema) ]).optional(),
 });
 
+export const NestedEnumChatRoomStatusFilterSchema: z.ZodType<Prisma.NestedEnumChatRoomStatusFilter> = z.strictObject({
+  equals: z.lazy(() => ChatRoomStatusSchema).optional(),
+  in: z.lazy(() => ChatRoomStatusSchema).array().optional(),
+  notIn: z.lazy(() => ChatRoomStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => NestedEnumChatRoomStatusFilterSchema) ]).optional(),
+});
+
 export const NestedEnumChatRoomTypeWithAggregatesFilterSchema: z.ZodType<Prisma.NestedEnumChatRoomTypeWithAggregatesFilter> = z.strictObject({
   equals: z.lazy(() => ChatRoomTypeSchema).optional(),
   in: z.lazy(() => ChatRoomTypeSchema).array().optional(),
@@ -11461,6 +12948,16 @@ export const NestedEnumChatRoomTypeWithAggregatesFilterSchema: z.ZodType<Prisma.
   _count: z.lazy(() => NestedIntFilterSchema).optional(),
   _min: z.lazy(() => NestedEnumChatRoomTypeFilterSchema).optional(),
   _max: z.lazy(() => NestedEnumChatRoomTypeFilterSchema).optional(),
+});
+
+export const NestedEnumChatRoomStatusWithAggregatesFilterSchema: z.ZodType<Prisma.NestedEnumChatRoomStatusWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => ChatRoomStatusSchema).optional(),
+  in: z.lazy(() => ChatRoomStatusSchema).array().optional(),
+  notIn: z.lazy(() => ChatRoomStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => NestedEnumChatRoomStatusWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumChatRoomStatusFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumChatRoomStatusFilterSchema).optional(),
 });
 
 export const NestedEnumChatRoleFilterSchema: z.ZodType<Prisma.NestedEnumChatRoleFilter> = z.strictObject({
@@ -11487,6 +12984,13 @@ export const NestedEnumMessageTypeFilterSchema: z.ZodType<Prisma.NestedEnumMessa
   not: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => NestedEnumMessageTypeFilterSchema) ]).optional(),
 });
 
+export const NestedEnumMessageStatusFilterSchema: z.ZodType<Prisma.NestedEnumMessageStatusFilter> = z.strictObject({
+  equals: z.lazy(() => MessageStatusSchema).optional(),
+  in: z.lazy(() => MessageStatusSchema).array().optional(),
+  notIn: z.lazy(() => MessageStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => NestedEnumMessageStatusFilterSchema) ]).optional(),
+});
+
 export const NestedEnumMessageTypeWithAggregatesFilterSchema: z.ZodType<Prisma.NestedEnumMessageTypeWithAggregatesFilter> = z.strictObject({
   equals: z.lazy(() => MessageTypeSchema).optional(),
   in: z.lazy(() => MessageTypeSchema).array().optional(),
@@ -11495,6 +12999,84 @@ export const NestedEnumMessageTypeWithAggregatesFilterSchema: z.ZodType<Prisma.N
   _count: z.lazy(() => NestedIntFilterSchema).optional(),
   _min: z.lazy(() => NestedEnumMessageTypeFilterSchema).optional(),
   _max: z.lazy(() => NestedEnumMessageTypeFilterSchema).optional(),
+});
+
+export const NestedEnumMessageStatusWithAggregatesFilterSchema: z.ZodType<Prisma.NestedEnumMessageStatusWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => MessageStatusSchema).optional(),
+  in: z.lazy(() => MessageStatusSchema).array().optional(),
+  notIn: z.lazy(() => MessageStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => NestedEnumMessageStatusWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumMessageStatusFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumMessageStatusFilterSchema).optional(),
+});
+
+export const NestedJsonNullableFilterSchema: z.ZodType<Prisma.NestedJsonNullableFilter> = z.strictObject({
+  equals: InputJsonValueSchema.optional(),
+  path: z.string().array().optional(),
+  mode: z.lazy(() => QueryModeSchema).optional(),
+  string_contains: z.string().optional(),
+  string_starts_with: z.string().optional(),
+  string_ends_with: z.string().optional(),
+  array_starts_with: InputJsonValueSchema.optional().nullable(),
+  array_ends_with: InputJsonValueSchema.optional().nullable(),
+  array_contains: InputJsonValueSchema.optional().nullable(),
+  lt: InputJsonValueSchema.optional(),
+  lte: InputJsonValueSchema.optional(),
+  gt: InputJsonValueSchema.optional(),
+  gte: InputJsonValueSchema.optional(),
+  not: InputJsonValueSchema.optional(),
+});
+
+export const NestedEnumSupportCategoryFilterSchema: z.ZodType<Prisma.NestedEnumSupportCategoryFilter> = z.strictObject({
+  equals: z.lazy(() => SupportCategorySchema).optional(),
+  in: z.lazy(() => SupportCategorySchema).array().optional(),
+  notIn: z.lazy(() => SupportCategorySchema).array().optional(),
+  not: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => NestedEnumSupportCategoryFilterSchema) ]).optional(),
+});
+
+export const NestedEnumTicketPriorityFilterSchema: z.ZodType<Prisma.NestedEnumTicketPriorityFilter> = z.strictObject({
+  equals: z.lazy(() => TicketPrioritySchema).optional(),
+  in: z.lazy(() => TicketPrioritySchema).array().optional(),
+  notIn: z.lazy(() => TicketPrioritySchema).array().optional(),
+  not: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => NestedEnumTicketPriorityFilterSchema) ]).optional(),
+});
+
+export const NestedEnumTicketStatusFilterSchema: z.ZodType<Prisma.NestedEnumTicketStatusFilter> = z.strictObject({
+  equals: z.lazy(() => TicketStatusSchema).optional(),
+  in: z.lazy(() => TicketStatusSchema).array().optional(),
+  notIn: z.lazy(() => TicketStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => NestedEnumTicketStatusFilterSchema) ]).optional(),
+});
+
+export const NestedEnumSupportCategoryWithAggregatesFilterSchema: z.ZodType<Prisma.NestedEnumSupportCategoryWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => SupportCategorySchema).optional(),
+  in: z.lazy(() => SupportCategorySchema).array().optional(),
+  notIn: z.lazy(() => SupportCategorySchema).array().optional(),
+  not: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => NestedEnumSupportCategoryWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumSupportCategoryFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumSupportCategoryFilterSchema).optional(),
+});
+
+export const NestedEnumTicketPriorityWithAggregatesFilterSchema: z.ZodType<Prisma.NestedEnumTicketPriorityWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => TicketPrioritySchema).optional(),
+  in: z.lazy(() => TicketPrioritySchema).array().optional(),
+  notIn: z.lazy(() => TicketPrioritySchema).array().optional(),
+  not: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => NestedEnumTicketPriorityWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumTicketPriorityFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumTicketPriorityFilterSchema).optional(),
+});
+
+export const NestedEnumTicketStatusWithAggregatesFilterSchema: z.ZodType<Prisma.NestedEnumTicketStatusWithAggregatesFilter> = z.strictObject({
+  equals: z.lazy(() => TicketStatusSchema).optional(),
+  in: z.lazy(() => TicketStatusSchema).array().optional(),
+  notIn: z.lazy(() => TicketStatusSchema).array().optional(),
+  not: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => NestedEnumTicketStatusWithAggregatesFilterSchema) ]).optional(),
+  _count: z.lazy(() => NestedIntFilterSchema).optional(),
+  _min: z.lazy(() => NestedEnumTicketStatusFilterSchema).optional(),
+  _max: z.lazy(() => NestedEnumTicketStatusFilterSchema).optional(),
 });
 
 export const UserProfileCreateWithoutUserInputSchema: z.ZodType<Prisma.UserProfileCreateWithoutUserInput> = z.strictObject({
@@ -11676,6 +13258,7 @@ export const OrderCreateWithoutUserInputSchema: z.ZodType<Prisma.OrderCreateWith
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -11694,6 +13277,7 @@ export const OrderUncheckedCreateWithoutUserInputSchema: z.ZodType<Prisma.OrderU
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -11919,6 +13503,12 @@ export const ChatParticipantCreateWithoutUserInputSchema: z.ZodType<Prisma.ChatP
   id: z.uuid().optional(),
   role: z.lazy(() => ChatRoleSchema),
   joinedAt: z.coerce.date().optional(),
+  leftAt: z.coerce.date().optional().nullable(),
+  lastSeenAt: z.coerce.date().optional().nullable(),
+  lastReadAt: z.coerce.date().optional().nullable(),
+  lastReadMsgId: z.string().optional().nullable(),
+  isMuted: z.boolean().optional(),
+  isBlocked: z.boolean().optional(),
   chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutParticipantsInputSchema),
 });
 
@@ -11927,6 +13517,12 @@ export const ChatParticipantUncheckedCreateWithoutUserInputSchema: z.ZodType<Pri
   chatRoomId: z.string(),
   role: z.lazy(() => ChatRoleSchema),
   joinedAt: z.coerce.date().optional(),
+  leftAt: z.coerce.date().optional().nullable(),
+  lastSeenAt: z.coerce.date().optional().nullable(),
+  lastReadAt: z.coerce.date().optional().nullable(),
+  lastReadMsgId: z.string().optional().nullable(),
+  isMuted: z.boolean().optional(),
+  isBlocked: z.boolean().optional(),
 });
 
 export const ChatParticipantCreateOrConnectWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantCreateOrConnectWithoutUserInput> = z.strictObject({
@@ -11943,9 +13539,17 @@ export const ChatMessageCreateWithoutSenderInputSchema: z.ZodType<Prisma.ChatMes
   id: z.uuid().optional(),
   content: z.string(),
   type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
   isRead: z.boolean().optional(),
   createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
   chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutMessagesInputSchema),
+  replyTo: z.lazy(() => ChatMessageCreateNestedOneWithoutRepliesInputSchema).optional(),
+  replies: z.lazy(() => ChatMessageCreateNestedManyWithoutReplyToInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutMessageInputSchema).optional(),
 });
 
 export const ChatMessageUncheckedCreateWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUncheckedCreateWithoutSenderInput> = z.strictObject({
@@ -11953,8 +13557,16 @@ export const ChatMessageUncheckedCreateWithoutSenderInputSchema: z.ZodType<Prism
   chatRoomId: z.string(),
   content: z.string(),
   type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.string().optional().nullable(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
   isRead: z.boolean().optional(),
   createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  replies: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutReplyToInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutMessageInputSchema).optional(),
 });
 
 export const ChatMessageCreateOrConnectWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageCreateOrConnectWithoutSenderInput> = z.strictObject({
@@ -11964,6 +13576,104 @@ export const ChatMessageCreateOrConnectWithoutSenderInputSchema: z.ZodType<Prism
 
 export const ChatMessageCreateManySenderInputEnvelopeSchema: z.ZodType<Prisma.ChatMessageCreateManySenderInputEnvelope> = z.strictObject({
   data: z.union([ z.lazy(() => ChatMessageCreateManySenderInputSchema), z.lazy(() => ChatMessageCreateManySenderInputSchema).array() ]),
+  skipDuplicates: z.boolean().optional(),
+});
+
+export const MessageReadReceiptCreateWithoutUserInputSchema: z.ZodType<Prisma.MessageReadReceiptCreateWithoutUserInput> = z.strictObject({
+  id: z.uuid().optional(),
+  readAt: z.coerce.date().optional(),
+  message: z.lazy(() => ChatMessageCreateNestedOneWithoutReadReceiptsInputSchema),
+});
+
+export const MessageReadReceiptUncheckedCreateWithoutUserInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedCreateWithoutUserInput> = z.strictObject({
+  id: z.uuid().optional(),
+  messageId: z.string(),
+  readAt: z.coerce.date().optional(),
+});
+
+export const MessageReadReceiptCreateOrConnectWithoutUserInputSchema: z.ZodType<Prisma.MessageReadReceiptCreateOrConnectWithoutUserInput> = z.strictObject({
+  where: z.lazy(() => MessageReadReceiptWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => MessageReadReceiptCreateWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutUserInputSchema) ]),
+});
+
+export const MessageReadReceiptCreateManyUserInputEnvelopeSchema: z.ZodType<Prisma.MessageReadReceiptCreateManyUserInputEnvelope> = z.strictObject({
+  data: z.union([ z.lazy(() => MessageReadReceiptCreateManyUserInputSchema), z.lazy(() => MessageReadReceiptCreateManyUserInputSchema).array() ]),
+  skipDuplicates: z.boolean().optional(),
+});
+
+export const SupportTicketCreateWithoutCustomerInputSchema: z.ZodType<Prisma.SupportTicketCreateWithoutCustomerInput> = z.strictObject({
+  id: z.uuid().optional(),
+  subject: z.string(),
+  category: z.lazy(() => SupportCategorySchema).optional(),
+  priority: z.lazy(() => TicketPrioritySchema).optional(),
+  status: z.lazy(() => TicketStatusSchema).optional(),
+  resolvedAt: z.coerce.date().optional().nullable(),
+  resolution: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  assignedAdmin: z.lazy(() => UserCreateNestedOneWithoutAdminTicketsInputSchema).optional(),
+  chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutTicketInputSchema).optional(),
+});
+
+export const SupportTicketUncheckedCreateWithoutCustomerInputSchema: z.ZodType<Prisma.SupportTicketUncheckedCreateWithoutCustomerInput> = z.strictObject({
+  id: z.uuid().optional(),
+  subject: z.string(),
+  category: z.lazy(() => SupportCategorySchema).optional(),
+  priority: z.lazy(() => TicketPrioritySchema).optional(),
+  status: z.lazy(() => TicketStatusSchema).optional(),
+  assignedAdminId: z.string().optional().nullable(),
+  resolvedAt: z.coerce.date().optional().nullable(),
+  resolution: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  chatRoom: z.lazy(() => ChatRoomUncheckedCreateNestedOneWithoutTicketInputSchema).optional(),
+});
+
+export const SupportTicketCreateOrConnectWithoutCustomerInputSchema: z.ZodType<Prisma.SupportTicketCreateOrConnectWithoutCustomerInput> = z.strictObject({
+  where: z.lazy(() => SupportTicketWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutCustomerInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutCustomerInputSchema) ]),
+});
+
+export const SupportTicketCreateManyCustomerInputEnvelopeSchema: z.ZodType<Prisma.SupportTicketCreateManyCustomerInputEnvelope> = z.strictObject({
+  data: z.union([ z.lazy(() => SupportTicketCreateManyCustomerInputSchema), z.lazy(() => SupportTicketCreateManyCustomerInputSchema).array() ]),
+  skipDuplicates: z.boolean().optional(),
+});
+
+export const SupportTicketCreateWithoutAssignedAdminInputSchema: z.ZodType<Prisma.SupportTicketCreateWithoutAssignedAdminInput> = z.strictObject({
+  id: z.uuid().optional(),
+  subject: z.string(),
+  category: z.lazy(() => SupportCategorySchema).optional(),
+  priority: z.lazy(() => TicketPrioritySchema).optional(),
+  status: z.lazy(() => TicketStatusSchema).optional(),
+  resolvedAt: z.coerce.date().optional().nullable(),
+  resolution: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  customer: z.lazy(() => UserCreateNestedOneWithoutCustomerTicketsInputSchema),
+  chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutTicketInputSchema).optional(),
+});
+
+export const SupportTicketUncheckedCreateWithoutAssignedAdminInputSchema: z.ZodType<Prisma.SupportTicketUncheckedCreateWithoutAssignedAdminInput> = z.strictObject({
+  id: z.uuid().optional(),
+  customerId: z.string(),
+  subject: z.string(),
+  category: z.lazy(() => SupportCategorySchema).optional(),
+  priority: z.lazy(() => TicketPrioritySchema).optional(),
+  status: z.lazy(() => TicketStatusSchema).optional(),
+  resolvedAt: z.coerce.date().optional().nullable(),
+  resolution: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  chatRoom: z.lazy(() => ChatRoomUncheckedCreateNestedOneWithoutTicketInputSchema).optional(),
+});
+
+export const SupportTicketCreateOrConnectWithoutAssignedAdminInputSchema: z.ZodType<Prisma.SupportTicketCreateOrConnectWithoutAssignedAdminInput> = z.strictObject({
+  where: z.lazy(() => SupportTicketWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutAssignedAdminInputSchema) ]),
+});
+
+export const SupportTicketCreateManyAssignedAdminInputEnvelopeSchema: z.ZodType<Prisma.SupportTicketCreateManyAssignedAdminInputEnvelope> = z.strictObject({
+  data: z.union([ z.lazy(() => SupportTicketCreateManyAssignedAdminInputSchema), z.lazy(() => SupportTicketCreateManyAssignedAdminInputSchema).array() ]),
   skipDuplicates: z.boolean().optional(),
 });
 
@@ -12149,6 +13859,7 @@ export const OrderScalarWhereInputSchema: z.ZodType<Prisma.OrderScalarWhereInput
   status: z.union([ z.lazy(() => EnumOrderStatusFilterSchema), z.lazy(() => OrderStatusSchema) ]).optional(),
   totalPrice: z.union([ z.lazy(() => IntFilterSchema), z.number() ]).optional(),
   deliveryFee: z.union([ z.lazy(() => IntNullableFilterSchema), z.number() ]).optional().nullable(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   paymentStatus: z.union([ z.lazy(() => EnumPaymentStatusFilterSchema), z.lazy(() => PaymentStatusSchema) ]).optional(),
 });
 
@@ -12377,6 +14088,12 @@ export const ChatParticipantScalarWhereInputSchema: z.ZodType<Prisma.ChatPartici
   userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   role: z.union([ z.lazy(() => EnumChatRoleFilterSchema), z.lazy(() => ChatRoleSchema) ]).optional(),
   joinedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  leftAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastSeenAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastReadAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  isMuted: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
+  isBlocked: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
 });
 
 export const ChatMessageUpsertWithWhereUniqueWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUpsertWithWhereUniqueWithoutSenderInput> = z.strictObject({
@@ -12404,8 +14121,89 @@ export const ChatMessageScalarWhereInputSchema: z.ZodType<Prisma.ChatMessageScal
   senderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   content: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
   type: z.union([ z.lazy(() => EnumMessageTypeFilterSchema), z.lazy(() => MessageTypeSchema) ]).optional(),
+  status: z.union([ z.lazy(() => EnumMessageStatusFilterSchema), z.lazy(() => MessageStatusSchema) ]).optional(),
+  metadata: z.lazy(() => JsonNullableFilterSchema).optional(),
+  replyToId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  deletedAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  deletedBy: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
   isRead: z.union([ z.lazy(() => BoolFilterSchema), z.boolean() ]).optional(),
   createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  updatedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+});
+
+export const MessageReadReceiptUpsertWithWhereUniqueWithoutUserInputSchema: z.ZodType<Prisma.MessageReadReceiptUpsertWithWhereUniqueWithoutUserInput> = z.strictObject({
+  where: z.lazy(() => MessageReadReceiptWhereUniqueInputSchema),
+  update: z.union([ z.lazy(() => MessageReadReceiptUpdateWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUncheckedUpdateWithoutUserInputSchema) ]),
+  create: z.union([ z.lazy(() => MessageReadReceiptCreateWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutUserInputSchema) ]),
+});
+
+export const MessageReadReceiptUpdateWithWhereUniqueWithoutUserInputSchema: z.ZodType<Prisma.MessageReadReceiptUpdateWithWhereUniqueWithoutUserInput> = z.strictObject({
+  where: z.lazy(() => MessageReadReceiptWhereUniqueInputSchema),
+  data: z.union([ z.lazy(() => MessageReadReceiptUpdateWithoutUserInputSchema), z.lazy(() => MessageReadReceiptUncheckedUpdateWithoutUserInputSchema) ]),
+});
+
+export const MessageReadReceiptUpdateManyWithWhereWithoutUserInputSchema: z.ZodType<Prisma.MessageReadReceiptUpdateManyWithWhereWithoutUserInput> = z.strictObject({
+  where: z.lazy(() => MessageReadReceiptScalarWhereInputSchema),
+  data: z.union([ z.lazy(() => MessageReadReceiptUpdateManyMutationInputSchema), z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserInputSchema) ]),
+});
+
+export const MessageReadReceiptScalarWhereInputSchema: z.ZodType<Prisma.MessageReadReceiptScalarWhereInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => MessageReadReceiptScalarWhereInputSchema), z.lazy(() => MessageReadReceiptScalarWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => MessageReadReceiptScalarWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => MessageReadReceiptScalarWhereInputSchema), z.lazy(() => MessageReadReceiptScalarWhereInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  messageId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  userId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  readAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+});
+
+export const SupportTicketUpsertWithWhereUniqueWithoutCustomerInputSchema: z.ZodType<Prisma.SupportTicketUpsertWithWhereUniqueWithoutCustomerInput> = z.strictObject({
+  where: z.lazy(() => SupportTicketWhereUniqueInputSchema),
+  update: z.union([ z.lazy(() => SupportTicketUpdateWithoutCustomerInputSchema), z.lazy(() => SupportTicketUncheckedUpdateWithoutCustomerInputSchema) ]),
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutCustomerInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutCustomerInputSchema) ]),
+});
+
+export const SupportTicketUpdateWithWhereUniqueWithoutCustomerInputSchema: z.ZodType<Prisma.SupportTicketUpdateWithWhereUniqueWithoutCustomerInput> = z.strictObject({
+  where: z.lazy(() => SupportTicketWhereUniqueInputSchema),
+  data: z.union([ z.lazy(() => SupportTicketUpdateWithoutCustomerInputSchema), z.lazy(() => SupportTicketUncheckedUpdateWithoutCustomerInputSchema) ]),
+});
+
+export const SupportTicketUpdateManyWithWhereWithoutCustomerInputSchema: z.ZodType<Prisma.SupportTicketUpdateManyWithWhereWithoutCustomerInput> = z.strictObject({
+  where: z.lazy(() => SupportTicketScalarWhereInputSchema),
+  data: z.union([ z.lazy(() => SupportTicketUpdateManyMutationInputSchema), z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerInputSchema) ]),
+});
+
+export const SupportTicketScalarWhereInputSchema: z.ZodType<Prisma.SupportTicketScalarWhereInput> = z.strictObject({
+  AND: z.union([ z.lazy(() => SupportTicketScalarWhereInputSchema), z.lazy(() => SupportTicketScalarWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => SupportTicketScalarWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => SupportTicketScalarWhereInputSchema), z.lazy(() => SupportTicketScalarWhereInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  customerId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  subject: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  category: z.union([ z.lazy(() => EnumSupportCategoryFilterSchema), z.lazy(() => SupportCategorySchema) ]).optional(),
+  priority: z.union([ z.lazy(() => EnumTicketPriorityFilterSchema), z.lazy(() => TicketPrioritySchema) ]).optional(),
+  status: z.union([ z.lazy(() => EnumTicketStatusFilterSchema), z.lazy(() => TicketStatusSchema) ]).optional(),
+  assignedAdminId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  resolvedAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  resolution: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+  updatedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
+});
+
+export const SupportTicketUpsertWithWhereUniqueWithoutAssignedAdminInputSchema: z.ZodType<Prisma.SupportTicketUpsertWithWhereUniqueWithoutAssignedAdminInput> = z.strictObject({
+  where: z.lazy(() => SupportTicketWhereUniqueInputSchema),
+  update: z.union([ z.lazy(() => SupportTicketUpdateWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUncheckedUpdateWithoutAssignedAdminInputSchema) ]),
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutAssignedAdminInputSchema) ]),
+});
+
+export const SupportTicketUpdateWithWhereUniqueWithoutAssignedAdminInputSchema: z.ZodType<Prisma.SupportTicketUpdateWithWhereUniqueWithoutAssignedAdminInput> = z.strictObject({
+  where: z.lazy(() => SupportTicketWhereUniqueInputSchema),
+  data: z.union([ z.lazy(() => SupportTicketUpdateWithoutAssignedAdminInputSchema), z.lazy(() => SupportTicketUncheckedUpdateWithoutAssignedAdminInputSchema) ]),
+});
+
+export const SupportTicketUpdateManyWithWhereWithoutAssignedAdminInputSchema: z.ZodType<Prisma.SupportTicketUpdateManyWithWhereWithoutAssignedAdminInput> = z.strictObject({
+  where: z.lazy(() => SupportTicketScalarWhereInputSchema),
+  data: z.union([ z.lazy(() => SupportTicketUpdateManyMutationInputSchema), z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminInputSchema) ]),
 });
 
 export const UserCreateWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserCreateWithoutUserProfilesInput> = z.strictObject({
@@ -12432,6 +14230,9 @@ export const UserCreateWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserCrea
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutUserProfilesInput> = z.strictObject({
@@ -12458,6 +14259,9 @@ export const UserUncheckedCreateWithoutUserProfilesInputSchema: z.ZodType<Prisma
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutUserProfilesInput> = z.strictObject({
@@ -12519,6 +14323,9 @@ export const UserUpdateWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserUpda
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutUserProfilesInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutUserProfilesInput> = z.strictObject({
@@ -12545,6 +14352,9 @@ export const UserUncheckedUpdateWithoutUserProfilesInputSchema: z.ZodType<Prisma
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const ImageUpsertWithoutUserProfilesInputSchema: z.ZodType<Prisma.ImageUpsertWithoutUserProfilesInput> = z.strictObject({
@@ -12596,6 +14406,9 @@ export const UserCreateWithoutUserAddressesInputSchema: z.ZodType<Prisma.UserCre
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutUserAddressesInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutUserAddressesInput> = z.strictObject({
@@ -12622,6 +14435,9 @@ export const UserUncheckedCreateWithoutUserAddressesInputSchema: z.ZodType<Prism
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutUserAddressesInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutUserAddressesInput> = z.strictObject({
@@ -12664,6 +14480,9 @@ export const UserUpdateWithoutUserAddressesInputSchema: z.ZodType<Prisma.UserUpd
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutUserAddressesInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutUserAddressesInput> = z.strictObject({
@@ -12690,6 +14509,9 @@ export const UserUncheckedUpdateWithoutUserAddressesInputSchema: z.ZodType<Prism
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserCreateWithoutAccountsInputSchema: z.ZodType<Prisma.UserCreateWithoutAccountsInput> = z.strictObject({
@@ -12716,6 +14538,9 @@ export const UserCreateWithoutAccountsInputSchema: z.ZodType<Prisma.UserCreateWi
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutAccountsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutAccountsInput> = z.strictObject({
@@ -12742,6 +14567,9 @@ export const UserUncheckedCreateWithoutAccountsInputSchema: z.ZodType<Prisma.Use
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutAccountsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutAccountsInput> = z.strictObject({
@@ -12784,6 +14612,9 @@ export const UserUpdateWithoutAccountsInputSchema: z.ZodType<Prisma.UserUpdateWi
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutAccountsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutAccountsInput> = z.strictObject({
@@ -12810,6 +14641,9 @@ export const UserUncheckedUpdateWithoutAccountsInputSchema: z.ZodType<Prisma.Use
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserCreateWithoutSessionsInputSchema: z.ZodType<Prisma.UserCreateWithoutSessionsInput> = z.strictObject({
@@ -12836,6 +14670,9 @@ export const UserCreateWithoutSessionsInputSchema: z.ZodType<Prisma.UserCreateWi
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutSessionsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutSessionsInput> = z.strictObject({
@@ -12862,6 +14699,9 @@ export const UserUncheckedCreateWithoutSessionsInputSchema: z.ZodType<Prisma.Use
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutSessionsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutSessionsInput> = z.strictObject({
@@ -12904,6 +14744,9 @@ export const UserUpdateWithoutSessionsInputSchema: z.ZodType<Prisma.UserUpdateWi
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutSessionsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutSessionsInput> = z.strictObject({
@@ -12930,6 +14773,9 @@ export const UserUncheckedUpdateWithoutSessionsInputSchema: z.ZodType<Prisma.Use
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserCreateWithoutMerchantsInputSchema: z.ZodType<Prisma.UserCreateWithoutMerchantsInput> = z.strictObject({
@@ -12956,6 +14802,9 @@ export const UserCreateWithoutMerchantsInputSchema: z.ZodType<Prisma.UserCreateW
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutMerchantsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutMerchantsInput> = z.strictObject({
@@ -12982,6 +14831,9 @@ export const UserUncheckedCreateWithoutMerchantsInputSchema: z.ZodType<Prisma.Us
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutMerchantsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutMerchantsInput> = z.strictObject({
@@ -13052,6 +14904,7 @@ export const OrderCreateWithoutMerchantInputSchema: z.ZodType<Prisma.OrderCreate
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -13070,6 +14923,7 @@ export const OrderUncheckedCreateWithoutMerchantInputSchema: z.ZodType<Prisma.Or
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -13238,6 +15092,9 @@ export const UserUpdateWithoutMerchantsInputSchema: z.ZodType<Prisma.UserUpdateW
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutMerchantsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutMerchantsInput> = z.strictObject({
@@ -13264,6 +15121,9 @@ export const UserUncheckedUpdateWithoutMerchantsInputSchema: z.ZodType<Prisma.Us
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const MerchantOperationalHourUpsertWithWhereUniqueWithoutMerchantInputSchema: z.ZodType<Prisma.MerchantOperationalHourUpsertWithWhereUniqueWithoutMerchantInput> = z.strictObject({
@@ -14117,6 +15977,9 @@ export const UserCreateWithoutCartsInputSchema: z.ZodType<Prisma.UserCreateWitho
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutCartsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutCartsInput> = z.strictObject({
@@ -14143,6 +16006,9 @@ export const UserUncheckedCreateWithoutCartsInputSchema: z.ZodType<Prisma.UserUn
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutCartsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutCartsInput> = z.strictObject({
@@ -14264,6 +16130,9 @@ export const UserUpdateWithoutCartsInputSchema: z.ZodType<Prisma.UserUpdateWitho
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutCartsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutCartsInput> = z.strictObject({
@@ -14290,6 +16159,9 @@ export const UserUncheckedUpdateWithoutCartsInputSchema: z.ZodType<Prisma.UserUn
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const CartItemUpsertWithWhereUniqueWithoutCartInputSchema: z.ZodType<Prisma.CartItemUpsertWithWhereUniqueWithoutCartInput> = z.strictObject({
@@ -14547,15 +16419,29 @@ export const OrderPromotionCreateManyOrderInputEnvelopeSchema: z.ZodType<Prisma.
 export const ChatRoomCreateWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomCreateWithoutOrderInput> = z.strictObject({
   id: z.uuid().optional(),
   type: z.lazy(() => ChatRoomTypeSchema),
+  status: z.lazy(() => ChatRoomStatusSchema).optional(),
+  title: z.string().optional().nullable(),
+  lastMessageAt: z.coerce.date().optional().nullable(),
+  lastMessageId: z.string().optional().nullable(),
+  closedAt: z.coerce.date().optional().nullable(),
+  closedReason: z.string().optional().nullable(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
+  ticket: z.lazy(() => SupportTicketCreateNestedOneWithoutChatRoomInputSchema).optional(),
   participants: z.lazy(() => ChatParticipantCreateNestedManyWithoutChatRoomInputSchema).optional(),
   messages: z.lazy(() => ChatMessageCreateNestedManyWithoutChatRoomInputSchema).optional(),
 });
 
 export const ChatRoomUncheckedCreateWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomUncheckedCreateWithoutOrderInput> = z.strictObject({
   id: z.uuid().optional(),
+  ticketId: z.string().optional().nullable(),
   type: z.lazy(() => ChatRoomTypeSchema),
+  status: z.lazy(() => ChatRoomStatusSchema).optional(),
+  title: z.string().optional().nullable(),
+  lastMessageAt: z.coerce.date().optional().nullable(),
+  lastMessageId: z.string().optional().nullable(),
+  closedAt: z.coerce.date().optional().nullable(),
+  closedReason: z.string().optional().nullable(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
   participants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutChatRoomInputSchema).optional(),
@@ -14639,6 +16525,9 @@ export const UserCreateWithoutOrdersInputSchema: z.ZodType<Prisma.UserCreateWith
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutOrdersInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutOrdersInput> = z.strictObject({
@@ -14665,6 +16554,9 @@ export const UserUncheckedCreateWithoutOrdersInputSchema: z.ZodType<Prisma.UserU
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutOrdersInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutOrdersInput> = z.strictObject({
@@ -14824,8 +16716,15 @@ export const ChatRoomScalarWhereInputSchema: z.ZodType<Prisma.ChatRoomScalarWher
   OR: z.lazy(() => ChatRoomScalarWhereInputSchema).array().optional(),
   NOT: z.union([ z.lazy(() => ChatRoomScalarWhereInputSchema), z.lazy(() => ChatRoomScalarWhereInputSchema).array() ]).optional(),
   id: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
-  orderId: z.union([ z.lazy(() => StringFilterSchema), z.string() ]).optional(),
+  orderId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  ticketId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
   type: z.union([ z.lazy(() => EnumChatRoomTypeFilterSchema), z.lazy(() => ChatRoomTypeSchema) ]).optional(),
+  status: z.union([ z.lazy(() => EnumChatRoomStatusFilterSchema), z.lazy(() => ChatRoomStatusSchema) ]).optional(),
+  title: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  lastMessageAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  lastMessageId: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
+  closedAt: z.union([ z.lazy(() => DateTimeNullableFilterSchema), z.coerce.date() ]).optional().nullable(),
+  closedReason: z.union([ z.lazy(() => StringNullableFilterSchema), z.string() ]).optional().nullable(),
   createdAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
   updatedAt: z.union([ z.lazy(() => DateTimeFilterSchema), z.coerce.date() ]).optional(),
 });
@@ -14914,6 +16813,9 @@ export const UserUpdateWithoutOrdersInputSchema: z.ZodType<Prisma.UserUpdateWith
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutOrdersInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutOrdersInput> = z.strictObject({
@@ -14940,6 +16842,9 @@ export const UserUncheckedUpdateWithoutOrdersInputSchema: z.ZodType<Prisma.UserU
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const DriverUpsertWithoutOrdersInputSchema: z.ZodType<Prisma.DriverUpsertWithoutOrdersInput> = z.strictObject({
@@ -14982,6 +16887,7 @@ export const OrderCreateWithoutItemsInputSchema: z.ZodType<Prisma.OrderCreateWit
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutOrderInputSchema).optional(),
@@ -15001,6 +16907,7 @@ export const OrderUncheckedCreateWithoutItemsInputSchema: z.ZodType<Prisma.Order
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
@@ -15051,6 +16958,7 @@ export const OrderUpdateWithoutItemsInputSchema: z.ZodType<Prisma.OrderUpdateWit
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutOrderNestedInputSchema).optional(),
@@ -15070,6 +16978,7 @@ export const OrderUncheckedUpdateWithoutItemsInputSchema: z.ZodType<Prisma.Order
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
@@ -15110,6 +17019,7 @@ export const OrderCreateWithoutStatusHistoriesInputSchema: z.ZodType<Prisma.Orde
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemCreateNestedManyWithoutOrderInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutOrderInputSchema).optional(),
@@ -15129,6 +17039,7 @@ export const OrderUncheckedCreateWithoutStatusHistoriesInputSchema: z.ZodType<Pr
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
@@ -15166,6 +17077,9 @@ export const UserCreateWithoutOrderStatusHistoriesInputSchema: z.ZodType<Prisma.
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutOrderStatusHistoriesInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutOrderStatusHistoriesInput> = z.strictObject({
@@ -15192,6 +17106,9 @@ export const UserUncheckedCreateWithoutOrderStatusHistoriesInputSchema: z.ZodTyp
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutOrderStatusHistoriesInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutOrderStatusHistoriesInput> = z.strictObject({
@@ -15215,6 +17132,7 @@ export const OrderUpdateWithoutStatusHistoriesInputSchema: z.ZodType<Prisma.Orde
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUpdateManyWithoutOrderNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutOrderNestedInputSchema).optional(),
@@ -15234,6 +17152,7 @@ export const OrderUncheckedUpdateWithoutStatusHistoriesInputSchema: z.ZodType<Pr
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
@@ -15277,6 +17196,9 @@ export const UserUpdateWithoutOrderStatusHistoriesInputSchema: z.ZodType<Prisma.
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutOrderStatusHistoriesInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutOrderStatusHistoriesInput> = z.strictObject({
@@ -15303,6 +17225,9 @@ export const UserUncheckedUpdateWithoutOrderStatusHistoriesInputSchema: z.ZodTyp
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const PaymentCallbackCreateWithoutPaymentInputSchema: z.ZodType<Prisma.PaymentCallbackCreateWithoutPaymentInput> = z.strictObject({
@@ -15332,6 +17257,7 @@ export const OrderCreateWithoutPaymentsInputSchema: z.ZodType<Prisma.OrderCreate
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -15351,6 +17277,7 @@ export const OrderUncheckedCreateWithoutPaymentsInputSchema: z.ZodType<Prisma.Or
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -15388,6 +17315,9 @@ export const UserCreateWithoutPaymentsInputSchema: z.ZodType<Prisma.UserCreateWi
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutPaymentsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutPaymentsInput> = z.strictObject({
@@ -15414,6 +17344,9 @@ export const UserUncheckedCreateWithoutPaymentsInputSchema: z.ZodType<Prisma.Use
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutPaymentsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutPaymentsInput> = z.strictObject({
@@ -15506,6 +17439,7 @@ export const OrderUpdateWithoutPaymentsInputSchema: z.ZodType<Prisma.OrderUpdate
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -15525,6 +17459,7 @@ export const OrderUncheckedUpdateWithoutPaymentsInputSchema: z.ZodType<Prisma.Or
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -15568,6 +17503,9 @@ export const UserUpdateWithoutPaymentsInputSchema: z.ZodType<Prisma.UserUpdateWi
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutPaymentsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutPaymentsInput> = z.strictObject({
@@ -15594,6 +17532,9 @@ export const UserUncheckedUpdateWithoutPaymentsInputSchema: z.ZodType<Prisma.Use
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const MerchantUpsertWithoutPaymentsInputSchema: z.ZodType<Prisma.MerchantUpsertWithoutPaymentsInput> = z.strictObject({
@@ -15718,6 +17659,7 @@ export const OrderCreateWithoutDriverInputSchema: z.ZodType<Prisma.OrderCreateWi
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -15736,6 +17678,7 @@ export const OrderUncheckedCreateWithoutDriverInputSchema: z.ZodType<Prisma.Orde
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -15855,6 +17798,9 @@ export const UserCreateWithoutDriversInputSchema: z.ZodType<Prisma.UserCreateWit
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutDriversInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutDriversInput> = z.strictObject({
@@ -15881,6 +17827,9 @@ export const UserUncheckedCreateWithoutDriversInputSchema: z.ZodType<Prisma.User
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutDriversInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutDriversInput> = z.strictObject({
@@ -15998,6 +17947,9 @@ export const UserUpdateWithoutDriversInputSchema: z.ZodType<Prisma.UserUpdateWit
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutDriversInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutDriversInput> = z.strictObject({
@@ -16024,6 +17976,9 @@ export const UserUncheckedUpdateWithoutDriversInputSchema: z.ZodType<Prisma.User
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const DriverCreateWithoutDriverLocationsInputSchema: z.ZodType<Prisma.DriverCreateWithoutDriverLocationsInput> = z.strictObject({
@@ -16095,6 +18050,7 @@ export const OrderCreateWithoutDeliveriesInputSchema: z.ZodType<Prisma.OrderCrea
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -16114,6 +18070,7 @@ export const OrderUncheckedCreateWithoutDeliveriesInputSchema: z.ZodType<Prisma.
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -16172,6 +18129,7 @@ export const OrderUpdateWithoutDeliveriesInputSchema: z.ZodType<Prisma.OrderUpda
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -16191,6 +18149,7 @@ export const OrderUncheckedUpdateWithoutDeliveriesInputSchema: z.ZodType<Prisma.
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -16277,6 +18236,7 @@ export const OrderCreateWithoutOrderPromotionsInputSchema: z.ZodType<Prisma.Orde
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -16296,6 +18256,7 @@ export const OrderUncheckedCreateWithoutOrderPromotionsInputSchema: z.ZodType<Pr
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -16348,6 +18309,7 @@ export const OrderUpdateWithoutOrderPromotionsInputSchema: z.ZodType<Prisma.Orde
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -16367,6 +18329,7 @@ export const OrderUncheckedUpdateWithoutOrderPromotionsInputSchema: z.ZodType<Pr
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -16428,6 +18391,9 @@ export const UserCreateWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.UserC
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutMerchantReviewsInput> = z.strictObject({
@@ -16454,6 +18420,9 @@ export const UserUncheckedCreateWithoutMerchantReviewsInputSchema: z.ZodType<Pri
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutMerchantReviewsInput> = z.strictObject({
@@ -16539,6 +18508,9 @@ export const UserUpdateWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.UserU
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutMerchantReviewsInput> = z.strictObject({
@@ -16565,6 +18537,9 @@ export const UserUncheckedUpdateWithoutMerchantReviewsInputSchema: z.ZodType<Pri
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const MerchantUpsertWithoutMerchantReviewsInputSchema: z.ZodType<Prisma.MerchantUpsertWithoutMerchantReviewsInput> = z.strictObject({
@@ -16640,6 +18615,9 @@ export const UserCreateWithoutDriverReviewsInputSchema: z.ZodType<Prisma.UserCre
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutDriverReviewsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutDriverReviewsInput> = z.strictObject({
@@ -16666,6 +18644,9 @@ export const UserUncheckedCreateWithoutDriverReviewsInputSchema: z.ZodType<Prism
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutDriverReviewsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutDriverReviewsInput> = z.strictObject({
@@ -16737,6 +18718,9 @@ export const UserUpdateWithoutDriverReviewsInputSchema: z.ZodType<Prisma.UserUpd
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutDriverReviewsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutDriverReviewsInput> = z.strictObject({
@@ -16763,6 +18747,9 @@ export const UserUncheckedUpdateWithoutDriverReviewsInputSchema: z.ZodType<Prism
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const DriverUpsertWithoutDriverReviewsInputSchema: z.ZodType<Prisma.DriverUpsertWithoutDriverReviewsInput> = z.strictObject({
@@ -16824,6 +18811,9 @@ export const UserCreateWithoutNotificationsInputSchema: z.ZodType<Prisma.UserCre
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutNotificationsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutNotificationsInput> = z.strictObject({
@@ -16850,6 +18840,9 @@ export const UserUncheckedCreateWithoutNotificationsInputSchema: z.ZodType<Prism
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutNotificationsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutNotificationsInput> = z.strictObject({
@@ -16892,6 +18885,9 @@ export const UserUpdateWithoutNotificationsInputSchema: z.ZodType<Prisma.UserUpd
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutNotificationsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutNotificationsInput> = z.strictObject({
@@ -16918,6 +18914,9 @@ export const UserUncheckedUpdateWithoutNotificationsInputSchema: z.ZodType<Prism
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserProfileCreateWithoutImageInputSchema: z.ZodType<Prisma.UserProfileCreateWithoutImageInput> = z.strictObject({
@@ -17017,6 +19016,7 @@ export const OrderCreateWithoutChatRoomsInputSchema: z.ZodType<Prisma.OrderCreat
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -17036,6 +19036,7 @@ export const OrderUncheckedCreateWithoutChatRoomsInputSchema: z.ZodType<Prisma.O
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
   items: z.lazy(() => OrderItemUncheckedCreateNestedManyWithoutOrderInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutOrdersInputSchema).optional(),
@@ -17049,10 +19050,49 @@ export const OrderCreateOrConnectWithoutChatRoomsInputSchema: z.ZodType<Prisma.O
   create: z.union([ z.lazy(() => OrderCreateWithoutChatRoomsInputSchema), z.lazy(() => OrderUncheckedCreateWithoutChatRoomsInputSchema) ]),
 });
 
+export const SupportTicketCreateWithoutChatRoomInputSchema: z.ZodType<Prisma.SupportTicketCreateWithoutChatRoomInput> = z.strictObject({
+  id: z.uuid().optional(),
+  subject: z.string(),
+  category: z.lazy(() => SupportCategorySchema).optional(),
+  priority: z.lazy(() => TicketPrioritySchema).optional(),
+  status: z.lazy(() => TicketStatusSchema).optional(),
+  resolvedAt: z.coerce.date().optional().nullable(),
+  resolution: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  customer: z.lazy(() => UserCreateNestedOneWithoutCustomerTicketsInputSchema),
+  assignedAdmin: z.lazy(() => UserCreateNestedOneWithoutAdminTicketsInputSchema).optional(),
+});
+
+export const SupportTicketUncheckedCreateWithoutChatRoomInputSchema: z.ZodType<Prisma.SupportTicketUncheckedCreateWithoutChatRoomInput> = z.strictObject({
+  id: z.uuid().optional(),
+  customerId: z.string(),
+  subject: z.string(),
+  category: z.lazy(() => SupportCategorySchema).optional(),
+  priority: z.lazy(() => TicketPrioritySchema).optional(),
+  status: z.lazy(() => TicketStatusSchema).optional(),
+  assignedAdminId: z.string().optional().nullable(),
+  resolvedAt: z.coerce.date().optional().nullable(),
+  resolution: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+});
+
+export const SupportTicketCreateOrConnectWithoutChatRoomInputSchema: z.ZodType<Prisma.SupportTicketCreateOrConnectWithoutChatRoomInput> = z.strictObject({
+  where: z.lazy(() => SupportTicketWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutChatRoomInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutChatRoomInputSchema) ]),
+});
+
 export const ChatParticipantCreateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantCreateWithoutChatRoomInput> = z.strictObject({
   id: z.uuid().optional(),
   role: z.lazy(() => ChatRoleSchema),
   joinedAt: z.coerce.date().optional(),
+  leftAt: z.coerce.date().optional().nullable(),
+  lastSeenAt: z.coerce.date().optional().nullable(),
+  lastReadAt: z.coerce.date().optional().nullable(),
+  lastReadMsgId: z.string().optional().nullable(),
+  isMuted: z.boolean().optional(),
+  isBlocked: z.boolean().optional(),
   user: z.lazy(() => UserCreateNestedOneWithoutChatParticipantsInputSchema),
 });
 
@@ -17061,6 +19101,12 @@ export const ChatParticipantUncheckedCreateWithoutChatRoomInputSchema: z.ZodType
   userId: z.string(),
   role: z.lazy(() => ChatRoleSchema),
   joinedAt: z.coerce.date().optional(),
+  leftAt: z.coerce.date().optional().nullable(),
+  lastSeenAt: z.coerce.date().optional().nullable(),
+  lastReadAt: z.coerce.date().optional().nullable(),
+  lastReadMsgId: z.string().optional().nullable(),
+  isMuted: z.boolean().optional(),
+  isBlocked: z.boolean().optional(),
 });
 
 export const ChatParticipantCreateOrConnectWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantCreateOrConnectWithoutChatRoomInput> = z.strictObject({
@@ -17077,9 +19123,17 @@ export const ChatMessageCreateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatM
   id: z.uuid().optional(),
   content: z.string(),
   type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
   isRead: z.boolean().optional(),
   createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
   sender: z.lazy(() => UserCreateNestedOneWithoutChatMessagesInputSchema),
+  replyTo: z.lazy(() => ChatMessageCreateNestedOneWithoutRepliesInputSchema).optional(),
+  replies: z.lazy(() => ChatMessageCreateNestedManyWithoutReplyToInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutMessageInputSchema).optional(),
 });
 
 export const ChatMessageUncheckedCreateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageUncheckedCreateWithoutChatRoomInput> = z.strictObject({
@@ -17087,8 +19141,16 @@ export const ChatMessageUncheckedCreateWithoutChatRoomInputSchema: z.ZodType<Pri
   senderId: z.string(),
   content: z.string(),
   type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.string().optional().nullable(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
   isRead: z.boolean().optional(),
   createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  replies: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutReplyToInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutMessageInputSchema).optional(),
 });
 
 export const ChatMessageCreateOrConnectWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageCreateOrConnectWithoutChatRoomInput> = z.strictObject({
@@ -17117,6 +19179,7 @@ export const OrderUpdateWithoutChatRoomsInputSchema: z.ZodType<Prisma.OrderUpdat
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -17136,12 +19199,52 @@ export const OrderUncheckedUpdateWithoutChatRoomsInputSchema: z.ZodType<Prisma.O
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   deliveries: z.lazy(() => DeliveryUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   orderPromotions: z.lazy(() => OrderPromotionUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
+});
+
+export const SupportTicketUpsertWithoutChatRoomInputSchema: z.ZodType<Prisma.SupportTicketUpsertWithoutChatRoomInput> = z.strictObject({
+  update: z.union([ z.lazy(() => SupportTicketUpdateWithoutChatRoomInputSchema), z.lazy(() => SupportTicketUncheckedUpdateWithoutChatRoomInputSchema) ]),
+  create: z.union([ z.lazy(() => SupportTicketCreateWithoutChatRoomInputSchema), z.lazy(() => SupportTicketUncheckedCreateWithoutChatRoomInputSchema) ]),
+  where: z.lazy(() => SupportTicketWhereInputSchema).optional(),
+});
+
+export const SupportTicketUpdateToOneWithWhereWithoutChatRoomInputSchema: z.ZodType<Prisma.SupportTicketUpdateToOneWithWhereWithoutChatRoomInput> = z.strictObject({
+  where: z.lazy(() => SupportTicketWhereInputSchema).optional(),
+  data: z.union([ z.lazy(() => SupportTicketUpdateWithoutChatRoomInputSchema), z.lazy(() => SupportTicketUncheckedUpdateWithoutChatRoomInputSchema) ]),
+});
+
+export const SupportTicketUpdateWithoutChatRoomInputSchema: z.ZodType<Prisma.SupportTicketUpdateWithoutChatRoomInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  subject: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  category: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => EnumSupportCategoryFieldUpdateOperationsInputSchema) ]).optional(),
+  priority: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => EnumTicketPriorityFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => EnumTicketStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  resolvedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolution: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  customer: z.lazy(() => UserUpdateOneRequiredWithoutCustomerTicketsNestedInputSchema).optional(),
+  assignedAdmin: z.lazy(() => UserUpdateOneWithoutAdminTicketsNestedInputSchema).optional(),
+});
+
+export const SupportTicketUncheckedUpdateWithoutChatRoomInputSchema: z.ZodType<Prisma.SupportTicketUncheckedUpdateWithoutChatRoomInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  customerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  subject: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  category: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => EnumSupportCategoryFieldUpdateOperationsInputSchema) ]).optional(),
+  priority: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => EnumTicketPriorityFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => EnumTicketStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  assignedAdminId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolvedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolution: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const ChatParticipantUpsertWithWhereUniqueWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantUpsertWithWhereUniqueWithoutChatRoomInput> = z.strictObject({
@@ -17179,16 +19282,30 @@ export const ChatMessageUpdateManyWithWhereWithoutChatRoomInputSchema: z.ZodType
 export const ChatRoomCreateWithoutParticipantsInputSchema: z.ZodType<Prisma.ChatRoomCreateWithoutParticipantsInput> = z.strictObject({
   id: z.uuid().optional(),
   type: z.lazy(() => ChatRoomTypeSchema),
+  status: z.lazy(() => ChatRoomStatusSchema).optional(),
+  title: z.string().optional().nullable(),
+  lastMessageAt: z.coerce.date().optional().nullable(),
+  lastMessageId: z.string().optional().nullable(),
+  closedAt: z.coerce.date().optional().nullable(),
+  closedReason: z.string().optional().nullable(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
-  order: z.lazy(() => OrderCreateNestedOneWithoutChatRoomsInputSchema),
+  order: z.lazy(() => OrderCreateNestedOneWithoutChatRoomsInputSchema).optional(),
+  ticket: z.lazy(() => SupportTicketCreateNestedOneWithoutChatRoomInputSchema).optional(),
   messages: z.lazy(() => ChatMessageCreateNestedManyWithoutChatRoomInputSchema).optional(),
 });
 
 export const ChatRoomUncheckedCreateWithoutParticipantsInputSchema: z.ZodType<Prisma.ChatRoomUncheckedCreateWithoutParticipantsInput> = z.strictObject({
   id: z.uuid().optional(),
-  orderId: z.string(),
+  orderId: z.string().optional().nullable(),
+  ticketId: z.string().optional().nullable(),
   type: z.lazy(() => ChatRoomTypeSchema),
+  status: z.lazy(() => ChatRoomStatusSchema).optional(),
+  title: z.string().optional().nullable(),
+  lastMessageAt: z.coerce.date().optional().nullable(),
+  lastMessageId: z.string().optional().nullable(),
+  closedAt: z.coerce.date().optional().nullable(),
+  closedReason: z.string().optional().nullable(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
   messages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutChatRoomInputSchema).optional(),
@@ -17223,6 +19340,9 @@ export const UserCreateWithoutChatParticipantsInputSchema: z.ZodType<Prisma.User
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutChatParticipantsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutChatParticipantsInput> = z.strictObject({
@@ -17249,6 +19369,9 @@ export const UserUncheckedCreateWithoutChatParticipantsInputSchema: z.ZodType<Pr
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutChatParticipantsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutChatParticipantsInput> = z.strictObject({
@@ -17270,16 +19393,30 @@ export const ChatRoomUpdateToOneWithWhereWithoutParticipantsInputSchema: z.ZodTy
 export const ChatRoomUpdateWithoutParticipantsInputSchema: z.ZodType<Prisma.ChatRoomUpdateWithoutParticipantsInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  order: z.lazy(() => OrderUpdateOneRequiredWithoutChatRoomsNestedInputSchema).optional(),
+  order: z.lazy(() => OrderUpdateOneWithoutChatRoomsNestedInputSchema).optional(),
+  ticket: z.lazy(() => SupportTicketUpdateOneWithoutChatRoomNestedInputSchema).optional(),
   messages: z.lazy(() => ChatMessageUpdateManyWithoutChatRoomNestedInputSchema).optional(),
 });
 
 export const ChatRoomUncheckedUpdateWithoutParticipantsInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateWithoutParticipantsInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  orderId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  ticketId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   messages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutChatRoomNestedInputSchema).optional(),
@@ -17320,6 +19457,9 @@ export const UserUpdateWithoutChatParticipantsInputSchema: z.ZodType<Prisma.User
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutChatParticipantsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutChatParticipantsInput> = z.strictObject({
@@ -17346,21 +19486,38 @@ export const UserUncheckedUpdateWithoutChatParticipantsInputSchema: z.ZodType<Pr
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const ChatRoomCreateWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomCreateWithoutMessagesInput> = z.strictObject({
   id: z.uuid().optional(),
   type: z.lazy(() => ChatRoomTypeSchema),
+  status: z.lazy(() => ChatRoomStatusSchema).optional(),
+  title: z.string().optional().nullable(),
+  lastMessageAt: z.coerce.date().optional().nullable(),
+  lastMessageId: z.string().optional().nullable(),
+  closedAt: z.coerce.date().optional().nullable(),
+  closedReason: z.string().optional().nullable(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
-  order: z.lazy(() => OrderCreateNestedOneWithoutChatRoomsInputSchema),
+  order: z.lazy(() => OrderCreateNestedOneWithoutChatRoomsInputSchema).optional(),
+  ticket: z.lazy(() => SupportTicketCreateNestedOneWithoutChatRoomInputSchema).optional(),
   participants: z.lazy(() => ChatParticipantCreateNestedManyWithoutChatRoomInputSchema).optional(),
 });
 
 export const ChatRoomUncheckedCreateWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomUncheckedCreateWithoutMessagesInput> = z.strictObject({
   id: z.uuid().optional(),
-  orderId: z.string(),
+  orderId: z.string().optional().nullable(),
+  ticketId: z.string().optional().nullable(),
   type: z.lazy(() => ChatRoomTypeSchema),
+  status: z.lazy(() => ChatRoomStatusSchema).optional(),
+  title: z.string().optional().nullable(),
+  lastMessageAt: z.coerce.date().optional().nullable(),
+  lastMessageId: z.string().optional().nullable(),
+  closedAt: z.coerce.date().optional().nullable(),
+  closedReason: z.string().optional().nullable(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
   participants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutChatRoomInputSchema).optional(),
@@ -17395,6 +19552,9 @@ export const UserCreateWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserCrea
   carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserUncheckedCreateWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutChatMessagesInput> = z.strictObject({
@@ -17421,11 +19581,119 @@ export const UserUncheckedCreateWithoutChatMessagesInputSchema: z.ZodType<Prisma
   carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
 });
 
 export const UserCreateOrConnectWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutChatMessagesInput> = z.strictObject({
   where: z.lazy(() => UserWhereUniqueInputSchema),
   create: z.union([ z.lazy(() => UserCreateWithoutChatMessagesInputSchema), z.lazy(() => UserUncheckedCreateWithoutChatMessagesInputSchema) ]),
+});
+
+export const ChatMessageCreateWithoutRepliesInputSchema: z.ZodType<Prisma.ChatMessageCreateWithoutRepliesInput> = z.strictObject({
+  id: z.uuid().optional(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutMessagesInputSchema),
+  sender: z.lazy(() => UserCreateNestedOneWithoutChatMessagesInputSchema),
+  replyTo: z.lazy(() => ChatMessageCreateNestedOneWithoutRepliesInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutMessageInputSchema).optional(),
+});
+
+export const ChatMessageUncheckedCreateWithoutRepliesInputSchema: z.ZodType<Prisma.ChatMessageUncheckedCreateWithoutRepliesInput> = z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId: z.string(),
+  senderId: z.string(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.string().optional().nullable(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutMessageInputSchema).optional(),
+});
+
+export const ChatMessageCreateOrConnectWithoutRepliesInputSchema: z.ZodType<Prisma.ChatMessageCreateOrConnectWithoutRepliesInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutRepliesInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutRepliesInputSchema) ]),
+});
+
+export const ChatMessageCreateWithoutReplyToInputSchema: z.ZodType<Prisma.ChatMessageCreateWithoutReplyToInput> = z.strictObject({
+  id: z.uuid().optional(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutMessagesInputSchema),
+  sender: z.lazy(() => UserCreateNestedOneWithoutChatMessagesInputSchema),
+  replies: z.lazy(() => ChatMessageCreateNestedManyWithoutReplyToInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutMessageInputSchema).optional(),
+});
+
+export const ChatMessageUncheckedCreateWithoutReplyToInputSchema: z.ZodType<Prisma.ChatMessageUncheckedCreateWithoutReplyToInput> = z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId: z.string(),
+  senderId: z.string(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  replies: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutReplyToInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutMessageInputSchema).optional(),
+});
+
+export const ChatMessageCreateOrConnectWithoutReplyToInputSchema: z.ZodType<Prisma.ChatMessageCreateOrConnectWithoutReplyToInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutReplyToInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutReplyToInputSchema) ]),
+});
+
+export const ChatMessageCreateManyReplyToInputEnvelopeSchema: z.ZodType<Prisma.ChatMessageCreateManyReplyToInputEnvelope> = z.strictObject({
+  data: z.union([ z.lazy(() => ChatMessageCreateManyReplyToInputSchema), z.lazy(() => ChatMessageCreateManyReplyToInputSchema).array() ]),
+  skipDuplicates: z.boolean().optional(),
+});
+
+export const MessageReadReceiptCreateWithoutMessageInputSchema: z.ZodType<Prisma.MessageReadReceiptCreateWithoutMessageInput> = z.strictObject({
+  id: z.uuid().optional(),
+  readAt: z.coerce.date().optional(),
+  user: z.lazy(() => UserCreateNestedOneWithoutMessageReadReceiptsInputSchema),
+});
+
+export const MessageReadReceiptUncheckedCreateWithoutMessageInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedCreateWithoutMessageInput> = z.strictObject({
+  id: z.uuid().optional(),
+  userId: z.string(),
+  readAt: z.coerce.date().optional(),
+});
+
+export const MessageReadReceiptCreateOrConnectWithoutMessageInputSchema: z.ZodType<Prisma.MessageReadReceiptCreateOrConnectWithoutMessageInput> = z.strictObject({
+  where: z.lazy(() => MessageReadReceiptWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => MessageReadReceiptCreateWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutMessageInputSchema) ]),
+});
+
+export const MessageReadReceiptCreateManyMessageInputEnvelopeSchema: z.ZodType<Prisma.MessageReadReceiptCreateManyMessageInputEnvelope> = z.strictObject({
+  data: z.union([ z.lazy(() => MessageReadReceiptCreateManyMessageInputSchema), z.lazy(() => MessageReadReceiptCreateManyMessageInputSchema).array() ]),
+  skipDuplicates: z.boolean().optional(),
 });
 
 export const ChatRoomUpsertWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomUpsertWithoutMessagesInput> = z.strictObject({
@@ -17442,16 +19710,30 @@ export const ChatRoomUpdateToOneWithWhereWithoutMessagesInputSchema: z.ZodType<P
 export const ChatRoomUpdateWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomUpdateWithoutMessagesInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
-  order: z.lazy(() => OrderUpdateOneRequiredWithoutChatRoomsNestedInputSchema).optional(),
+  order: z.lazy(() => OrderUpdateOneWithoutChatRoomsNestedInputSchema).optional(),
+  ticket: z.lazy(() => SupportTicketUpdateOneWithoutChatRoomNestedInputSchema).optional(),
   participants: z.lazy(() => ChatParticipantUpdateManyWithoutChatRoomNestedInputSchema).optional(),
 });
 
 export const ChatRoomUncheckedUpdateWithoutMessagesInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateWithoutMessagesInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  orderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  orderId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  ticketId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   participants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutChatRoomNestedInputSchema).optional(),
@@ -17492,6 +19774,9 @@ export const UserUpdateWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserUpda
   carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
 });
 
 export const UserUncheckedUpdateWithoutChatMessagesInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutChatMessagesInput> = z.strictObject({
@@ -17518,6 +19803,646 @@ export const UserUncheckedUpdateWithoutChatMessagesInputSchema: z.ZodType<Prisma
   carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
   payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
   chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
+});
+
+export const ChatMessageUpsertWithoutRepliesInputSchema: z.ZodType<Prisma.ChatMessageUpsertWithoutRepliesInput> = z.strictObject({
+  update: z.union([ z.lazy(() => ChatMessageUpdateWithoutRepliesInputSchema), z.lazy(() => ChatMessageUncheckedUpdateWithoutRepliesInputSchema) ]),
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutRepliesInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutRepliesInputSchema) ]),
+  where: z.lazy(() => ChatMessageWhereInputSchema).optional(),
+});
+
+export const ChatMessageUpdateToOneWithWhereWithoutRepliesInputSchema: z.ZodType<Prisma.ChatMessageUpdateToOneWithWhereWithoutRepliesInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereInputSchema).optional(),
+  data: z.union([ z.lazy(() => ChatMessageUpdateWithoutRepliesInputSchema), z.lazy(() => ChatMessageUncheckedUpdateWithoutRepliesInputSchema) ]),
+});
+
+export const ChatMessageUpdateWithoutRepliesInputSchema: z.ZodType<Prisma.ChatMessageUpdateWithoutRepliesInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoom: z.lazy(() => ChatRoomUpdateOneRequiredWithoutMessagesNestedInputSchema).optional(),
+  sender: z.lazy(() => UserUpdateOneRequiredWithoutChatMessagesNestedInputSchema).optional(),
+  replyTo: z.lazy(() => ChatMessageUpdateOneWithoutRepliesNestedInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutMessageNestedInputSchema).optional(),
+});
+
+export const ChatMessageUncheckedUpdateWithoutRepliesInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateWithoutRepliesInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  senderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutMessageNestedInputSchema).optional(),
+});
+
+export const ChatMessageUpsertWithWhereUniqueWithoutReplyToInputSchema: z.ZodType<Prisma.ChatMessageUpsertWithWhereUniqueWithoutReplyToInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereUniqueInputSchema),
+  update: z.union([ z.lazy(() => ChatMessageUpdateWithoutReplyToInputSchema), z.lazy(() => ChatMessageUncheckedUpdateWithoutReplyToInputSchema) ]),
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutReplyToInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutReplyToInputSchema) ]),
+});
+
+export const ChatMessageUpdateWithWhereUniqueWithoutReplyToInputSchema: z.ZodType<Prisma.ChatMessageUpdateWithWhereUniqueWithoutReplyToInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereUniqueInputSchema),
+  data: z.union([ z.lazy(() => ChatMessageUpdateWithoutReplyToInputSchema), z.lazy(() => ChatMessageUncheckedUpdateWithoutReplyToInputSchema) ]),
+});
+
+export const ChatMessageUpdateManyWithWhereWithoutReplyToInputSchema: z.ZodType<Prisma.ChatMessageUpdateManyWithWhereWithoutReplyToInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageScalarWhereInputSchema),
+  data: z.union([ z.lazy(() => ChatMessageUpdateManyMutationInputSchema), z.lazy(() => ChatMessageUncheckedUpdateManyWithoutReplyToInputSchema) ]),
+});
+
+export const MessageReadReceiptUpsertWithWhereUniqueWithoutMessageInputSchema: z.ZodType<Prisma.MessageReadReceiptUpsertWithWhereUniqueWithoutMessageInput> = z.strictObject({
+  where: z.lazy(() => MessageReadReceiptWhereUniqueInputSchema),
+  update: z.union([ z.lazy(() => MessageReadReceiptUpdateWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUncheckedUpdateWithoutMessageInputSchema) ]),
+  create: z.union([ z.lazy(() => MessageReadReceiptCreateWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUncheckedCreateWithoutMessageInputSchema) ]),
+});
+
+export const MessageReadReceiptUpdateWithWhereUniqueWithoutMessageInputSchema: z.ZodType<Prisma.MessageReadReceiptUpdateWithWhereUniqueWithoutMessageInput> = z.strictObject({
+  where: z.lazy(() => MessageReadReceiptWhereUniqueInputSchema),
+  data: z.union([ z.lazy(() => MessageReadReceiptUpdateWithoutMessageInputSchema), z.lazy(() => MessageReadReceiptUncheckedUpdateWithoutMessageInputSchema) ]),
+});
+
+export const MessageReadReceiptUpdateManyWithWhereWithoutMessageInputSchema: z.ZodType<Prisma.MessageReadReceiptUpdateManyWithWhereWithoutMessageInput> = z.strictObject({
+  where: z.lazy(() => MessageReadReceiptScalarWhereInputSchema),
+  data: z.union([ z.lazy(() => MessageReadReceiptUpdateManyMutationInputSchema), z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutMessageInputSchema) ]),
+});
+
+export const ChatMessageCreateWithoutReadReceiptsInputSchema: z.ZodType<Prisma.ChatMessageCreateWithoutReadReceiptsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  chatRoom: z.lazy(() => ChatRoomCreateNestedOneWithoutMessagesInputSchema),
+  sender: z.lazy(() => UserCreateNestedOneWithoutChatMessagesInputSchema),
+  replyTo: z.lazy(() => ChatMessageCreateNestedOneWithoutRepliesInputSchema).optional(),
+  replies: z.lazy(() => ChatMessageCreateNestedManyWithoutReplyToInputSchema).optional(),
+});
+
+export const ChatMessageUncheckedCreateWithoutReadReceiptsInputSchema: z.ZodType<Prisma.ChatMessageUncheckedCreateWithoutReadReceiptsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId: z.string(),
+  senderId: z.string(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.string().optional().nullable(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  replies: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutReplyToInputSchema).optional(),
+});
+
+export const ChatMessageCreateOrConnectWithoutReadReceiptsInputSchema: z.ZodType<Prisma.ChatMessageCreateOrConnectWithoutReadReceiptsInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutReadReceiptsInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutReadReceiptsInputSchema) ]),
+});
+
+export const UserCreateWithoutMessageReadReceiptsInputSchema: z.ZodType<Prisma.UserCreateWithoutMessageReadReceiptsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  email: z.string(),
+  emailVerified: z.boolean().optional(),
+  image: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  role: z.lazy(() => RoleSchema).optional(),
+  status: z.lazy(() => UserStatusSchema).optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  userProfiles: z.lazy(() => UserProfileCreateNestedManyWithoutUserInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresCreateNestedManyWithoutUserInputSchema).optional(),
+  accounts: z.lazy(() => AccountCreateNestedManyWithoutUserInputSchema).optional(),
+  sessions: z.lazy(() => SessionCreateNestedManyWithoutUserInputSchema).optional(),
+  merchants: z.lazy(() => MerchantCreateNestedManyWithoutUserInputSchema).optional(),
+  orders: z.lazy(() => OrderCreateNestedManyWithoutUserInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutUsersInputSchema).optional(),
+  drivers: z.lazy(() => DriverCreateNestedManyWithoutUserInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewCreateNestedManyWithoutUserInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewCreateNestedManyWithoutUserInputSchema).optional(),
+  notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
+  carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
+  payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
+});
+
+export const UserUncheckedCreateWithoutMessageReadReceiptsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutMessageReadReceiptsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  email: z.string(),
+  emailVerified: z.boolean().optional(),
+  image: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  role: z.lazy(() => RoleSchema).optional(),
+  status: z.lazy(() => UserStatusSchema).optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  userProfiles: z.lazy(() => UserProfileUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  accounts: z.lazy(() => AccountUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  sessions: z.lazy(() => SessionUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  orders: z.lazy(() => OrderUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutUsersInputSchema).optional(),
+  drivers: z.lazy(() => DriverUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
+});
+
+export const UserCreateOrConnectWithoutMessageReadReceiptsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutMessageReadReceiptsInput> = z.strictObject({
+  where: z.lazy(() => UserWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => UserCreateWithoutMessageReadReceiptsInputSchema), z.lazy(() => UserUncheckedCreateWithoutMessageReadReceiptsInputSchema) ]),
+});
+
+export const ChatMessageUpsertWithoutReadReceiptsInputSchema: z.ZodType<Prisma.ChatMessageUpsertWithoutReadReceiptsInput> = z.strictObject({
+  update: z.union([ z.lazy(() => ChatMessageUpdateWithoutReadReceiptsInputSchema), z.lazy(() => ChatMessageUncheckedUpdateWithoutReadReceiptsInputSchema) ]),
+  create: z.union([ z.lazy(() => ChatMessageCreateWithoutReadReceiptsInputSchema), z.lazy(() => ChatMessageUncheckedCreateWithoutReadReceiptsInputSchema) ]),
+  where: z.lazy(() => ChatMessageWhereInputSchema).optional(),
+});
+
+export const ChatMessageUpdateToOneWithWhereWithoutReadReceiptsInputSchema: z.ZodType<Prisma.ChatMessageUpdateToOneWithWhereWithoutReadReceiptsInput> = z.strictObject({
+  where: z.lazy(() => ChatMessageWhereInputSchema).optional(),
+  data: z.union([ z.lazy(() => ChatMessageUpdateWithoutReadReceiptsInputSchema), z.lazy(() => ChatMessageUncheckedUpdateWithoutReadReceiptsInputSchema) ]),
+});
+
+export const ChatMessageUpdateWithoutReadReceiptsInputSchema: z.ZodType<Prisma.ChatMessageUpdateWithoutReadReceiptsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoom: z.lazy(() => ChatRoomUpdateOneRequiredWithoutMessagesNestedInputSchema).optional(),
+  sender: z.lazy(() => UserUpdateOneRequiredWithoutChatMessagesNestedInputSchema).optional(),
+  replyTo: z.lazy(() => ChatMessageUpdateOneWithoutRepliesNestedInputSchema).optional(),
+  replies: z.lazy(() => ChatMessageUpdateManyWithoutReplyToNestedInputSchema).optional(),
+});
+
+export const ChatMessageUncheckedUpdateWithoutReadReceiptsInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateWithoutReadReceiptsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  senderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  replies: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutReplyToNestedInputSchema).optional(),
+});
+
+export const UserUpsertWithoutMessageReadReceiptsInputSchema: z.ZodType<Prisma.UserUpsertWithoutMessageReadReceiptsInput> = z.strictObject({
+  update: z.union([ z.lazy(() => UserUpdateWithoutMessageReadReceiptsInputSchema), z.lazy(() => UserUncheckedUpdateWithoutMessageReadReceiptsInputSchema) ]),
+  create: z.union([ z.lazy(() => UserCreateWithoutMessageReadReceiptsInputSchema), z.lazy(() => UserUncheckedCreateWithoutMessageReadReceiptsInputSchema) ]),
+  where: z.lazy(() => UserWhereInputSchema).optional(),
+});
+
+export const UserUpdateToOneWithWhereWithoutMessageReadReceiptsInputSchema: z.ZodType<Prisma.UserUpdateToOneWithWhereWithoutMessageReadReceiptsInput> = z.strictObject({
+  where: z.lazy(() => UserWhereInputSchema).optional(),
+  data: z.union([ z.lazy(() => UserUpdateWithoutMessageReadReceiptsInputSchema), z.lazy(() => UserUncheckedUpdateWithoutMessageReadReceiptsInputSchema) ]),
+});
+
+export const UserUpdateWithoutMessageReadReceiptsInputSchema: z.ZodType<Prisma.UserUpdateWithoutMessageReadReceiptsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  email: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  emailVerified: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  image: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  phoneNumber: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  role: z.union([ z.lazy(() => RoleSchema), z.lazy(() => EnumRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => UserStatusSchema), z.lazy(() => EnumUserStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  userProfiles: z.lazy(() => UserProfileUpdateManyWithoutUserNestedInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUpdateManyWithoutUserNestedInputSchema).optional(),
+  accounts: z.lazy(() => AccountUpdateManyWithoutUserNestedInputSchema).optional(),
+  sessions: z.lazy(() => SessionUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUpdateManyWithoutUserNestedInputSchema).optional(),
+  orders: z.lazy(() => OrderUpdateManyWithoutUserNestedInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutUsersNestedInputSchema).optional(),
+  drivers: z.lazy(() => DriverUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUpdateManyWithoutUserNestedInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUpdateManyWithoutUserNestedInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
+  carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
+  payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
+});
+
+export const UserUncheckedUpdateWithoutMessageReadReceiptsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutMessageReadReceiptsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  email: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  emailVerified: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  image: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  phoneNumber: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  role: z.union([ z.lazy(() => RoleSchema), z.lazy(() => EnumRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => UserStatusSchema), z.lazy(() => EnumUserStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  userProfiles: z.lazy(() => UserProfileUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  accounts: z.lazy(() => AccountUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  sessions: z.lazy(() => SessionUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  orders: z.lazy(() => OrderUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutUsersNestedInputSchema).optional(),
+  drivers: z.lazy(() => DriverUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
+});
+
+export const UserCreateWithoutCustomerTicketsInputSchema: z.ZodType<Prisma.UserCreateWithoutCustomerTicketsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  email: z.string(),
+  emailVerified: z.boolean().optional(),
+  image: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  role: z.lazy(() => RoleSchema).optional(),
+  status: z.lazy(() => UserStatusSchema).optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  userProfiles: z.lazy(() => UserProfileCreateNestedManyWithoutUserInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresCreateNestedManyWithoutUserInputSchema).optional(),
+  accounts: z.lazy(() => AccountCreateNestedManyWithoutUserInputSchema).optional(),
+  sessions: z.lazy(() => SessionCreateNestedManyWithoutUserInputSchema).optional(),
+  merchants: z.lazy(() => MerchantCreateNestedManyWithoutUserInputSchema).optional(),
+  orders: z.lazy(() => OrderCreateNestedManyWithoutUserInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutUsersInputSchema).optional(),
+  drivers: z.lazy(() => DriverCreateNestedManyWithoutUserInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewCreateNestedManyWithoutUserInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewCreateNestedManyWithoutUserInputSchema).optional(),
+  notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
+  carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
+  payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
+});
+
+export const UserUncheckedCreateWithoutCustomerTicketsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutCustomerTicketsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  email: z.string(),
+  emailVerified: z.boolean().optional(),
+  image: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  role: z.lazy(() => RoleSchema).optional(),
+  status: z.lazy(() => UserStatusSchema).optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  userProfiles: z.lazy(() => UserProfileUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  accounts: z.lazy(() => AccountUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  sessions: z.lazy(() => SessionUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  orders: z.lazy(() => OrderUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutUsersInputSchema).optional(),
+  drivers: z.lazy(() => DriverUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutAssignedAdminInputSchema).optional(),
+});
+
+export const UserCreateOrConnectWithoutCustomerTicketsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutCustomerTicketsInput> = z.strictObject({
+  where: z.lazy(() => UserWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => UserCreateWithoutCustomerTicketsInputSchema), z.lazy(() => UserUncheckedCreateWithoutCustomerTicketsInputSchema) ]),
+});
+
+export const UserCreateWithoutAdminTicketsInputSchema: z.ZodType<Prisma.UserCreateWithoutAdminTicketsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  email: z.string(),
+  emailVerified: z.boolean().optional(),
+  image: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  role: z.lazy(() => RoleSchema).optional(),
+  status: z.lazy(() => UserStatusSchema).optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  userProfiles: z.lazy(() => UserProfileCreateNestedManyWithoutUserInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresCreateNestedManyWithoutUserInputSchema).optional(),
+  accounts: z.lazy(() => AccountCreateNestedManyWithoutUserInputSchema).optional(),
+  sessions: z.lazy(() => SessionCreateNestedManyWithoutUserInputSchema).optional(),
+  merchants: z.lazy(() => MerchantCreateNestedManyWithoutUserInputSchema).optional(),
+  orders: z.lazy(() => OrderCreateNestedManyWithoutUserInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryCreateNestedManyWithoutUsersInputSchema).optional(),
+  drivers: z.lazy(() => DriverCreateNestedManyWithoutUserInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewCreateNestedManyWithoutUserInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewCreateNestedManyWithoutUserInputSchema).optional(),
+  notifications: z.lazy(() => NotificationCreateNestedManyWithoutUserInputSchema).optional(),
+  carts: z.lazy(() => CartCreateNestedManyWithoutUserInputSchema).optional(),
+  payments: z.lazy(() => PaymentCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketCreateNestedManyWithoutCustomerInputSchema).optional(),
+});
+
+export const UserUncheckedCreateWithoutAdminTicketsInputSchema: z.ZodType<Prisma.UserUncheckedCreateWithoutAdminTicketsInput> = z.strictObject({
+  id: z.uuid().optional(),
+  email: z.string(),
+  emailVerified: z.boolean().optional(),
+  image: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  role: z.lazy(() => RoleSchema).optional(),
+  status: z.lazy(() => UserStatusSchema).optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  userProfiles: z.lazy(() => UserProfileUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  accounts: z.lazy(() => AccountUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  sessions: z.lazy(() => SessionUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  orders: z.lazy(() => OrderUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUncheckedCreateNestedManyWithoutUsersInputSchema).optional(),
+  drivers: z.lazy(() => DriverUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  carts: z.lazy(() => CartUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  payments: z.lazy(() => PaymentUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutSenderInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedCreateNestedManyWithoutUserInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedCreateNestedManyWithoutCustomerInputSchema).optional(),
+});
+
+export const UserCreateOrConnectWithoutAdminTicketsInputSchema: z.ZodType<Prisma.UserCreateOrConnectWithoutAdminTicketsInput> = z.strictObject({
+  where: z.lazy(() => UserWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => UserCreateWithoutAdminTicketsInputSchema), z.lazy(() => UserUncheckedCreateWithoutAdminTicketsInputSchema) ]),
+});
+
+export const ChatRoomCreateWithoutTicketInputSchema: z.ZodType<Prisma.ChatRoomCreateWithoutTicketInput> = z.strictObject({
+  id: z.uuid().optional(),
+  type: z.lazy(() => ChatRoomTypeSchema),
+  status: z.lazy(() => ChatRoomStatusSchema).optional(),
+  title: z.string().optional().nullable(),
+  lastMessageAt: z.coerce.date().optional().nullable(),
+  lastMessageId: z.string().optional().nullable(),
+  closedAt: z.coerce.date().optional().nullable(),
+  closedReason: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  order: z.lazy(() => OrderCreateNestedOneWithoutChatRoomsInputSchema).optional(),
+  participants: z.lazy(() => ChatParticipantCreateNestedManyWithoutChatRoomInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageCreateNestedManyWithoutChatRoomInputSchema).optional(),
+});
+
+export const ChatRoomUncheckedCreateWithoutTicketInputSchema: z.ZodType<Prisma.ChatRoomUncheckedCreateWithoutTicketInput> = z.strictObject({
+  id: z.uuid().optional(),
+  orderId: z.string().optional().nullable(),
+  type: z.lazy(() => ChatRoomTypeSchema),
+  status: z.lazy(() => ChatRoomStatusSchema).optional(),
+  title: z.string().optional().nullable(),
+  lastMessageAt: z.coerce.date().optional().nullable(),
+  lastMessageId: z.string().optional().nullable(),
+  closedAt: z.coerce.date().optional().nullable(),
+  closedReason: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+  participants: z.lazy(() => ChatParticipantUncheckedCreateNestedManyWithoutChatRoomInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageUncheckedCreateNestedManyWithoutChatRoomInputSchema).optional(),
+});
+
+export const ChatRoomCreateOrConnectWithoutTicketInputSchema: z.ZodType<Prisma.ChatRoomCreateOrConnectWithoutTicketInput> = z.strictObject({
+  where: z.lazy(() => ChatRoomWhereUniqueInputSchema),
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutTicketInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutTicketInputSchema) ]),
+});
+
+export const UserUpsertWithoutCustomerTicketsInputSchema: z.ZodType<Prisma.UserUpsertWithoutCustomerTicketsInput> = z.strictObject({
+  update: z.union([ z.lazy(() => UserUpdateWithoutCustomerTicketsInputSchema), z.lazy(() => UserUncheckedUpdateWithoutCustomerTicketsInputSchema) ]),
+  create: z.union([ z.lazy(() => UserCreateWithoutCustomerTicketsInputSchema), z.lazy(() => UserUncheckedCreateWithoutCustomerTicketsInputSchema) ]),
+  where: z.lazy(() => UserWhereInputSchema).optional(),
+});
+
+export const UserUpdateToOneWithWhereWithoutCustomerTicketsInputSchema: z.ZodType<Prisma.UserUpdateToOneWithWhereWithoutCustomerTicketsInput> = z.strictObject({
+  where: z.lazy(() => UserWhereInputSchema).optional(),
+  data: z.union([ z.lazy(() => UserUpdateWithoutCustomerTicketsInputSchema), z.lazy(() => UserUncheckedUpdateWithoutCustomerTicketsInputSchema) ]),
+});
+
+export const UserUpdateWithoutCustomerTicketsInputSchema: z.ZodType<Prisma.UserUpdateWithoutCustomerTicketsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  email: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  emailVerified: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  image: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  phoneNumber: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  role: z.union([ z.lazy(() => RoleSchema), z.lazy(() => EnumRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => UserStatusSchema), z.lazy(() => EnumUserStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  userProfiles: z.lazy(() => UserProfileUpdateManyWithoutUserNestedInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUpdateManyWithoutUserNestedInputSchema).optional(),
+  accounts: z.lazy(() => AccountUpdateManyWithoutUserNestedInputSchema).optional(),
+  sessions: z.lazy(() => SessionUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUpdateManyWithoutUserNestedInputSchema).optional(),
+  orders: z.lazy(() => OrderUpdateManyWithoutUserNestedInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutUsersNestedInputSchema).optional(),
+  drivers: z.lazy(() => DriverUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUpdateManyWithoutUserNestedInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUpdateManyWithoutUserNestedInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
+  carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
+  payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
+});
+
+export const UserUncheckedUpdateWithoutCustomerTicketsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutCustomerTicketsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  email: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  emailVerified: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  image: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  phoneNumber: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  role: z.union([ z.lazy(() => RoleSchema), z.lazy(() => EnumRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => UserStatusSchema), z.lazy(() => EnumUserStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  userProfiles: z.lazy(() => UserProfileUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  accounts: z.lazy(() => AccountUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  sessions: z.lazy(() => SessionUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  orders: z.lazy(() => OrderUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutUsersNestedInputSchema).optional(),
+  drivers: z.lazy(() => DriverUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  adminTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutAssignedAdminNestedInputSchema).optional(),
+});
+
+export const UserUpsertWithoutAdminTicketsInputSchema: z.ZodType<Prisma.UserUpsertWithoutAdminTicketsInput> = z.strictObject({
+  update: z.union([ z.lazy(() => UserUpdateWithoutAdminTicketsInputSchema), z.lazy(() => UserUncheckedUpdateWithoutAdminTicketsInputSchema) ]),
+  create: z.union([ z.lazy(() => UserCreateWithoutAdminTicketsInputSchema), z.lazy(() => UserUncheckedCreateWithoutAdminTicketsInputSchema) ]),
+  where: z.lazy(() => UserWhereInputSchema).optional(),
+});
+
+export const UserUpdateToOneWithWhereWithoutAdminTicketsInputSchema: z.ZodType<Prisma.UserUpdateToOneWithWhereWithoutAdminTicketsInput> = z.strictObject({
+  where: z.lazy(() => UserWhereInputSchema).optional(),
+  data: z.union([ z.lazy(() => UserUpdateWithoutAdminTicketsInputSchema), z.lazy(() => UserUncheckedUpdateWithoutAdminTicketsInputSchema) ]),
+});
+
+export const UserUpdateWithoutAdminTicketsInputSchema: z.ZodType<Prisma.UserUpdateWithoutAdminTicketsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  email: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  emailVerified: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  image: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  phoneNumber: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  role: z.union([ z.lazy(() => RoleSchema), z.lazy(() => EnumRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => UserStatusSchema), z.lazy(() => EnumUserStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  userProfiles: z.lazy(() => UserProfileUpdateManyWithoutUserNestedInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUpdateManyWithoutUserNestedInputSchema).optional(),
+  accounts: z.lazy(() => AccountUpdateManyWithoutUserNestedInputSchema).optional(),
+  sessions: z.lazy(() => SessionUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUpdateManyWithoutUserNestedInputSchema).optional(),
+  orders: z.lazy(() => OrderUpdateManyWithoutUserNestedInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutUsersNestedInputSchema).optional(),
+  drivers: z.lazy(() => DriverUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUpdateManyWithoutUserNestedInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUpdateManyWithoutUserNestedInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUpdateManyWithoutUserNestedInputSchema).optional(),
+  carts: z.lazy(() => CartUpdateManyWithoutUserNestedInputSchema).optional(),
+  payments: z.lazy(() => PaymentUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUpdateManyWithoutCustomerNestedInputSchema).optional(),
+});
+
+export const UserUncheckedUpdateWithoutAdminTicketsInputSchema: z.ZodType<Prisma.UserUncheckedUpdateWithoutAdminTicketsInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  email: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  emailVerified: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  image: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  phoneNumber: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  role: z.union([ z.lazy(() => RoleSchema), z.lazy(() => EnumRoleFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => UserStatusSchema), z.lazy(() => EnumUserStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  userProfiles: z.lazy(() => UserProfileUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  userAddresses: z.lazy(() => UserAddresUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  accounts: z.lazy(() => AccountUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  sessions: z.lazy(() => SessionUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchants: z.lazy(() => MerchantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  orders: z.lazy(() => OrderUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  orderStatusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutUsersNestedInputSchema).optional(),
+  drivers: z.lazy(() => DriverUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  merchantReviews: z.lazy(() => MerchantReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  driverReviews: z.lazy(() => DriverReviewUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  notifications: z.lazy(() => NotificationUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  carts: z.lazy(() => CartUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  payments: z.lazy(() => PaymentUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+  chatParticipants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  chatMessages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutSenderNestedInputSchema).optional(),
+  messageReadReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutUserNestedInputSchema).optional(),
+  customerTickets: z.lazy(() => SupportTicketUncheckedUpdateManyWithoutCustomerNestedInputSchema).optional(),
+});
+
+export const ChatRoomUpsertWithoutTicketInputSchema: z.ZodType<Prisma.ChatRoomUpsertWithoutTicketInput> = z.strictObject({
+  update: z.union([ z.lazy(() => ChatRoomUpdateWithoutTicketInputSchema), z.lazy(() => ChatRoomUncheckedUpdateWithoutTicketInputSchema) ]),
+  create: z.union([ z.lazy(() => ChatRoomCreateWithoutTicketInputSchema), z.lazy(() => ChatRoomUncheckedCreateWithoutTicketInputSchema) ]),
+  where: z.lazy(() => ChatRoomWhereInputSchema).optional(),
+});
+
+export const ChatRoomUpdateToOneWithWhereWithoutTicketInputSchema: z.ZodType<Prisma.ChatRoomUpdateToOneWithWhereWithoutTicketInput> = z.strictObject({
+  where: z.lazy(() => ChatRoomWhereInputSchema).optional(),
+  data: z.union([ z.lazy(() => ChatRoomUpdateWithoutTicketInputSchema), z.lazy(() => ChatRoomUncheckedUpdateWithoutTicketInputSchema) ]),
+});
+
+export const ChatRoomUpdateWithoutTicketInputSchema: z.ZodType<Prisma.ChatRoomUpdateWithoutTicketInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  order: z.lazy(() => OrderUpdateOneWithoutChatRoomsNestedInputSchema).optional(),
+  participants: z.lazy(() => ChatParticipantUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+});
+
+export const ChatRoomUncheckedUpdateWithoutTicketInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateWithoutTicketInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  orderId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  participants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutChatRoomNestedInputSchema).optional(),
+  messages: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutChatRoomNestedInputSchema).optional(),
 });
 
 export const UserProfileCreateManyUserInputSchema: z.ZodType<Prisma.UserProfileCreateManyUserInput> = z.strictObject({
@@ -17582,6 +20507,7 @@ export const OrderCreateManyUserInputSchema: z.ZodType<Prisma.OrderCreateManyUse
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
 });
 
@@ -17650,6 +20576,12 @@ export const ChatParticipantCreateManyUserInputSchema: z.ZodType<Prisma.ChatPart
   chatRoomId: z.string(),
   role: z.lazy(() => ChatRoleSchema),
   joinedAt: z.coerce.date().optional(),
+  leftAt: z.coerce.date().optional().nullable(),
+  lastSeenAt: z.coerce.date().optional().nullable(),
+  lastReadAt: z.coerce.date().optional().nullable(),
+  lastReadMsgId: z.string().optional().nullable(),
+  isMuted: z.boolean().optional(),
+  isBlocked: z.boolean().optional(),
 });
 
 export const ChatMessageCreateManySenderInputSchema: z.ZodType<Prisma.ChatMessageCreateManySenderInput> = z.strictObject({
@@ -17657,8 +20589,46 @@ export const ChatMessageCreateManySenderInputSchema: z.ZodType<Prisma.ChatMessag
   chatRoomId: z.string(),
   content: z.string(),
   type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.string().optional().nullable(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
   isRead: z.boolean().optional(),
   createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+});
+
+export const MessageReadReceiptCreateManyUserInputSchema: z.ZodType<Prisma.MessageReadReceiptCreateManyUserInput> = z.strictObject({
+  id: z.uuid().optional(),
+  messageId: z.string(),
+  readAt: z.coerce.date().optional(),
+});
+
+export const SupportTicketCreateManyCustomerInputSchema: z.ZodType<Prisma.SupportTicketCreateManyCustomerInput> = z.strictObject({
+  id: z.uuid().optional(),
+  subject: z.string(),
+  category: z.lazy(() => SupportCategorySchema).optional(),
+  priority: z.lazy(() => TicketPrioritySchema).optional(),
+  status: z.lazy(() => TicketStatusSchema).optional(),
+  assignedAdminId: z.string().optional().nullable(),
+  resolvedAt: z.coerce.date().optional().nullable(),
+  resolution: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+});
+
+export const SupportTicketCreateManyAssignedAdminInputSchema: z.ZodType<Prisma.SupportTicketCreateManyAssignedAdminInput> = z.strictObject({
+  id: z.uuid().optional(),
+  customerId: z.string(),
+  subject: z.string(),
+  category: z.lazy(() => SupportCategorySchema).optional(),
+  priority: z.lazy(() => TicketPrioritySchema).optional(),
+  status: z.lazy(() => TicketStatusSchema).optional(),
+  resolvedAt: z.coerce.date().optional().nullable(),
+  resolution: z.string().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
 });
 
 export const UserProfileUpdateWithoutUserInputSchema: z.ZodType<Prisma.UserProfileUpdateWithoutUserInput> = z.strictObject({
@@ -17845,6 +20815,7 @@ export const OrderUpdateWithoutUserInputSchema: z.ZodType<Prisma.OrderUpdateWith
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -17863,6 +20834,7 @@ export const OrderUncheckedUpdateWithoutUserInputSchema: z.ZodType<Prisma.OrderU
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -17879,6 +20851,7 @@ export const OrderUncheckedUpdateManyWithoutUserInputSchema: z.ZodType<Prisma.Or
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -18078,6 +21051,12 @@ export const ChatParticipantUpdateWithoutUserInputSchema: z.ZodType<Prisma.ChatP
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
   joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  leftAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastSeenAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isMuted: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  isBlocked: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   chatRoom: z.lazy(() => ChatRoomUpdateOneRequiredWithoutParticipantsNestedInputSchema).optional(),
 });
 
@@ -18086,6 +21065,12 @@ export const ChatParticipantUncheckedUpdateWithoutUserInputSchema: z.ZodType<Pri
   chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
   joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  leftAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastSeenAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isMuted: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  isBlocked: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const ChatParticipantUncheckedUpdateManyWithoutUserInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedUpdateManyWithoutUserInput> = z.strictObject({
@@ -18093,15 +21078,29 @@ export const ChatParticipantUncheckedUpdateManyWithoutUserInputSchema: z.ZodType
   chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
   joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  leftAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastSeenAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isMuted: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  isBlocked: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const ChatMessageUpdateWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUpdateWithoutSenderInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   chatRoom: z.lazy(() => ChatRoomUpdateOneRequiredWithoutMessagesNestedInputSchema).optional(),
+  replyTo: z.lazy(() => ChatMessageUpdateOneWithoutRepliesNestedInputSchema).optional(),
+  replies: z.lazy(() => ChatMessageUpdateManyWithoutReplyToNestedInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutMessageNestedInputSchema).optional(),
 });
 
 export const ChatMessageUncheckedUpdateWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateWithoutSenderInput> = z.strictObject({
@@ -18109,8 +21108,16 @@ export const ChatMessageUncheckedUpdateWithoutSenderInputSchema: z.ZodType<Prism
   chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  replies: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutReplyToNestedInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutMessageNestedInputSchema).optional(),
 });
 
 export const ChatMessageUncheckedUpdateManyWithoutSenderInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateManyWithoutSenderInput> = z.strictObject({
@@ -18118,8 +21125,114 @@ export const ChatMessageUncheckedUpdateManyWithoutSenderInputSchema: z.ZodType<P
   chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const MessageReadReceiptUpdateWithoutUserInputSchema: z.ZodType<Prisma.MessageReadReceiptUpdateWithoutUserInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  readAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  message: z.lazy(() => ChatMessageUpdateOneRequiredWithoutReadReceiptsNestedInputSchema).optional(),
+});
+
+export const MessageReadReceiptUncheckedUpdateWithoutUserInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedUpdateWithoutUserInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  messageId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  readAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const MessageReadReceiptUncheckedUpdateManyWithoutUserInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedUpdateManyWithoutUserInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  messageId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  readAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const SupportTicketUpdateWithoutCustomerInputSchema: z.ZodType<Prisma.SupportTicketUpdateWithoutCustomerInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  subject: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  category: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => EnumSupportCategoryFieldUpdateOperationsInputSchema) ]).optional(),
+  priority: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => EnumTicketPriorityFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => EnumTicketStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  resolvedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolution: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  assignedAdmin: z.lazy(() => UserUpdateOneWithoutAdminTicketsNestedInputSchema).optional(),
+  chatRoom: z.lazy(() => ChatRoomUpdateOneWithoutTicketNestedInputSchema).optional(),
+});
+
+export const SupportTicketUncheckedUpdateWithoutCustomerInputSchema: z.ZodType<Prisma.SupportTicketUncheckedUpdateWithoutCustomerInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  subject: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  category: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => EnumSupportCategoryFieldUpdateOperationsInputSchema) ]).optional(),
+  priority: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => EnumTicketPriorityFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => EnumTicketStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  assignedAdminId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolvedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolution: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoom: z.lazy(() => ChatRoomUncheckedUpdateOneWithoutTicketNestedInputSchema).optional(),
+});
+
+export const SupportTicketUncheckedUpdateManyWithoutCustomerInputSchema: z.ZodType<Prisma.SupportTicketUncheckedUpdateManyWithoutCustomerInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  subject: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  category: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => EnumSupportCategoryFieldUpdateOperationsInputSchema) ]).optional(),
+  priority: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => EnumTicketPriorityFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => EnumTicketStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  assignedAdminId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolvedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolution: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const SupportTicketUpdateWithoutAssignedAdminInputSchema: z.ZodType<Prisma.SupportTicketUpdateWithoutAssignedAdminInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  subject: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  category: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => EnumSupportCategoryFieldUpdateOperationsInputSchema) ]).optional(),
+  priority: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => EnumTicketPriorityFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => EnumTicketStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  resolvedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolution: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  customer: z.lazy(() => UserUpdateOneRequiredWithoutCustomerTicketsNestedInputSchema).optional(),
+  chatRoom: z.lazy(() => ChatRoomUpdateOneWithoutTicketNestedInputSchema).optional(),
+});
+
+export const SupportTicketUncheckedUpdateWithoutAssignedAdminInputSchema: z.ZodType<Prisma.SupportTicketUncheckedUpdateWithoutAssignedAdminInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  customerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  subject: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  category: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => EnumSupportCategoryFieldUpdateOperationsInputSchema) ]).optional(),
+  priority: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => EnumTicketPriorityFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => EnumTicketStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  resolvedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolution: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoom: z.lazy(() => ChatRoomUncheckedUpdateOneWithoutTicketNestedInputSchema).optional(),
+});
+
+export const SupportTicketUncheckedUpdateManyWithoutAssignedAdminInputSchema: z.ZodType<Prisma.SupportTicketUncheckedUpdateManyWithoutAssignedAdminInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  customerId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  subject: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  category: z.union([ z.lazy(() => SupportCategorySchema), z.lazy(() => EnumSupportCategoryFieldUpdateOperationsInputSchema) ]).optional(),
+  priority: z.union([ z.lazy(() => TicketPrioritySchema), z.lazy(() => EnumTicketPriorityFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => TicketStatusSchema), z.lazy(() => EnumTicketStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  resolvedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  resolution: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const MerchantOperationalHourCreateManyMerchantInputSchema: z.ZodType<Prisma.MerchantOperationalHourCreateManyMerchantInput> = z.strictObject({
@@ -18147,6 +21260,7 @@ export const OrderCreateManyMerchantInputSchema: z.ZodType<Prisma.OrderCreateMan
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
 });
 
@@ -18245,6 +21359,7 @@ export const OrderUpdateWithoutMerchantInputSchema: z.ZodType<Prisma.OrderUpdate
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -18263,6 +21378,7 @@ export const OrderUncheckedUpdateWithoutMerchantInputSchema: z.ZodType<Prisma.Or
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -18279,6 +21395,7 @@ export const OrderUncheckedUpdateManyWithoutMerchantInputSchema: z.ZodType<Prism
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -18614,7 +21731,14 @@ export const OrderPromotionCreateManyOrderInputSchema: z.ZodType<Prisma.OrderPro
 
 export const ChatRoomCreateManyOrderInputSchema: z.ZodType<Prisma.ChatRoomCreateManyOrderInput> = z.strictObject({
   id: z.uuid().optional(),
+  ticketId: z.string().optional().nullable(),
   type: z.lazy(() => ChatRoomTypeSchema),
+  status: z.lazy(() => ChatRoomStatusSchema).optional(),
+  title: z.string().optional().nullable(),
+  lastMessageAt: z.coerce.date().optional().nullable(),
+  lastMessageId: z.string().optional().nullable(),
+  closedAt: z.coerce.date().optional().nullable(),
+  closedReason: z.string().optional().nullable(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
 });
@@ -18744,15 +21868,29 @@ export const OrderPromotionUncheckedUpdateManyWithoutOrderInputSchema: z.ZodType
 export const ChatRoomUpdateWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomUpdateWithoutOrderInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  ticket: z.lazy(() => SupportTicketUpdateOneWithoutChatRoomNestedInputSchema).optional(),
   participants: z.lazy(() => ChatParticipantUpdateManyWithoutChatRoomNestedInputSchema).optional(),
   messages: z.lazy(() => ChatMessageUpdateManyWithoutChatRoomNestedInputSchema).optional(),
 });
 
 export const ChatRoomUncheckedUpdateWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateWithoutOrderInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  ticketId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   participants: z.lazy(() => ChatParticipantUncheckedUpdateManyWithoutChatRoomNestedInputSchema).optional(),
@@ -18761,7 +21899,14 @@ export const ChatRoomUncheckedUpdateWithoutOrderInputSchema: z.ZodType<Prisma.Ch
 
 export const ChatRoomUncheckedUpdateManyWithoutOrderInputSchema: z.ZodType<Prisma.ChatRoomUncheckedUpdateManyWithoutOrderInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  ticketId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   type: z.union([ z.lazy(() => ChatRoomTypeSchema), z.lazy(() => EnumChatRoomTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => ChatRoomStatusSchema), z.lazy(() => EnumChatRoomStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  title: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastMessageId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  closedReason: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
@@ -18797,6 +21942,7 @@ export const OrderCreateManyDriverInputSchema: z.ZodType<Prisma.OrderCreateManyD
   status: z.lazy(() => OrderStatusSchema).optional(),
   totalPrice: z.number(),
   deliveryFee: z.number().optional().nullable(),
+  createdAt: z.coerce.date().optional(),
   paymentStatus: z.lazy(() => PaymentStatusSchema).optional(),
 });
 
@@ -18828,6 +21974,7 @@ export const OrderUpdateWithoutDriverInputSchema: z.ZodType<Prisma.OrderUpdateWi
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -18846,6 +21993,7 @@ export const OrderUncheckedUpdateWithoutDriverInputSchema: z.ZodType<Prisma.Orde
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
   items: z.lazy(() => OrderItemUncheckedUpdateManyWithoutOrderNestedInputSchema).optional(),
   statusHistories: z.lazy(() => OrderStatusHistoryUncheckedUpdateManyWithoutOrdersNestedInputSchema).optional(),
@@ -18862,6 +22010,7 @@ export const OrderUncheckedUpdateManyWithoutDriverInputSchema: z.ZodType<Prisma.
   status: z.union([ z.lazy(() => OrderStatusSchema), z.lazy(() => EnumOrderStatusFieldUpdateOperationsInputSchema) ]).optional(),
   totalPrice: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   deliveryFee: z.union([ z.number(),z.lazy(() => NullableIntFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   paymentStatus: z.union([ z.lazy(() => PaymentStatusSchema), z.lazy(() => EnumPaymentStatusFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
@@ -19041,6 +22190,12 @@ export const ChatParticipantCreateManyChatRoomInputSchema: z.ZodType<Prisma.Chat
   userId: z.string(),
   role: z.lazy(() => ChatRoleSchema),
   joinedAt: z.coerce.date().optional(),
+  leftAt: z.coerce.date().optional().nullable(),
+  lastSeenAt: z.coerce.date().optional().nullable(),
+  lastReadAt: z.coerce.date().optional().nullable(),
+  lastReadMsgId: z.string().optional().nullable(),
+  isMuted: z.boolean().optional(),
+  isBlocked: z.boolean().optional(),
 });
 
 export const ChatMessageCreateManyChatRoomInputSchema: z.ZodType<Prisma.ChatMessageCreateManyChatRoomInput> = z.strictObject({
@@ -19048,14 +22203,26 @@ export const ChatMessageCreateManyChatRoomInputSchema: z.ZodType<Prisma.ChatMess
   senderId: z.string(),
   content: z.string(),
   type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.string().optional().nullable(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
   isRead: z.boolean().optional(),
   createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
 });
 
 export const ChatParticipantUpdateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantUpdateWithoutChatRoomInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
   joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  leftAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastSeenAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isMuted: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  isBlocked: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   user: z.lazy(() => UserUpdateOneRequiredWithoutChatParticipantsNestedInputSchema).optional(),
 });
 
@@ -19064,6 +22231,12 @@ export const ChatParticipantUncheckedUpdateWithoutChatRoomInputSchema: z.ZodType
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
   joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  leftAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastSeenAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isMuted: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  isBlocked: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const ChatParticipantUncheckedUpdateManyWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatParticipantUncheckedUpdateManyWithoutChatRoomInput> = z.strictObject({
@@ -19071,15 +22244,29 @@ export const ChatParticipantUncheckedUpdateManyWithoutChatRoomInputSchema: z.Zod
   userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   role: z.union([ z.lazy(() => ChatRoleSchema), z.lazy(() => EnumChatRoleFieldUpdateOperationsInputSchema) ]).optional(),
   joinedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  leftAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastSeenAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  lastReadMsgId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isMuted: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  isBlocked: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 export const ChatMessageUpdateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageUpdateWithoutChatRoomInput> = z.strictObject({
   id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   sender: z.lazy(() => UserUpdateOneRequiredWithoutChatMessagesNestedInputSchema).optional(),
+  replyTo: z.lazy(() => ChatMessageUpdateOneWithoutRepliesNestedInputSchema).optional(),
+  replies: z.lazy(() => ChatMessageUpdateManyWithoutReplyToNestedInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutMessageNestedInputSchema).optional(),
 });
 
 export const ChatMessageUncheckedUpdateWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateWithoutChatRoomInput> = z.strictObject({
@@ -19087,8 +22274,16 @@ export const ChatMessageUncheckedUpdateWithoutChatRoomInputSchema: z.ZodType<Pri
   senderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  replies: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutReplyToNestedInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutMessageNestedInputSchema).optional(),
 });
 
 export const ChatMessageUncheckedUpdateManyWithoutChatRoomInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateManyWithoutChatRoomInput> = z.strictObject({
@@ -19096,8 +22291,102 @@ export const ChatMessageUncheckedUpdateManyWithoutChatRoomInputSchema: z.ZodType
   senderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  replyToId: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
   isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
   createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const ChatMessageCreateManyReplyToInputSchema: z.ZodType<Prisma.ChatMessageCreateManyReplyToInput> = z.strictObject({
+  id: z.uuid().optional(),
+  chatRoomId: z.string(),
+  senderId: z.string(),
+  content: z.string(),
+  type: z.lazy(() => MessageTypeSchema).optional(),
+  status: z.lazy(() => MessageStatusSchema).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.coerce.date().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
+  isRead: z.boolean().optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
+});
+
+export const MessageReadReceiptCreateManyMessageInputSchema: z.ZodType<Prisma.MessageReadReceiptCreateManyMessageInput> = z.strictObject({
+  id: z.uuid().optional(),
+  userId: z.string(),
+  readAt: z.coerce.date().optional(),
+});
+
+export const ChatMessageUpdateWithoutReplyToInputSchema: z.ZodType<Prisma.ChatMessageUpdateWithoutReplyToInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoom: z.lazy(() => ChatRoomUpdateOneRequiredWithoutMessagesNestedInputSchema).optional(),
+  sender: z.lazy(() => UserUpdateOneRequiredWithoutChatMessagesNestedInputSchema).optional(),
+  replies: z.lazy(() => ChatMessageUpdateManyWithoutReplyToNestedInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUpdateManyWithoutMessageNestedInputSchema).optional(),
+});
+
+export const ChatMessageUncheckedUpdateWithoutReplyToInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateWithoutReplyToInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  senderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  replies: z.lazy(() => ChatMessageUncheckedUpdateManyWithoutReplyToNestedInputSchema).optional(),
+  readReceipts: z.lazy(() => MessageReadReceiptUncheckedUpdateManyWithoutMessageNestedInputSchema).optional(),
+});
+
+export const ChatMessageUncheckedUpdateManyWithoutReplyToInputSchema: z.ZodType<Prisma.ChatMessageUncheckedUpdateManyWithoutReplyToInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  chatRoomId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  senderId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  content: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  type: z.union([ z.lazy(() => MessageTypeSchema), z.lazy(() => EnumMessageTypeFieldUpdateOperationsInputSchema) ]).optional(),
+  status: z.union([ z.lazy(() => MessageStatusSchema), z.lazy(() => EnumMessageStatusFieldUpdateOperationsInputSchema) ]).optional(),
+  metadata: z.union([ z.lazy(() => NullableJsonNullValueInputSchema), InputJsonValueSchema ]).optional(),
+  deletedAt: z.union([ z.coerce.date(),z.lazy(() => NullableDateTimeFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  deletedBy: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
+  isRead: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  createdAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updatedAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const MessageReadReceiptUpdateWithoutMessageInputSchema: z.ZodType<Prisma.MessageReadReceiptUpdateWithoutMessageInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  readAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  user: z.lazy(() => UserUpdateOneRequiredWithoutMessageReadReceiptsNestedInputSchema).optional(),
+});
+
+export const MessageReadReceiptUncheckedUpdateWithoutMessageInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedUpdateWithoutMessageInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  readAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+});
+
+export const MessageReadReceiptUncheckedUpdateManyWithoutMessageInputSchema: z.ZodType<Prisma.MessageReadReceiptUncheckedUpdateManyWithoutMessageInput> = z.strictObject({
+  id: z.union([ z.uuid(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  userId: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  readAt: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 });
 
 /////////////////////////////////////////
@@ -21016,6 +24305,130 @@ export const ChatMessageFindUniqueOrThrowArgsSchema: z.ZodType<Prisma.ChatMessag
   where: ChatMessageWhereUniqueInputSchema, 
 }).strict();
 
+export const MessageReadReceiptFindFirstArgsSchema: z.ZodType<Prisma.MessageReadReceiptFindFirstArgs> = z.object({
+  select: MessageReadReceiptSelectSchema.optional(),
+  include: MessageReadReceiptIncludeSchema.optional(),
+  where: MessageReadReceiptWhereInputSchema.optional(), 
+  orderBy: z.union([ MessageReadReceiptOrderByWithRelationInputSchema.array(), MessageReadReceiptOrderByWithRelationInputSchema ]).optional(),
+  cursor: MessageReadReceiptWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ MessageReadReceiptScalarFieldEnumSchema, MessageReadReceiptScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const MessageReadReceiptFindFirstOrThrowArgsSchema: z.ZodType<Prisma.MessageReadReceiptFindFirstOrThrowArgs> = z.object({
+  select: MessageReadReceiptSelectSchema.optional(),
+  include: MessageReadReceiptIncludeSchema.optional(),
+  where: MessageReadReceiptWhereInputSchema.optional(), 
+  orderBy: z.union([ MessageReadReceiptOrderByWithRelationInputSchema.array(), MessageReadReceiptOrderByWithRelationInputSchema ]).optional(),
+  cursor: MessageReadReceiptWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ MessageReadReceiptScalarFieldEnumSchema, MessageReadReceiptScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const MessageReadReceiptFindManyArgsSchema: z.ZodType<Prisma.MessageReadReceiptFindManyArgs> = z.object({
+  select: MessageReadReceiptSelectSchema.optional(),
+  include: MessageReadReceiptIncludeSchema.optional(),
+  where: MessageReadReceiptWhereInputSchema.optional(), 
+  orderBy: z.union([ MessageReadReceiptOrderByWithRelationInputSchema.array(), MessageReadReceiptOrderByWithRelationInputSchema ]).optional(),
+  cursor: MessageReadReceiptWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ MessageReadReceiptScalarFieldEnumSchema, MessageReadReceiptScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const MessageReadReceiptAggregateArgsSchema: z.ZodType<Prisma.MessageReadReceiptAggregateArgs> = z.object({
+  where: MessageReadReceiptWhereInputSchema.optional(), 
+  orderBy: z.union([ MessageReadReceiptOrderByWithRelationInputSchema.array(), MessageReadReceiptOrderByWithRelationInputSchema ]).optional(),
+  cursor: MessageReadReceiptWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+}).strict();
+
+export const MessageReadReceiptGroupByArgsSchema: z.ZodType<Prisma.MessageReadReceiptGroupByArgs> = z.object({
+  where: MessageReadReceiptWhereInputSchema.optional(), 
+  orderBy: z.union([ MessageReadReceiptOrderByWithAggregationInputSchema.array(), MessageReadReceiptOrderByWithAggregationInputSchema ]).optional(),
+  by: MessageReadReceiptScalarFieldEnumSchema.array(), 
+  having: MessageReadReceiptScalarWhereWithAggregatesInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+}).strict();
+
+export const MessageReadReceiptFindUniqueArgsSchema: z.ZodType<Prisma.MessageReadReceiptFindUniqueArgs> = z.object({
+  select: MessageReadReceiptSelectSchema.optional(),
+  include: MessageReadReceiptIncludeSchema.optional(),
+  where: MessageReadReceiptWhereUniqueInputSchema, 
+}).strict();
+
+export const MessageReadReceiptFindUniqueOrThrowArgsSchema: z.ZodType<Prisma.MessageReadReceiptFindUniqueOrThrowArgs> = z.object({
+  select: MessageReadReceiptSelectSchema.optional(),
+  include: MessageReadReceiptIncludeSchema.optional(),
+  where: MessageReadReceiptWhereUniqueInputSchema, 
+}).strict();
+
+export const SupportTicketFindFirstArgsSchema: z.ZodType<Prisma.SupportTicketFindFirstArgs> = z.object({
+  select: SupportTicketSelectSchema.optional(),
+  include: SupportTicketIncludeSchema.optional(),
+  where: SupportTicketWhereInputSchema.optional(), 
+  orderBy: z.union([ SupportTicketOrderByWithRelationInputSchema.array(), SupportTicketOrderByWithRelationInputSchema ]).optional(),
+  cursor: SupportTicketWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ SupportTicketScalarFieldEnumSchema, SupportTicketScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const SupportTicketFindFirstOrThrowArgsSchema: z.ZodType<Prisma.SupportTicketFindFirstOrThrowArgs> = z.object({
+  select: SupportTicketSelectSchema.optional(),
+  include: SupportTicketIncludeSchema.optional(),
+  where: SupportTicketWhereInputSchema.optional(), 
+  orderBy: z.union([ SupportTicketOrderByWithRelationInputSchema.array(), SupportTicketOrderByWithRelationInputSchema ]).optional(),
+  cursor: SupportTicketWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ SupportTicketScalarFieldEnumSchema, SupportTicketScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const SupportTicketFindManyArgsSchema: z.ZodType<Prisma.SupportTicketFindManyArgs> = z.object({
+  select: SupportTicketSelectSchema.optional(),
+  include: SupportTicketIncludeSchema.optional(),
+  where: SupportTicketWhereInputSchema.optional(), 
+  orderBy: z.union([ SupportTicketOrderByWithRelationInputSchema.array(), SupportTicketOrderByWithRelationInputSchema ]).optional(),
+  cursor: SupportTicketWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ SupportTicketScalarFieldEnumSchema, SupportTicketScalarFieldEnumSchema.array() ]).optional(),
+}).strict();
+
+export const SupportTicketAggregateArgsSchema: z.ZodType<Prisma.SupportTicketAggregateArgs> = z.object({
+  where: SupportTicketWhereInputSchema.optional(), 
+  orderBy: z.union([ SupportTicketOrderByWithRelationInputSchema.array(), SupportTicketOrderByWithRelationInputSchema ]).optional(),
+  cursor: SupportTicketWhereUniqueInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+}).strict();
+
+export const SupportTicketGroupByArgsSchema: z.ZodType<Prisma.SupportTicketGroupByArgs> = z.object({
+  where: SupportTicketWhereInputSchema.optional(), 
+  orderBy: z.union([ SupportTicketOrderByWithAggregationInputSchema.array(), SupportTicketOrderByWithAggregationInputSchema ]).optional(),
+  by: SupportTicketScalarFieldEnumSchema.array(), 
+  having: SupportTicketScalarWhereWithAggregatesInputSchema.optional(), 
+  take: z.number().optional(),
+  skip: z.number().optional(),
+}).strict();
+
+export const SupportTicketFindUniqueArgsSchema: z.ZodType<Prisma.SupportTicketFindUniqueArgs> = z.object({
+  select: SupportTicketSelectSchema.optional(),
+  include: SupportTicketIncludeSchema.optional(),
+  where: SupportTicketWhereUniqueInputSchema, 
+}).strict();
+
+export const SupportTicketFindUniqueOrThrowArgsSchema: z.ZodType<Prisma.SupportTicketFindUniqueOrThrowArgs> = z.object({
+  select: SupportTicketSelectSchema.optional(),
+  include: SupportTicketIncludeSchema.optional(),
+  where: SupportTicketWhereUniqueInputSchema, 
+}).strict();
+
 export const UserCreateArgsSchema: z.ZodType<Prisma.UserCreateArgs> = z.object({
   select: UserSelectSchema.optional(),
   include: UserIncludeSchema.optional(),
@@ -22679,5 +26092,113 @@ export const ChatMessageUpdateManyAndReturnArgsSchema: z.ZodType<Prisma.ChatMess
 
 export const ChatMessageDeleteManyArgsSchema: z.ZodType<Prisma.ChatMessageDeleteManyArgs> = z.object({
   where: ChatMessageWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const MessageReadReceiptCreateArgsSchema: z.ZodType<Prisma.MessageReadReceiptCreateArgs> = z.object({
+  select: MessageReadReceiptSelectSchema.optional(),
+  include: MessageReadReceiptIncludeSchema.optional(),
+  data: z.union([ MessageReadReceiptCreateInputSchema, MessageReadReceiptUncheckedCreateInputSchema ]),
+}).strict();
+
+export const MessageReadReceiptUpsertArgsSchema: z.ZodType<Prisma.MessageReadReceiptUpsertArgs> = z.object({
+  select: MessageReadReceiptSelectSchema.optional(),
+  include: MessageReadReceiptIncludeSchema.optional(),
+  where: MessageReadReceiptWhereUniqueInputSchema, 
+  create: z.union([ MessageReadReceiptCreateInputSchema, MessageReadReceiptUncheckedCreateInputSchema ]),
+  update: z.union([ MessageReadReceiptUpdateInputSchema, MessageReadReceiptUncheckedUpdateInputSchema ]),
+}).strict();
+
+export const MessageReadReceiptCreateManyArgsSchema: z.ZodType<Prisma.MessageReadReceiptCreateManyArgs> = z.object({
+  data: z.union([ MessageReadReceiptCreateManyInputSchema, MessageReadReceiptCreateManyInputSchema.array() ]),
+  skipDuplicates: z.boolean().optional(),
+}).strict();
+
+export const MessageReadReceiptCreateManyAndReturnArgsSchema: z.ZodType<Prisma.MessageReadReceiptCreateManyAndReturnArgs> = z.object({
+  data: z.union([ MessageReadReceiptCreateManyInputSchema, MessageReadReceiptCreateManyInputSchema.array() ]),
+  skipDuplicates: z.boolean().optional(),
+}).strict();
+
+export const MessageReadReceiptDeleteArgsSchema: z.ZodType<Prisma.MessageReadReceiptDeleteArgs> = z.object({
+  select: MessageReadReceiptSelectSchema.optional(),
+  include: MessageReadReceiptIncludeSchema.optional(),
+  where: MessageReadReceiptWhereUniqueInputSchema, 
+}).strict();
+
+export const MessageReadReceiptUpdateArgsSchema: z.ZodType<Prisma.MessageReadReceiptUpdateArgs> = z.object({
+  select: MessageReadReceiptSelectSchema.optional(),
+  include: MessageReadReceiptIncludeSchema.optional(),
+  data: z.union([ MessageReadReceiptUpdateInputSchema, MessageReadReceiptUncheckedUpdateInputSchema ]),
+  where: MessageReadReceiptWhereUniqueInputSchema, 
+}).strict();
+
+export const MessageReadReceiptUpdateManyArgsSchema: z.ZodType<Prisma.MessageReadReceiptUpdateManyArgs> = z.object({
+  data: z.union([ MessageReadReceiptUpdateManyMutationInputSchema, MessageReadReceiptUncheckedUpdateManyInputSchema ]),
+  where: MessageReadReceiptWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const MessageReadReceiptUpdateManyAndReturnArgsSchema: z.ZodType<Prisma.MessageReadReceiptUpdateManyAndReturnArgs> = z.object({
+  data: z.union([ MessageReadReceiptUpdateManyMutationInputSchema, MessageReadReceiptUncheckedUpdateManyInputSchema ]),
+  where: MessageReadReceiptWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const MessageReadReceiptDeleteManyArgsSchema: z.ZodType<Prisma.MessageReadReceiptDeleteManyArgs> = z.object({
+  where: MessageReadReceiptWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const SupportTicketCreateArgsSchema: z.ZodType<Prisma.SupportTicketCreateArgs> = z.object({
+  select: SupportTicketSelectSchema.optional(),
+  include: SupportTicketIncludeSchema.optional(),
+  data: z.union([ SupportTicketCreateInputSchema, SupportTicketUncheckedCreateInputSchema ]),
+}).strict();
+
+export const SupportTicketUpsertArgsSchema: z.ZodType<Prisma.SupportTicketUpsertArgs> = z.object({
+  select: SupportTicketSelectSchema.optional(),
+  include: SupportTicketIncludeSchema.optional(),
+  where: SupportTicketWhereUniqueInputSchema, 
+  create: z.union([ SupportTicketCreateInputSchema, SupportTicketUncheckedCreateInputSchema ]),
+  update: z.union([ SupportTicketUpdateInputSchema, SupportTicketUncheckedUpdateInputSchema ]),
+}).strict();
+
+export const SupportTicketCreateManyArgsSchema: z.ZodType<Prisma.SupportTicketCreateManyArgs> = z.object({
+  data: z.union([ SupportTicketCreateManyInputSchema, SupportTicketCreateManyInputSchema.array() ]),
+  skipDuplicates: z.boolean().optional(),
+}).strict();
+
+export const SupportTicketCreateManyAndReturnArgsSchema: z.ZodType<Prisma.SupportTicketCreateManyAndReturnArgs> = z.object({
+  data: z.union([ SupportTicketCreateManyInputSchema, SupportTicketCreateManyInputSchema.array() ]),
+  skipDuplicates: z.boolean().optional(),
+}).strict();
+
+export const SupportTicketDeleteArgsSchema: z.ZodType<Prisma.SupportTicketDeleteArgs> = z.object({
+  select: SupportTicketSelectSchema.optional(),
+  include: SupportTicketIncludeSchema.optional(),
+  where: SupportTicketWhereUniqueInputSchema, 
+}).strict();
+
+export const SupportTicketUpdateArgsSchema: z.ZodType<Prisma.SupportTicketUpdateArgs> = z.object({
+  select: SupportTicketSelectSchema.optional(),
+  include: SupportTicketIncludeSchema.optional(),
+  data: z.union([ SupportTicketUpdateInputSchema, SupportTicketUncheckedUpdateInputSchema ]),
+  where: SupportTicketWhereUniqueInputSchema, 
+}).strict();
+
+export const SupportTicketUpdateManyArgsSchema: z.ZodType<Prisma.SupportTicketUpdateManyArgs> = z.object({
+  data: z.union([ SupportTicketUpdateManyMutationInputSchema, SupportTicketUncheckedUpdateManyInputSchema ]),
+  where: SupportTicketWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const SupportTicketUpdateManyAndReturnArgsSchema: z.ZodType<Prisma.SupportTicketUpdateManyAndReturnArgs> = z.object({
+  data: z.union([ SupportTicketUpdateManyMutationInputSchema, SupportTicketUncheckedUpdateManyInputSchema ]),
+  where: SupportTicketWhereInputSchema.optional(), 
+  limit: z.number().optional(),
+}).strict();
+
+export const SupportTicketDeleteManyArgsSchema: z.ZodType<Prisma.SupportTicketDeleteManyArgs> = z.object({
+  where: SupportTicketWhereInputSchema.optional(), 
   limit: z.number().optional(),
 }).strict();

@@ -38,7 +38,7 @@ export function DriverDashboardPage() {
   const { data: driver, isLoading: driverLoading, error: driverError } = useDriverProfile();
   const { data: earnings, isLoading: earningsLoading } = useDriverEarnings();
   const { data: availableOrders } = useAvailableOrders();
-  const { data: activeOrder } = useDriverActiveOrder();
+  const { data: activeOrder, isLoading: activeOrderLoading } = useDriverActiveOrder();
 
   const toggleAvailabilityMutation = useToggleAvailability();
   const updateLocationMutation = useUpdateLocation();
@@ -132,7 +132,11 @@ export function DriverDashboardPage() {
         />
       </motion.div>
 
-      {activeOrder && activeOrder.merchant && (
+      {activeOrderLoading ? (
+        <motion.div variants={itemVariants}>
+          <Skeleton className="h-48 w-full" />
+        </motion.div>
+      ) : activeOrder && activeOrder.merchant ? (
         <motion.div variants={itemVariants}>
           <ActiveDeliveryCard
             order={activeOrder as any}
@@ -143,7 +147,7 @@ export function DriverDashboardPage() {
             pickedUp={pickedUp}
           />
         </motion.div>
-      )}
+      ) : null}
 
       <motion.div variants={itemVariants} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {earningsLoading ? (

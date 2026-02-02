@@ -229,11 +229,34 @@
     "earlier": "Earlier"
   },
   "review": {
-    "title": "Write a Review",
+    "title": "Rate Your Order",
+    "viewTitle": "Your Review",
+    "subtitle": "How was your experience?",
+    "merchantSection": "Restaurant",
+    "driverSection": "Driver",
+    "ratingPlaceholder": "Tap to rate",
+    "commentPlaceholder": {
+      "merchant": "Tell us about the food quality... (optional)",
+      "driver": "How was the delivery service... (optional)"
+    },
+    "skipMerchant": "I'd rather not rate the restaurant",
+    "skipDriver": "I'd rather not rate the driver",
+    "submit": "Submit Review",
+    "submitting": "Submitting...",
+    "skip": "Skip",
+    "close": "Close",
+    "success": "Thank you for your review!",
+    "error": "Failed to submit review. Please try again.",
+    "alreadyReviewed": "You've already reviewed this order",
+    "reviewedOn": "Reviewed on {{date}}",
+    "noDriver": "This order had no driver assigned",
+    "noDriverName": "Driver",
+    "mustRateOne": "Please rate at least the restaurant or the driver",
+    "selectRating": "Please select a rating",
+    "rateOrder": "Rate Order",
+    "viewReview": "View Review",
     "rating": "Rating",
     "comment": "Comment",
-    "commentPlaceholder": "Share your experience...",
-    "submit": "Submit Review",
     "thanks": "Thanks for your review!"
   },
   "address": {
@@ -244,6 +267,24 @@
     "notes": "Notes (optional)",
     "notesPlaceholder": "Additional delivery instructions",
     "save": "Save Address"
+  },
+  "addressForm": {
+    "addTitle": "Add New Address",
+    "editTitle": "Edit Address",
+    "labelField": "Label",
+    "labelPlaceholder": "e.g., Home, Office",
+    "addressField": "Address Details",
+    "addressPlaceholder": "Full address will be auto-filled from map",
+    "notesField": "Delivery Notes (Optional)",
+    "notesPlaceholder": "e.g., Gate code, floor number",
+    "setDefault": "Set as default address",
+    "save": "Save Address",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "selectLocationHint": "Click on the map to select your delivery location",
+    "labelHome": "Home",
+    "labelOffice": "Office",
+    "labelOther": "Other"
   },
   "footer": {
     "tagline": "Your favorite food, delivered fast",

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -18,8 +19,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { OrderReviewDialog } from '@/components/order';
 import { useOrders } from '@/hooks/use-orders';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import type { Order, OrderStatus } from '@/types';
 
 const statusConfig: Record<
@@ -134,9 +136,9 @@ export function OrdersPage() {
   );
 }
 
-// Order Card Component
 function OrderCard({ order, showTrack }: { order: Order; showTrack?: boolean }) {
   const { t } = useTranslation();
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const statusInfo = statusConfig[order.status];
   const StatusIcon = statusInfo.icon;
 
@@ -221,10 +223,15 @@ function OrderCard({ order, showTrack }: { order: Order; showTrack?: boolean }) 
                       <RotateCcw className="h-4 w-4 mr-2" />
                       {t('orders.reorder')}
                     </Button>
-                    <Button variant="outline">
+                    <Button variant="outline" onClick={() => setReviewDialogOpen(true)}>
                       <Star className="h-4 w-4 mr-2" />
                       {t('orders.rateOrder')}
                     </Button>
+                    <OrderReviewDialog
+                      open={reviewDialogOpen}
+                      onOpenChange={setReviewDialogOpen}
+                      orderId={order.id}
+                    />
                   </>
                 )}
                 <Button variant="ghost" asChild>
@@ -242,7 +249,6 @@ function OrderCard({ order, showTrack }: { order: Order; showTrack?: boolean }) 
   );
 }
 
-// Empty State Component
 function EmptyState({
   icon: Icon,
   title,

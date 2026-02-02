@@ -23,6 +23,7 @@ import {
 import type {
   CreateDriverReview,
   CreateMerchantReview,
+  OrderReviewStatus,
   ReviewListResponse,
   UpdateDriverReview,
   UpdateMerchantReview,
@@ -32,6 +33,16 @@ import type { DriverReview, MerchantReview, User } from "@prisma/client";
 @Controller("reviews")
 export class ReviewController {
   constructor(private readonly service: ReviewService) {}
+
+  @Get("orders/:orderId/status")
+  @UseGuards(PermissionGuard)
+  @Roles(["CUSTOMER"])
+  async getOrderReviewStatus(
+    @Param("orderId", ParseUUIDPipe) orderId: string,
+    @CurrentUser() user: User,
+  ): Promise<OrderReviewStatus> {
+    return await this.service.getOrderReviewStatus(orderId, user);
+  }
 
   @Get("merchants/:merchantId")
   async getMerchantReviews(

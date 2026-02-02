@@ -1,4 +1,4 @@
-// User types
+
 export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED';
 export type Role = 'CUSTOMER' | 'MERCHANT' | 'DRIVER' | 'ADMIN';
 
@@ -35,7 +35,6 @@ export interface UserAddress {
   isDefault: boolean;
 }
 
-// Merchant types
 export interface Merchant {
   id: string;
   ownerId: string;
@@ -63,7 +62,6 @@ export interface MerchantOperationalHour {
   closeTime: string;
 }
 
-// Category types
 export interface Category {
   id: string;
   name: string;
@@ -82,7 +80,6 @@ export interface MerchantMenuCategory {
   };
 }
 
-// Menu types
 export interface Menu {
   id: string;
   merchantId: string;
@@ -108,7 +105,6 @@ export interface MenuVariant {
   menuId: string;
 }
 
-// Order types
 export type OrderStatus = 'CREATED' | 'PAID' | 'PREPARING' | 'READY' | 'ON_DELIVERY' | 'COMPLETED' | 'CANCELLED';
 export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
 
@@ -152,7 +148,6 @@ export interface OrderStatusHistory {
   changedBy: string;
 }
 
-// Payment types
 export type Provider = 'MIDTRANS' | 'XENDIT';
 
 export interface Payment {
@@ -173,7 +168,6 @@ export interface PaymentCallback {
   receivedAt: Date;
 }
 
-// Driver types
 export interface Driver {
   id: string;
   userId: string;
@@ -201,7 +195,6 @@ export interface Delivery {
   distanceKm: number;
 }
 
-// Promotion types
 export type DiscountType = 'PERCENT' | 'FLAT';
 
 export interface Promotion {
@@ -221,7 +214,6 @@ export interface OrderPromotion {
   promotion?: Promotion;
 }
 
-// Review types
 export interface MerchantReview {
   id: string;
   userId: string;
@@ -242,7 +234,6 @@ export interface DriverReview {
   user?: User;
 }
 
-// Notification types
 export type NotificationType = 'ORDER' | 'PAYMENT' | 'PROMO' | 'SYSTEM' | 'MESSAGE';
 
 export interface Notification {
@@ -254,17 +245,20 @@ export interface Notification {
   createdAt: Date;
 }
 
-// Image type
 export interface Image {
   id: string;
   imageUrl: string;
   createdAt: Date;
 }
 
-// Chat types
 export type ChatRoomType = 'CUSTOMER_MERCHANT' | 'CUSTOMER_DRIVER' | 'CUSTOMER_SUPPORT';
-export type ChatRole = 'CUSTOMER' | 'MERCHANT' | 'DRIVER' | 'SUPPORT';
+export type ChatRole = 'CUSTOMER' | 'MERCHANT' | 'DRIVER' | 'SUPPORT' | 'ADMIN';
 export type MessageType = 'TEXT' | 'IMAGE' | 'LOCATION' | 'SYSTEM';
+export type ChatRoomStatus = 'ACTIVE' | 'PAUSED' | 'CLOSED' | 'ARCHIVED';
+export type MessageStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
+export type SupportCategory = 'ORDER_ISSUE' | 'PAYMENT_ISSUE' | 'DELIVERY_ISSUE' | 'MERCHANT_COMPLAINT' | 'DRIVER_COMPLAINT' | 'REFUND_REQUEST' | 'GENERAL_INQUIRY' | 'TECHNICAL_ISSUE' | 'OTHER';
+export type TicketPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'WAITING_CUSTOMER' | 'RESOLVED' | 'CLOSED';
 
 export interface ChatParticipant {
   id: string;
@@ -272,6 +266,12 @@ export interface ChatParticipant {
   userId: string;
   role: ChatRole;
   joinedAt: Date;
+  leftAt?: Date | null;
+  lastSeenAt?: Date | null;
+  lastReadAt?: Date | null;
+  lastReadMsgId?: string | null;
+  isMuted?: boolean;
+  isBlocked?: boolean;
   user: Pick<User, 'id' | 'email' | 'image'>;
 }
 
@@ -281,27 +281,61 @@ export interface ChatMessage {
   senderId: string;
   content: string;
   type: MessageType;
+  status: MessageStatus;
   isRead: boolean;
   createdAt: Date;
+  updatedAt?: Date;
+  metadata?: Record<string, unknown> | null;
+  replyToId?: string | null;
+  replyTo?: ChatMessage | null;
+  deletedAt?: Date | null;
+  deletedBy?: string | null;
   sender?: Pick<User, 'id' | 'email' | 'image'>;
+}
+
+export interface SupportTicket {
+  id: string;
+  userId: string;
+  orderId?: string | null;
+  category: SupportCategory;
+  subject: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  assignedToId?: string | null;
+  resolvedAt?: Date | null;
+  resolvedBy?: string | null;
+  resolution?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  chatRoom?: ChatRoom;
+  user?: Pick<User, 'id' | 'email' | 'image'>;
+  assignedTo?: Pick<User, 'id' | 'email' | 'image'> | null;
 }
 
 export interface ChatRoom {
   id: string;
-  orderId: string;
+  orderId?: string | null;
+  ticketId?: string | null;
   type: ChatRoomType;
+  status: ChatRoomStatus;
+  title?: string | null;
   createdAt: Date;
   updatedAt: Date;
+  lastMessageAt?: Date | null;
+  lastMessageId?: string | null;
+  closedAt?: Date | null;
+  closedReason?: string | null;
   participants: ChatParticipant[];
   messages: ChatMessage[];
   order?: {
     id: string;
     status: string;
     merchantId?: string;
-  };
+  } | null;
+  ticket?: SupportTicket | null;
+  isClosed?: boolean;
 }
 
-// Cart types (frontend only)
 export interface CartItem {
   id: string;
   menu: Menu;
@@ -315,5 +349,4 @@ export interface Cart {
   items: CartItem[];
 }
 
-// Driver types - re-export from driver.ts
 export * from './driver';

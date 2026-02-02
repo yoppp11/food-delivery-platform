@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/providers/theme-provider';
 import { AuthProvider } from '@/providers/auth-provider';
 import { CartProvider } from '@/providers/cart-provider';
 import { MerchantProvider } from '@/providers/merchant-provider';
+import { ChatProvider } from '@/providers/chat-provider';
 import { Layout } from '@/components/layout';
 import { ProtectedRoute } from '@/components/protected-route';
 import { GuestRoute } from '@/components/guest-route';
@@ -76,9 +77,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="food-delivery-theme">
         <AuthProvider>
-          <CartProvider>
-            <BrowserRouter>
-              <Routes>
+          <ChatProvider>
+            <CartProvider>
+              <BrowserRouter>
+                <Routes>
                 {/* Public Pages with Layout */}
                 <Route element={<Layout />}>
                   <Route path="/about" element={<AboutPage />} />
@@ -194,13 +196,13 @@ function App() {
               </Routes>
             </BrowserRouter>
           </CartProvider>
+          </ChatProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
 }
 
-// Simple 404 Page
 function NotFoundPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center">

@@ -77,6 +77,8 @@ export const queryKeys = {
       [...queryKeys.reviews.all, 'merchant', merchantId, { page, limit }] as const,
     driver: (driverId: string, page?: number, limit?: number) =>
       [...queryKeys.reviews.all, 'driver', driverId, { page, limit }] as const,
+    orderStatus: (orderId: string) =>
+      [...queryKeys.reviews.all, 'order-status', orderId] as const,
   },
 
   user: {

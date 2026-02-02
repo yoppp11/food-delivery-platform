@@ -103,12 +103,21 @@ export {
   useChatRooms,
   useChatRoom,
   useChatMessages,
+  useChatMessagesInfinite,
   useUnreadMessageCount,
   useChatRoomForOrder,
   useChatStatus,
   useCreateChatRoom,
+  useCloseChatRoom,
   useSendMessage,
   useMarkMessagesAsRead,
+  useCreateSupportTicket,
+  useMyTickets,
+  useAllTickets,
+  useAssignTicket,
+  useUpdateTicket,
+  useResolveTicket,
+  useTicketStats,
 } from './use-chat';
 
-export { useChatSocket } from './use-chat-socket';
+export { useChatSocket, useTypingUsersForRoom } from './use-chat-socket';

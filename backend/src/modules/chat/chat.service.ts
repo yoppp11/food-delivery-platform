@@ -189,12 +189,14 @@ export class ChatService {
       throw new HttpException("Chat room not found", HttpStatus.NOT_FOUND);
     }
 
-    const chatAccessError = this.validateChatAccess(
-      chatRoom.type,
-      chatRoom.order.status,
-    );
-    if (chatAccessError) {
-      throw new HttpException(chatAccessError, HttpStatus.FORBIDDEN);
+    if (chatRoom.order) {
+      const chatAccessError = this.validateChatAccess(
+        chatRoom.type,
+        chatRoom.order.status,
+      );
+      if (chatAccessError) {
+        throw new HttpException(chatAccessError, HttpStatus.FORBIDDEN);
+      }
     }
 
     const message = await this.prisma.chatMessage.create({
@@ -313,7 +315,7 @@ export class ChatService {
 
     if (!room) return null;
 
-    const isClosed = !!this.validateChatAccess(type, room.order.status);
+    const isClosed = room.order ? !!this.validateChatAccess(type, room.order.status) : false;
 
     return { ...room, isClosed };
   }

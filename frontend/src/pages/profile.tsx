@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   User,
   Mail,
@@ -18,7 +18,6 @@ import {
   Camera,
   Home,
   Building,
-  ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,15 +29,9 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import { useSession, useUpdateUser } from '@/hooks/use-auth';
-import { useAddresses, useCreateAddress, useUpdateAddress, useDeleteAddress, useSetDefaultAddress } from '@/hooks/use-addresses';
+import { AddressFormDialog } from '@/components/address';
+import { useAddresses, useDeleteAddress, useSetDefaultAddress } from '@/hooks/use-addresses';
 import { cn } from '@/lib/utils';
 import type { UserAddress } from '@/types';
 
@@ -63,21 +56,12 @@ export function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
-  const [addressForm, setAddressForm] = useState({
-    label: '',
-    address: '',
-    latitude: 0,
-    longitude: 0,
-    isDefault: false,
-  });
 
   const { data: session, isLoading } = useSession();
   const user = session?.user;
   const updateUser = useUpdateUser();
 
   const { data: addresses, isLoading: addressesLoading } = useAddresses();
-  const createAddress = useCreateAddress();
-  const updateAddress = useUpdateAddress();
   const deleteAddress = useDeleteAddress();
   const setDefaultAddress = useSetDefaultAddress();
 
@@ -109,46 +93,8 @@ export function ProfilePage() {
   };
 
   const handleOpenAddressDialog = (address?: UserAddress) => {
-    if (address) {
-      setEditingAddress(address);
-      setAddressForm({
-        label: address.label,
-        address: address.address,
-        latitude: address.latitude,
-        longitude: address.longitude,
-        isDefault: address.isDefault,
-      });
-    } else {
-      setEditingAddress(null);
-      setAddressForm({
-        label: '',
-        address: '',
-        latitude: -6.2088,
-        longitude: 106.8456,
-        isDefault: false,
-      });
-    }
+    setEditingAddress(address || null);
     setShowAddressDialog(true);
-  };
-
-  const handleSaveAddress = () => {
-    if (editingAddress) {
-      updateAddress.mutate(
-        { id: editingAddress.id, ...addressForm },
-        {
-          onSuccess: () => {
-            setShowAddressDialog(false);
-            setEditingAddress(null);
-          },
-        }
-      );
-    } else {
-      createAddress.mutate(addressForm, {
-        onSuccess: () => {
-          setShowAddressDialog(false);
-        },
-      });
-    }
   };
 
   const handleDeleteAddress = (id: string) => {
@@ -562,91 +508,16 @@ export function ProfilePage() {
         </motion.div>
       </div>
 
-      {/* Address Dialog */}
-      <Dialog open={showAddressDialog} onOpenChange={(open) => {
-        setShowAddressDialog(open);
-        if (!open) {
-          setEditingAddress(null);
-          setAddressForm({
-            label: '',
-            address: '',
-            latitude: -6.2088,
-            longitude: 106.8456,
-            isDefault: false,
-          });
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingAddress ? 'Edit Address' : 'Add New Address'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="addressLabel">Label</Label>
-              <Input
-                id="addressLabel"
-                placeholder="Home, Office, etc."
-                value={addressForm.label}
-                onChange={(e) => setAddressForm({ ...addressForm, label: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="addressText">Full Address</Label>
-              <Input
-                id="addressText"
-                placeholder="Enter your full address"
-                value={addressForm.address}
-                onChange={(e) => setAddressForm({ ...addressForm, address: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="latitude">Latitude</Label>
-                <Input
-                  id="latitude"
-                  type="number"
-                  step="any"
-                  placeholder="-6.2088"
-                  value={addressForm.latitude}
-                  onChange={(e) => setAddressForm({ ...addressForm, latitude: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="longitude">Longitude</Label>
-                <Input
-                  id="longitude"
-                  type="number"
-                  step="any"
-                  placeholder="106.8456"
-                  value={addressForm.longitude}
-                  onChange={(e) => setAddressForm({ ...addressForm, longitude: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="default"
-                checked={addressForm.isDefault}
-                onCheckedChange={(checked) => setAddressForm({ ...addressForm, isDefault: checked })}
-              />
-              <Label htmlFor="default">Set as default address</Label>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddressDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveAddress}
-              disabled={!addressForm.label || !addressForm.address || createAddress.isPending || updateAddress.isPending}
-            >
-              {(createAddress.isPending || updateAddress.isPending) ? 'Saving...' : editingAddress ? 'Save Changes' : 'Add Address'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddressFormDialog
+        open={showAddressDialog}
+        onOpenChange={(open) => {
+          setShowAddressDialog(open);
+          if (!open) {
+            setEditingAddress(null);
+          }
+        }}
+        editingAddress={editingAddress}
+      />
     </div>
   );
 }

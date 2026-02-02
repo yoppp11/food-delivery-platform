@@ -6,6 +6,7 @@ import { DriverReview, MerchantReview, User } from "@prisma/client";
 import {
   CreateDriverReview,
   CreateMerchantReview,
+  OrderReviewStatus,
   ReviewListResponse,
   UpdateDriverReview,
   UpdateMerchantReview,
@@ -437,5 +438,101 @@ export class ReviewService {
       where: { id: driverId },
       data: { rating: Math.round(avgRating * 10) / 10 },
     });
+  }
+
+  async getOrderReviewStatus(
+    orderId: string,
+    user: User,
+  ): Promise<OrderReviewStatus> {
+    try {
+      if (!orderId)
+        throw new HttpException("Order ID is required", HttpStatus.BAD_REQUEST);
+
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          merchant: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          driver: {
+            select: {
+              id: true,
+              plateNumber: true,
+              user: {
+                select: {
+                  userProfiles: {
+                    select: {
+                      fullName: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!order)
+        throw new HttpException("Order not found", HttpStatus.NOT_FOUND);
+
+      if (order.userId !== user.id)
+        throw new HttpException("Forbidden access", HttpStatus.FORBIDDEN);
+
+      if (order.status !== "COMPLETED")
+        throw new HttpException(
+          "You can only review completed orders",
+          HttpStatus.BAD_REQUEST,
+        );
+
+      const merchantReview = await this.prisma.merchantReview.findFirst({
+        where: { userId: user.id, merchantId: order.merchantId },
+        select: {
+          id: true,
+          rating: true,
+          comment: true,
+          createdAt: true,
+        },
+      });
+
+      let driverReview: {
+        id: string;
+        rating: number;
+        comment: string;
+        createdAt: Date;
+      } | null = null;
+      if (order.driverId) {
+        driverReview = await this.prisma.driverReview.findFirst({
+          where: { userId: user.id, driverId: order.driverId },
+          select: {
+            id: true,
+            rating: true,
+            comment: true,
+            createdAt: true,
+          },
+        });
+      }
+
+      const driverName =
+        order.driver?.user?.userProfiles?.[0]?.fullName || null;
+
+      return {
+        orderId: order.id,
+        merchantId: order.merchantId,
+        merchantName: order.merchant?.name || "",
+        driverId: order.driverId,
+        driverName,
+        driverPlateNumber: order.driver?.plateNumber || null,
+        merchantReview,
+        driverReview,
+        canReviewMerchant: !merchantReview,
+        canReviewDriver: !!order.driverId && !driverReview,
+      };
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
   }
 }

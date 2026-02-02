@@ -66,7 +66,7 @@ interface CreateCartInput {
   notes?: string;
 }
 
-type EditType = 'increment' | 'decrement' | 'set';
+type EditType = 'INCREMENT' | 'DECREMENT' | 'set';
 type DeleteType = 'item' | 'cart';
 
 export function useCarts() {
@@ -140,8 +140,8 @@ export function useUpdateCartItem() {
           cartItems: cart.cartItems.map((item) => {
             if (item.id !== cartItemId) return item;
             let newQuantity = item.quantity;
-            if (type === 'increment') newQuantity += 1;
-            else if (type === 'decrement') newQuantity -= 1;
+            if (type === 'INCREMENT') newQuantity += 1;
+            else if (type === 'DECREMENT') newQuantity -= 1;
             else if (type === 'set' && quantity !== undefined) newQuantity = quantity;
             return {
               ...item,

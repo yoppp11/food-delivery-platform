@@ -14,6 +14,7 @@ import {
   XCircle,
   Loader2,
   Wallet,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +42,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ChatButton } from "@/components/chat";
+import { OrderReviewDialog } from "@/components/order";
 import { useOrderTracking, useCancelOrder } from "@/hooks/use-orders";
 import { useOrderSocket } from "@/hooks/use-order-socket";
 import { useSession } from "@/hooks/use-auth";
@@ -72,6 +74,7 @@ export function OrderDetailPage() {
     useState<PaymentMethodId>("qris");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isAwaitingPayment, setIsAwaitingPayment] = useState(false);
+  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const { data: session } = useSession();
   
   const prevStatusRef = useRef<string | null>(null);
@@ -562,6 +565,25 @@ export function OrderDetailPage() {
                 />
               </CardContent>
             </Card>
+
+            {/* Rate Order Button */}
+            {order.status === "COMPLETED" && (
+              <>
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onClick={() => setIsReviewDialogOpen(true)}
+                >
+                  <Star className="mr-2 h-5 w-5" />
+                  {t("orders.rateOrder")}
+                </Button>
+                <OrderReviewDialog
+                  open={isReviewDialogOpen}
+                  onOpenChange={setIsReviewDialogOpen}
+                  orderId={order.id}
+                />
+              </>
+            )}
 
             {/* Pay Now Button */}
             {needsPayment && (

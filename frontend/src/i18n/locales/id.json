@@ -229,11 +229,34 @@
     "earlier": "Sebelumnya"
   },
   "review": {
-    "title": "Tulis Ulasan",
+    "title": "Beri Rating Pesanan",
+    "viewTitle": "Ulasan Anda",
+    "subtitle": "Bagaimana pengalaman Anda?",
+    "merchantSection": "Restoran",
+    "driverSection": "Driver",
+    "ratingPlaceholder": "Ketuk untuk memberi rating",
+    "commentPlaceholder": {
+      "merchant": "Ceritakan tentang kualitas makanan... (opsional)",
+      "driver": "Bagaimana layanan pengantarannya... (opsional)"
+    },
+    "skipMerchant": "Saya tidak ingin menilai restoran",
+    "skipDriver": "Saya tidak ingin menilai driver",
+    "submit": "Kirim Ulasan",
+    "submitting": "Mengirim...",
+    "skip": "Lewati",
+    "close": "Tutup",
+    "success": "Terima kasih atas ulasan Anda!",
+    "error": "Gagal mengirim ulasan. Silakan coba lagi.",
+    "alreadyReviewed": "Anda sudah memberikan ulasan untuk pesanan ini",
+    "reviewedOn": "Diulas pada {{date}}",
+    "noDriver": "Pesanan ini tidak memiliki driver",
+    "noDriverName": "Driver",
+    "mustRateOne": "Silakan beri rating setidaknya untuk restoran atau driver",
+    "selectRating": "Silakan pilih rating",
+    "rateOrder": "Beri Rating",
+    "viewReview": "Lihat Ulasan",
     "rating": "Rating",
     "comment": "Komentar",
-    "commentPlaceholder": "Bagikan pengalaman Anda...",
-    "submit": "Kirim Ulasan",
     "thanks": "Terima kasih atas ulasan Anda!"
   },
   "address": {
@@ -244,6 +267,24 @@
     "notes": "Catatan (opsional)",
     "notesPlaceholder": "Instruksi pengantaran tambahan",
     "save": "Simpan Alamat"
+  },
+  "addressForm": {
+    "addTitle": "Tambah Alamat Baru",
+    "editTitle": "Edit Alamat",
+    "labelField": "Label",
+    "labelPlaceholder": "cth., Rumah, Kantor",
+    "addressField": "Detail Alamat",
+    "addressPlaceholder": "Alamat lengkap akan terisi otomatis dari peta",
+    "notesField": "Catatan Pengiriman (Opsional)",
+    "notesPlaceholder": "cth., Kode gerbang, nomor lantai",
+    "setDefault": "Jadikan alamat utama",
+    "save": "Simpan Alamat",
+    "saving": "Menyimpan...",
+    "cancel": "Batal",
+    "selectLocationHint": "Klik pada peta untuk memilih lokasi pengiriman Anda",
+    "labelHome": "Rumah",
+    "labelOffice": "Kantor",
+    "labelOther": "Lainnya"
   },
   "footer": {
     "tagline": "Makanan favorit Anda, diantar cepat",

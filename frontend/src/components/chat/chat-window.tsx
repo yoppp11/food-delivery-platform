@@ -1,13 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, X, Loader2, Lock } from 'lucide-react';
+import { Send, X, Loader2, Lock, Check, CheckCheck, Clock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import type { ChatMessage, ChatRoom, ChatRoomType } from '@/types';
+import type { ChatMessage, ChatRoom, ChatRoomType, MessageStatus } from '@/types';
 import { useChatMessages, useSendMessage, useMarkMessagesAsRead } from '@/hooks/use-chat';
 import { useChatSocket } from '@/hooks/use-chat-socket';
 import { useSession } from '@/hooks/use-auth';
@@ -40,48 +40,85 @@ function getRoomTitle(type: ChatRoomType): string {
 export function ChatWindow({ chatRoom, onClose, isClosed = false }: ChatWindowProps) {
   const [message, setMessage] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
 
-  const { data: messages = [], isLoading } = useChatMessages(chatRoom.id);
+  const roomId = chatRoom?.id || '';
+  
+  const { data: messagesData, isLoading } = useChatMessages(roomId);
+  const messages = useMemo(() => {
+    if (!messagesData) return [];
+    if (Array.isArray(messagesData)) return messagesData;
+    return messagesData.messages || [];
+  }, [messagesData]);
   const sendMessageMutation = useSendMessage();
   const markAsReadMutation = useMarkMessagesAsRead();
 
   const { isConnected, isReconnecting, connectionError, typingUsers, joinRoom, leaveRoom, sendTyping, markAsRead } = useChatSocket({
     userId: currentUserId || '',
-    enabled: !!currentUserId,
+    enabled: !!currentUserId && !!roomId,
   });
 
+  const MessageStatusIcon = ({ status, isRead }: { status?: MessageStatus; isRead?: boolean }) => {
+    if (isRead || status === 'READ') {
+      return <CheckCheck className="h-3 w-3 text-blue-400" />;
+    }
+    if (status === 'DELIVERED') {
+      return <CheckCheck className="h-3 w-3 opacity-70" />;
+    }
+    if (status === 'SENT') {
+      return <Check className="h-3 w-3 opacity-70" />;
+    }
+    if (status === 'PENDING') {
+      return <Clock className="h-3 w-3 opacity-70" />;
+    }
+    if (status === 'FAILED') {
+      return <AlertCircle className="h-3 w-3 text-red-400" />;
+    }
+    return <Check className="h-3 w-3 opacity-70" />;
+  };
+
   useEffect(() => {
-    if (chatRoom.id) {
-      joinRoom(chatRoom.id);
-      markAsRead(chatRoom.id);
-      markAsReadMutation.mutate(chatRoom.id);
+    if (roomId) {
+      joinRoom(roomId);
+      markAsRead(roomId);
+      markAsReadMutation.mutate(roomId);
     }
     return () => {
-      if (chatRoom.id) {
-        leaveRoom(chatRoom.id);
+      if (roomId) {
+        leaveRoom(roomId);
       }
     };
-  }, [chatRoom.id, joinRoom, leaveRoom, markAsRead, markAsReadMutation]);
+  }, [roomId]);
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: smooth ? 'smooth' : 'instant',
+        block: 'end' 
+      });
+    }
+  }, []);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    const timer = setTimeout(() => {
+      scrollToBottom(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [messages, scrollToBottom]);
 
   const handleSend = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() || !roomId) return;
 
     try {
       await sendMessageMutation.mutateAsync({
-        chatRoomId: chatRoom.id,
+        chatRoomId: roomId,
         content: message.trim(),
       });
       setMessage('');
-      sendTyping(chatRoom.id, false);
+      sendTyping(roomId, false);
       inputRef.current?.focus();
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to send message';
@@ -98,10 +135,33 @@ export function ChatWindow({ chatRoom, onClose, isClosed = false }: ChatWindowPr
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMessage(e.target.value);
-    sendTyping(chatRoom.id, e.target.value.length > 0);
+    if (roomId) {
+      sendTyping(roomId, e.target.value.length > 0);
+    }
   };
 
   const isOwnMessage = (msg: ChatMessage) => msg.senderId === currentUserId;
+
+  if (!roomId) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.95 }}
+        className="fixed bottom-4 right-4 z-50 w-80 sm:w-96 bg-white dark:bg-gray-900 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden p-4"
+      >
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-semibold">Chat</span>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <Alert variant="destructive">
+          <AlertDescription>Unable to load chat. Please try again.</AlertDescription>
+        </Alert>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -165,18 +225,28 @@ export function ChatWindow({ chatRoom, onClose, isClosed = false }: ChatWindowPr
                   <div
                     className={cn(
                       'max-w-[75%] rounded-lg px-3 py-2 text-sm',
-                      isOwnMessage(msg)
+                      msg.type === 'SYSTEM'
+                        ? 'bg-muted text-muted-foreground text-center w-full max-w-full text-xs italic'
+                        : isOwnMessage(msg)
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-gray-100 dark:bg-gray-800 text-foreground'
                     )}
                   >
                     <p className="break-words">{msg.content}</p>
-                    <p className={cn(
-                      'text-[10px] mt-1',
-                      isOwnMessage(msg) ? 'opacity-70' : 'text-muted-foreground'
+                    <div className={cn(
+                      'flex items-center gap-1 mt-1',
+                      isOwnMessage(msg) ? 'justify-end' : 'justify-start'
                     )}>
-                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
+                      <span className={cn(
+                        'text-[10px]',
+                        isOwnMessage(msg) ? 'opacity-70' : 'text-muted-foreground'
+                      )}>
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {isOwnMessage(msg) && (
+                        <MessageStatusIcon status={msg.status} isRead={msg.isRead} />
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -192,6 +262,7 @@ export function ChatWindow({ chatRoom, onClose, isClosed = false }: ChatWindowPr
                 <span>typing</span>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
         )}
       </ScrollArea>

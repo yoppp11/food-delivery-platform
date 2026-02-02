@@ -45,7 +45,7 @@ export function AdminSidebar() {
   const handleSignOut = () => {
     signOut(undefined, {
       onSuccess: () => {
-        navigate('/login', { replace: true });
+        navigate('/admin/login', { replace: true });
       },
     });
   };

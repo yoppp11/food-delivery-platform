@@ -47,7 +47,7 @@ export class OrderService {
             },
             merchant: true,
           },
-          orderBy: { id: "desc" },
+          orderBy: { createdAt: "desc" },
         });
       } else {
         return await this.prisma.order.findMany({
@@ -62,7 +62,7 @@ export class OrderService {
             },
             merchant: true,
           },
-          orderBy: { id: "desc" },
+          orderBy: { createdAt: "desc" },
         });
       }
     } catch (error) {
@@ -325,7 +325,7 @@ export class OrderService {
           },
           merchant: true,
         },
-        orderBy: { id: "desc" },
+        orderBy: { createdAt: "desc" },
       });
     } catch (error) {
       this.logger.error(error);
@@ -354,7 +354,7 @@ export class OrderService {
             },
             merchant: true,
           },
-          orderBy: { id: "desc" },
+          orderBy: { createdAt: "desc" },
           take: limit,
           skip,
         }),
@@ -537,7 +537,7 @@ export class OrderService {
               select: { id: true, image: true },
             },
           },
-          orderBy: { id: "desc" },
+          orderBy: { createdAt: "desc" },
           take: limit,
           skip,
         }),
@@ -583,7 +583,7 @@ export class OrderService {
             select: { id: true, image: true },
           },
         },
-        orderBy: { id: "desc" },
+        orderBy: { createdAt: "desc" },
       });
     } catch (error) {
       this.logger.error(error);
@@ -825,6 +825,7 @@ export class OrderService {
           data: {
             driverId: driver.id,
             status: "ON_DELIVERY",
+            deliveryFee: 12000,
           },
         });
 

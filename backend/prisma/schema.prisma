@@ -54,6 +54,9 @@ model User {
   payments             Payment[]
   chatParticipants     ChatParticipant[]
   chatMessages         ChatMessage[]
+  messageReadReceipts  MessageReadReceipt[]
+  customerTickets      SupportTicket[]    @relation("CustomerTickets")
+  adminTickets         SupportTicket[]    @relation("AdminTickets")
 
   @@map("user")
 }
@@ -267,6 +270,7 @@ model Order {
   status          OrderStatus          @default(CREATED)
   totalPrice      Int
   deliveryFee     Int?
+  createdAt       DateTime             @default(now())
   paymentStatus   PaymentStatus        @default(PENDING)
   items           OrderItem[]
   statusHistories OrderStatusHistory[]
@@ -461,50 +465,115 @@ model Image {
 }
 
 model ChatRoom {
-  id           String         @id @default(uuid())
-  orderId      String
-  type         ChatRoomType
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id            String          @id @default(uuid())
+  orderId       String?         
+  ticketId      String?         @unique 
+  type          ChatRoomType
+  status        ChatRoomStatus  @default(ACTIVE)
+  title         String?         
+  lastMessageAt DateTime?      
+  lastMessageId String?        
+  closedAt      DateTime?      
+  closedReason  String?        
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
-  order        Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  participants ChatParticipant[]
-  messages     ChatMessage[]
+  order         Order?          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ticket        SupportTicket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  participants  ChatParticipant[]
+  messages      ChatMessage[]
 
   @@unique([orderId, type])
   @@index([orderId])
+  @@index([ticketId])
+  @@index([status])
+  @@index([lastMessageAt(sort: Desc)])
   @@map("chatRooms")
 }
 
 model ChatParticipant {
-  id         String   @id @default(uuid())
-  chatRoomId String
-  userId     String
-  role       ChatRole
-  joinedAt   DateTime @default(now())
+  id            String    @id @default(uuid())
+  chatRoomId    String
+  userId        String
+  role          ChatRole
+  joinedAt      DateTime  @default(now())
+  leftAt        DateTime? 
+  lastSeenAt    DateTime? 
+  lastReadAt    DateTime?
+  lastReadMsgId String?  
+  isMuted       Boolean   @default(false)
+  isBlocked     Boolean   @default(false)
 
-  chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatRoom      ChatRoom  @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([chatRoomId, userId])
+  @@index([userId])
   @@map("chatParticipants")
 }
 
 model ChatMessage {
-  id         String      @id @default(uuid())
-  chatRoomId String
-  senderId   String
-  content    String      @db.Text
-  type       MessageType @default(TEXT)
-  isRead     Boolean     @default(false)
-  createdAt  DateTime    @default(now())
+  id            String        @id @default(uuid())
+  chatRoomId    String
+  senderId      String
+  content       String        @db.Text
+  type          MessageType   @default(TEXT)
+  status        MessageStatus @default(SENT)
+  metadata      Json?       
+  replyToId     String?      
+  deletedAt     DateTime?    
+  deletedBy     String?       
+  isRead        Boolean       @default(false) 
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  chatRoom   ChatRoom    @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
-  sender     User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  chatRoom      ChatRoom      @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  sender        User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo       ChatMessage?  @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies       ChatMessage[] @relation("MessageReplies")
+  readReceipts  MessageReadReceipt[]
 
   @@index([chatRoomId, createdAt(sort: Desc)])
   @@index([senderId])
+  @@index([status])
   @@map("chatMessages")
+}
+
+model MessageReadReceipt {
+  id        String      @id @default(uuid())
+  messageId String
+  userId    String
+  readAt    DateTime    @default(now())
+
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId])
+  @@map("messageReadReceipts")
+}
+
+model SupportTicket {
+  id              String          @id @default(uuid())
+  customerId      String
+  subject         String
+  category        SupportCategory @default(GENERAL)
+  priority        TicketPriority  @default(NORMAL)
+  status          TicketStatus    @default(OPEN)
+  assignedAdminId String?
+  resolvedAt      DateTime?
+  resolution      String?         @db.Text
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  customer        User            @relation("CustomerTickets", fields: [customerId], references: [id])
+  assignedAdmin   User?           @relation("AdminTickets", fields: [assignedAdminId], references: [id])
+  chatRoom        ChatRoom?
+
+  @@index([customerId])
+  @@index([assignedAdminId])
+  @@index([status])
+  @@map("supportTickets")
 }
 
 enum ChatRoomType {
@@ -513,10 +582,18 @@ enum ChatRoomType {
   CUSTOMER_SUPPORT
 }
 
+enum ChatRoomStatus {
+  ACTIVE   
+  PAUSED   
+  CLOSED   
+  ARCHIVED 
+}
+
 enum ChatRole {
   CUSTOMER
   MERCHANT
   DRIVER
+  ADMIN
   SUPPORT
 }
 
@@ -525,6 +602,43 @@ enum MessageType {
   IMAGE
   LOCATION
   SYSTEM
+  ACTION  
+}
+
+enum MessageStatus {
+  PENDING  
+  SENT      
+  DELIVERED 
+  READ      
+  FAILED    
+}
+
+enum SupportCategory {
+  GENERAL
+  ORDER_ISSUE
+  PAYMENT_ISSUE
+  DELIVERY_ISSUE
+  REFUND_REQUEST
+  ACCOUNT_ISSUE
+  TECHNICAL
+  FEEDBACK
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  WAITING_ADMIN
+  RESOLVED
+  CLOSED
 }
 
 enum UserStatus {

@@ -433,7 +433,7 @@ export class AdminService {
             },
             items: true,
           },
-          orderBy: { id: "desc" },
+          orderBy: { createdAt: "desc" },
           take: limit,
           skip,
         }),

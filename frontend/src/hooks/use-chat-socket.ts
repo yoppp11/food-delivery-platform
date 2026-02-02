@@ -1,151 +1,150 @@
-import { io, Socket } from 'socket.io-client';
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
+import {
+  chatSocketManager,
+  type ConnectionState,
+  type TypingState,
+  type MessageAck,
+  type ChatStatusChange,
+  type ReadReceipt,
+} from '@/lib/chat-socket-manager';
 import type { ChatMessage } from '@/types';
-
-const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
 
 interface UseChatSocketOptions {
   userId: string;
+  token?: string;
   enabled?: boolean;
 }
 
-interface TypingState {
-  userId: string;
-  isTyping: boolean;
-}
-
-interface ChatStatusChange {
-  orderId: string;
-  isClosed: boolean;
-}
-
-export function useChatSocket({ userId, enabled = true }: UseChatSocketOptions) {
-  const socketRef = useRef<Socket | null>(null);
+export function useChatSocket({ userId, token, enabled = true }: UseChatSocketOptions) {
   const queryClient = useQueryClient();
-  const [isConnected, setIsConnected] = useState(false);
-  const [isReconnecting, setIsReconnecting] = useState(false);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionState>(
+    chatSocketManager.getConnectionState()
+  );
   const [typingUsers, setTypingUsers] = useState<Map<string, TypingState>>(new Map());
 
   useEffect(() => {
     if (!enabled || !userId) return;
 
-    const socket = io(`${SOCKET_URL}/chat`, {
-      auth: { userId },
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
-    });
+    const authToken = token || userId;
+    chatSocketManager.connect(authToken, userId);
 
-    socketRef.current = socket;
+    const unsubscribeConnection = chatSocketManager.on<ConnectionState>(
+      'connection-change',
+      (state) => {
+        setConnectionState(state);
+      }
+    );
 
-    socket.on('connect', () => {
-      setIsConnected(true);
-      setIsReconnecting(false);
-      setConnectionError(null);
-    });
-
-    socket.on('disconnect', () => {
-      setIsConnected(false);
-    });
-
-    socket.on('connect_error', (error) => {
-      setConnectionError(error.message);
-    });
-
-    socket.io.on('reconnect_attempt', () => {
-      setIsReconnecting(true);
-    });
-
-    socket.io.on('reconnect_failed', () => {
-      setIsReconnecting(false);
-      setConnectionError('Failed to reconnect after multiple attempts');
-    });
-
-    socket.on('error', (data: { message: string; code?: number }) => {
-      setConnectionError(data.message);
-    });
-
-    socket.on('chat:message', (message: ChatMessage) => {
-      queryClient.setQueryData<ChatMessage[]>(
+    const unsubscribeMessage = chatSocketManager.on<ChatMessage>('message', (message) => {
+      queryClient.setQueryData<{ messages: ChatMessage[]; hasMore: boolean }>(
         queryKeys.chat.messages(message.chatRoomId),
-        (old) => (old ? [...old, message] : [message])
+        (old) => {
+          if (!old) return { messages: [message], hasMore: false };
+          if (old.messages.some((m) => m.id === message.id)) {
+            return old;
+          }
+          return { ...old, messages: [...old.messages, message] };
+        }
       );
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.rooms() });
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.unreadCount() });
     });
 
-    socket.on('chat:new-message', () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.chat.rooms() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.chat.unreadCount() });
-    });
-
-    socket.on('chat:typing', (data: TypingState) => {
+    const unsubscribeTyping = chatSocketManager.on<TypingState>('typing', (data) => {
       setTypingUsers((prev) => {
         const next = new Map(prev);
+        const key = `${data.chatRoomId}-${data.userId}`;
         if (data.isTyping) {
-          next.set(data.userId, data);
+          next.set(key, data);
         } else {
-          next.delete(data.userId);
+          next.delete(key);
         }
         return next;
       });
     });
 
-    socket.on('chat:read', () => {
+    const unsubscribeRead = chatSocketManager.on<ReadReceipt>('read', () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.unreadCount() });
     });
 
-    socket.on('chat:status-changed', (data: ChatStatusChange) => {
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.chat.status(data.orderId) 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.chat.orderRoom(data.orderId, 'CUSTOMER_MERCHANT') 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.chat.orderRoom(data.orderId, 'CUSTOMER_DRIVER') 
-      });
-    });
+    const unsubscribeStatusChanged = chatSocketManager.on<ChatStatusChange>(
+      'status-changed',
+      (data) => {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.chat.status(data.orderId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.chat.orderRoom(data.orderId, 'CUSTOMER_MERCHANT'),
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.chat.orderRoom(data.orderId, 'CUSTOMER_DRIVER'),
+        });
+      }
+    );
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      unsubscribeConnection();
+      unsubscribeMessage();
+      unsubscribeTyping();
+      unsubscribeRead();
+      unsubscribeStatusChanged();
     };
-  }, [userId, enabled, queryClient]);
+  }, [userId, token, enabled, queryClient]);
 
   const joinRoom = useCallback((chatRoomId: string) => {
-    socketRef.current?.emit('chat:join', { chatRoomId });
+    chatSocketManager.joinRoom(chatRoomId);
   }, []);
 
   const leaveRoom = useCallback((chatRoomId: string) => {
-    socketRef.current?.emit('chat:leave', { chatRoomId });
+    chatSocketManager.leaveRoom(chatRoomId);
   }, []);
 
-  const sendMessage = useCallback((chatRoomId: string, content: string, type: 'TEXT' | 'IMAGE' | 'LOCATION' = 'TEXT') => {
-    socketRef.current?.emit('chat:message', { chatRoomId, content, type });
-  }, []);
+  const sendMessage = useCallback(
+    (
+      chatRoomId: string,
+      content: string,
+      type: 'TEXT' | 'IMAGE' | 'LOCATION' = 'TEXT',
+      options?: { metadata?: Record<string, unknown>; replyToId?: string }
+    ) => {
+      return chatSocketManager.sendMessage(chatRoomId, content, type, options);
+    },
+    []
+  );
 
   const sendTyping = useCallback((chatRoomId: string, isTyping: boolean) => {
-    socketRef.current?.emit('chat:typing', { chatRoomId, isTyping });
+    chatSocketManager.sendTyping(chatRoomId, isTyping);
   }, []);
 
-  const markAsRead = useCallback((chatRoomId: string) => {
-    socketRef.current?.emit('chat:read', { chatRoomId });
+  const markAsRead = useCallback((chatRoomId: string, messageIds?: string[]) => {
+    chatSocketManager.markAsRead(chatRoomId, messageIds);
   }, []);
+
+  const typingUsersArray = useMemo(() => {
+    return Array.from(typingUsers.values());
+  }, [typingUsers]);
 
   return {
-    isConnected,
-    isReconnecting,
-    connectionError,
-    typingUsers: Array.from(typingUsers.values()),
+    isConnected: connectionState.isConnected,
+    isReconnecting: connectionState.isReconnecting,
+    connectionError: connectionState.error,
+    reconnectAttempt: connectionState.reconnectAttempt,
+    typingUsers: typingUsersArray,
     joinRoom,
     leaveRoom,
     sendMessage,
     sendTyping,
     markAsRead,
   };
+}
+
+export function useTypingUsersForRoom(chatRoomId: string, currentUserId?: string) {
+  const { typingUsers } = useChatSocket({ userId: currentUserId || '', enabled: false });
+
+  return useMemo(() => {
+    return typingUsers.filter(
+      (t) => t.chatRoomId === chatRoomId && t.userId !== currentUserId
+    );
+  }, [typingUsers, chatRoomId, currentUserId]);
 }

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { Link, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin,
   CreditCard,
@@ -15,52 +15,52 @@ import {
   PartyPopper,
   Truck,
   ScanQrCode,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Label } from '@/components/ui/label';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { useCart } from '@/providers/cart-provider';
-import { useAddresses } from '@/hooks/use-addresses';
-import { useCreateOrder } from '@/hooks/use-orders';
-import { useCreatePayment } from '@/hooks/use-payments';
-import { formatCurrency } from '@/lib/utils';
-import type { UserAddress } from '@/types';
+} from "@/components/ui/dialog";
+import { useCart } from "@/providers/cart-provider";
+import { useAddresses } from "@/hooks/use-addresses";
+import { useCreateOrder } from "@/hooks/use-orders";
+import { AddressFormDialog } from "@/components/address";
+import { formatCurrency } from "@/lib/utils";
+import type { UserAddress } from "@/types";
 
-type PaymentMethod = 'card' | 'ewallet' | 'bank' | 'cod';
+type PaymentMethod = "card" | "ewallet" | "bank" | "cod" | "qris";
 
 export function CheckoutPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { cart, getSubtotal, clearCart } = useCart();
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
-  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('ewallet');
+  const [selectedPayment, setSelectedPayment] =
+    useState<PaymentMethod>("ewallet");
   const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
+  const [isAddressFormOpen, setIsAddressFormOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
 
   const { data: addresses } = useAddresses();
   const createOrder = useCreateOrder();
-  const createPayment = useCreatePayment();
 
   const subtotal = getSubtotal();
   const deliveryFee = 15000;
   const total = subtotal + deliveryFee;
 
   const paymentMethods = [
-    { id: 'qris', name: 'Qris', icon: ScanQrCode, description: 'Scan barcode' },
+    { id: "qris", name: "Qris", icon: ScanQrCode, description: "Scan barcode" },
   ];
 
-  // Set default address
   useEffect(() => {
     if (!selectedAddress && addresses?.length) {
       const defaultAddr = addresses.find((a: UserAddress) => a.isDefault);
@@ -68,52 +68,37 @@ export function CheckoutPage() {
     }
   }, [addresses, selectedAddress]);
 
-  // Set default payment method to match available methods
   useEffect(() => {
-    if (selectedPayment === 'ewallet') {
-      setSelectedPayment('qris');
+    if (selectedPayment === "ewallet") {
+      setSelectedPayment("qris");
     }
   }, [selectedPayment]);
 
   const handlePlaceOrder = async () => {
     if (!cart) return;
-    
+
     setIsProcessing(true);
-    
+
     try {
-      // Create order
       const order = await createOrder.mutateAsync({
         merchantId: cart.merchantId,
       });
-      
-      console.info('Order created:', order);
+
+      console.info("Order created:", order);
       setOrderId(order.id);
 
-      // Create payment and get redirect URL
-      const payment = await createPayment.mutateAsync({
-        orderId: order.id,
-        paymentMethod: selectedPayment as 'qris',
-      });
-      
-      console.info('Payment created:', payment);
+      clearCart();
 
-      // Redirect to payment page
-      if (payment.paymentUrl) {
-        window.location.href = payment.paymentUrl;
-      } else {
-        // Fallback if no payment URL
-        setIsProcessing(false);
-        setIsSuccess(true);
-      }
+      navigate(`/orders/${order.id}`);
     } catch (error) {
-      console.error('Order/Payment error:', error);
+      console.error("Order creation error:", error);
       setIsProcessing(false);
     }
   };
 
   const handleContinue = () => {
     clearCart();
-    navigate('/orders');
+    navigate("/orders");
   };
 
   if (!cart || cart.items.length === 0) {
@@ -130,12 +115,16 @@ export function CheckoutPage() {
     );
   }
 
-  const currentAddress = addresses?.find((a: UserAddress) => a.id === selectedAddress);
+  const currentAddress = addresses?.find(
+    (a: UserAddress) => a.id === selectedAddress,
+  );
 
   return (
     <div className="min-h-screen bg-muted/30">
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl md:text-3xl font-bold mb-8">{t('checkout.title')}</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mb-8">
+          {t("checkout.title")}
+        </h1>
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
@@ -145,7 +134,7 @@ export function CheckoutPage() {
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <MapPin className="h-5 w-5 text-primary" />
-                  {t('checkout.deliveryAddress')}
+                  {t("checkout.deliveryAddress")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -153,24 +142,28 @@ export function CheckoutPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">{currentAddress.label}</span>
+                        <span className="font-medium">
+                          {currentAddress.label}
+                        </span>
                         {currentAddress.isDefault && (
                           <Badge variant="secondary">Default</Badge>
                         )}
                       </div>
-                      <p className="text-muted-foreground">{currentAddress.address}</p>
+                      <p className="text-muted-foreground">
+                        {currentAddress.address}
+                      </p>
                     </div>
                     <Button
                       variant="outline"
                       onClick={() => setIsAddressDialogOpen(true)}
                     >
-                      {t('checkout.changeAddress')}
+                      {t("checkout.changeAddress")}
                     </Button>
                   </div>
                 ) : (
                   <Button onClick={() => setIsAddressDialogOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
-                    {t('checkout.addAddress')}
+                    {t("checkout.addAddress")}
                   </Button>
                 )}
               </CardContent>
@@ -181,7 +174,7 @@ export function CheckoutPage() {
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <CreditCard className="h-5 w-5 text-primary" />
-                  {t('checkout.paymentMethod')}
+                  {t("checkout.paymentMethod")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -194,16 +187,18 @@ export function CheckoutPage() {
                     <div
                       className={`flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${
                         selectedPayment === method.id
-                          ? 'border-primary bg-primary/5'
-                          : 'hover:border-muted-foreground/30'
+                          ? "border-primary bg-primary/5"
+                          : "hover:border-muted-foreground/30"
                       }`}
-                      onClick={() => setSelectedPayment(method.id as PaymentMethod)}
+                      onClick={() =>
+                        setSelectedPayment(method.id as PaymentMethod)
+                      }
                     >
                       <div
                         className={`h-10 w-10 rounded-lg flex items-center justify-center ${
                           selectedPayment === method.id
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted'
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
                         }`}
                       >
                         <method.icon className="h-5 w-5" />
@@ -268,7 +263,7 @@ export function CheckoutPage() {
                       <span className="font-medium">
                         {formatCurrency(
                           (item.menu.price + (item.variant?.price || 0)) *
-                            item.quantity
+                            item.quantity,
                         )}
                       </span>
                     </div>
@@ -282,17 +277,19 @@ export function CheckoutPage() {
           <div className="lg:col-span-1">
             <Card className="sticky top-24">
               <CardHeader>
-                <CardTitle>{t('checkout.orderSummary')}</CardTitle>
+                <CardTitle>{t("checkout.orderSummary")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t('cart.subtotal')}</span>
+                    <span className="text-muted-foreground">
+                      {t("cart.subtotal")}
+                    </span>
                     <span>{formatCurrency(subtotal)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      {t('cart.deliveryFee')}
+                      {t("cart.deliveryFee")}
                     </span>
                     <span>{formatCurrency(deliveryFee)}</span>
                   </div>
@@ -301,7 +298,7 @@ export function CheckoutPage() {
                 <Separator />
 
                 <div className="flex justify-between text-lg font-semibold">
-                  <span>{t('cart.total')}</span>
+                  <span>{t("cart.total")}</span>
                   <span className="text-primary">{formatCurrency(total)}</span>
                 </div>
 
@@ -314,10 +311,10 @@ export function CheckoutPage() {
                   {isProcessing ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      {t('checkout.processing')}
+                      {t("checkout.processing")}
                     </>
                   ) : (
-                    t('checkout.placeOrder')
+                    t("checkout.placeOrder")
                   )}
                 </Button>
               </CardContent>
@@ -338,8 +335,8 @@ export function CheckoutPage() {
                 key={address.id}
                 className={`p-4 rounded-lg border cursor-pointer transition-colors ${
                   selectedAddress === address.id
-                    ? 'border-primary bg-primary/5'
-                    : 'hover:border-muted-foreground/30'
+                    ? "border-primary bg-primary/5"
+                    : "hover:border-muted-foreground/30"
                 }`}
                 onClick={() => {
                   setSelectedAddress(address.id);
@@ -352,10 +349,16 @@ export function CheckoutPage() {
                     <Badge variant="secondary">Default</Badge>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">{address.address}</p>
+                <p className="text-sm text-muted-foreground">
+                  {address.address}
+                </p>
               </div>
             ))}
-            <Button variant="outline" className="w-full">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setIsAddressFormOpen(true)}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add New Address
             </Button>
@@ -363,13 +366,22 @@ export function CheckoutPage() {
         </DialogContent>
       </Dialog>
 
+      <AddressFormDialog
+        open={isAddressFormOpen}
+        onOpenChange={setIsAddressFormOpen}
+        onSuccess={(newAddress) => {
+          setSelectedAddress(newAddress.id);
+          setIsAddressDialogOpen(false);
+        }}
+      />
+
       {/* Success Dialog */}
       <Dialog open={isSuccess} onOpenChange={setIsSuccess}>
         <DialogContent className="text-center">
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            transition={{ type: 'spring', damping: 15 }}
+            transition={{ type: "spring", damping: 15 }}
             className="py-8"
           >
             <motion.div
@@ -379,9 +391,11 @@ export function CheckoutPage() {
             >
               🎉
             </motion.div>
-            <h2 className="text-2xl font-bold mb-2">{t('checkout.orderPlaced')}</h2>
+            <h2 className="text-2xl font-bold mb-2">
+              {t("checkout.orderPlaced")}
+            </h2>
             <p className="text-muted-foreground mb-2">
-              {t('checkout.orderConfirmation')}
+              {t("checkout.orderConfirmation")}
             </p>
             <p className="text-sm text-muted-foreground mb-6">
               Order ID: <span className="font-mono font-medium">{orderId}</span>
@@ -389,16 +403,16 @@ export function CheckoutPage() {
             <div className="flex flex-col gap-3">
               <Button onClick={handleContinue} size="lg">
                 <Truck className="mr-2 h-5 w-5" />
-                {t('checkout.trackOrder')}
+                {t("checkout.trackOrder")}
               </Button>
               <Button
                 variant="outline"
                 onClick={() => {
                   clearCart();
-                  navigate('/');
+                  navigate("/");
                 }}
               >
-                {t('checkout.backToHome')}
+                {t("checkout.backToHome")}
               </Button>
             </div>
           </motion.div>

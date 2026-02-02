@@ -35,3 +35,26 @@ export interface ReviewListResponse {
   limit: number;
   totalPages: number;
 }
+
+export interface OrderReviewStatus {
+  orderId: string;
+  merchantId: string;
+  merchantName: string;
+  driverId: string | null;
+  driverName: string | null;
+  driverPlateNumber: string | null;
+  merchantReview: {
+    id: string;
+    rating: number;
+    comment: string;
+    createdAt: Date;
+  } | null;
+  driverReview: {
+    id: string;
+    rating: number;
+    comment: string;
+    createdAt: Date;
+  } | null;
+  canReviewMerchant: boolean;
+  canReviewDriver: boolean;
+}
