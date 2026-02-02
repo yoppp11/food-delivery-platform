@@ -23,6 +23,9 @@ ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
 
 RUN cd backend && prisma generate
 
+# Compile prisma.config.ts to JavaScript for production use
+RUN cd backend && npx tsc prisma.config.ts --esModuleInterop --module NodeNext --moduleResolution NodeNext --outDir .
+
 RUN cd backend && nest build
 
 # Production stage
@@ -37,7 +40,7 @@ COPY --from=builder /app/backend/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/backend/package.json ./
 COPY --from=builder /app/backend/prisma ./prisma
-COPY --from=builder /app/backend/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/backend/prisma.config.js ./prisma.config.js
 COPY backend/docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN chmod +x ./docker-entrypoint.sh
