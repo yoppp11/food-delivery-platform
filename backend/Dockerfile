@@ -34,6 +34,7 @@ WORKDIR /app
 
 COPY --from=builder --chown=nestjs:nodejs /app/backend/dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/backend/prisma ./prisma
+COPY --from=builder --chown=nestjs:nodejs /app/backend/prisma.config.ts ./prisma.config.ts
 
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 
@@ -48,4 +49,4 @@ USER nestjs
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
-CMD ["sh", "-c", "cd /app && prisma migrate deploy --schema=./prisma/schema.prisma --config=./prisma/prisma.config.ts && node dist/src/main.js"]
+CMD ["sh", "-c", "cd /app && prisma migrate deploy && node dist/main.js"]
