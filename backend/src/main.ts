@@ -37,7 +37,7 @@ async function bootstrap() {
 
   app.useLogger(logger);
   app.setGlobalPrefix("api", {
-    exclude: [{ path: "health", method: RequestMethod.GET }],
+    exclude: [{ path: "health/(.*)", method: RequestMethod.GET }],
   });
   app.useGlobalInterceptors(new CurrentUserInterceptor(prisma, logger));
 
