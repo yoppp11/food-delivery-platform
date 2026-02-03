@@ -9,13 +9,7 @@ import { CacheInvalidationService } from "./cache-invalidation.service";
   imports: [
     CacheModule.registerAsync({
       useFactory: async () => ({
-        store: await redisStore({
-          host: process.env.REDIS_CACHE_HOST || "localhost",
-          port: parseInt(process.env.REDIS_CACHE_PORT || "6379", 10),
-          password: process.env.REDIS_CACHE_PASSWORD || undefined,
-          db: parseInt(process.env.REDIS_CACHE_DB || "0", 10),
-          ttl: 300000,
-        }),
+        store: await redisStore(process.env.REDIS_URL),
       }),
     }),
   ],

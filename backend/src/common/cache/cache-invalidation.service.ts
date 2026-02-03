@@ -18,14 +18,17 @@ export class CacheInvalidationService {
 
   private initRedis(): void {
     try {
-      this.redis = new Redis({
-        host: process.env.REDIS_CACHE_HOST || "localhost",
-        port: parseInt(process.env.REDIS_CACHE_PORT || "6379", 10),
-        password: process.env.REDIS_CACHE_PASSWORD || undefined,
-        db: parseInt(process.env.REDIS_CACHE_DB || "0", 10),
-      });
+      const redisUrl = process.env.REDIS_URL;
+      if (!redisUrl) {
+        this.logger.warn("REDIS_URL not configured");
+        return;
+      }
+      this.redis = new Redis(redisUrl);
     } catch (error) {
-      this.logger.error("Failed to initialize Redis for pattern invalidation", error);
+      this.logger.error(
+        "Failed to initialize Redis for pattern invalidation",
+        error,
+      );
     }
   }
 
@@ -39,10 +42,15 @@ export class CacheInvalidationService {
       const keys = await this.redis.keys(pattern);
       if (keys.length > 0) {
         await this.redis.del(...keys);
-        this.logger.debug(`Cache INVALIDATE pattern ${pattern}: ${keys.length} keys deleted`);
+        this.logger.debug(
+          `Cache INVALIDATE pattern ${pattern}: ${keys.length} keys deleted`,
+        );
       }
     } catch (error) {
-      this.logger.error(`Cache pattern invalidation error for ${pattern}:`, error);
+      this.logger.error(
+        `Cache pattern invalidation error for ${pattern}:`,
+        error,
+      );
     }
   }
 
@@ -91,7 +99,9 @@ export class CacheInvalidationService {
       await this.invalidatePattern(`driver:${driverId}*`);
     }
     await this.invalidatePattern(`drivers:*`);
-    this.logger.debug(`Invalidated driver cache${driverId ? ` for ${driverId}` : ""}`);
+    this.logger.debug(
+      `Invalidated driver cache${driverId ? ` for ${driverId}` : ""}`,
+    );
   }
 
   async invalidatePromotionCache(): Promise<void> {
@@ -100,7 +110,10 @@ export class CacheInvalidationService {
     this.logger.debug("Invalidated promotion cache");
   }
 
-  async invalidateReviewCache(merchantId?: string, driverId?: string): Promise<void> {
+  async invalidateReviewCache(
+    merchantId?: string,
+    driverId?: string,
+  ): Promise<void> {
     if (merchantId) {
       await this.invalidatePattern(`reviews:merchant:${merchantId}*`);
     }

@@ -69,7 +69,11 @@ export class CacheService {
 
   async clear(): Promise<void> {
     try {
-      const stores = (this.cacheManager as unknown as { stores?: Array<{ clear?: () => Promise<void> }> }).stores;
+      const stores = (
+        this.cacheManager as unknown as {
+          stores?: Array<{ clear?: () => Promise<void> }>;
+        }
+      ).stores;
       if (stores && stores[0]?.clear) {
         await stores[0].clear();
       }
