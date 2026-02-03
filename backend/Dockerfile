@@ -1,52 +1,89 @@
 
-FROM node:22-alpine AS builder
+FROM node:22-alpine AS deps
+
+RUN apk add --no-cache libc6-compat openssl
 
 RUN corepack enable && corepack prepare pnpm@10.25.0 --activate
 
 WORKDIR /app
 
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY .npmrc* ./
 
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
 RUN pnpm install --frozen-lockfile
 
-COPY backend ./backend
+FROM node:22-alpine AS builder
 
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
+RUN apk add --no-cache libc6-compat openssl
 
-WORKDIR /app/backend
-
-ENV PATH="/app/node_modules/.bin:$PATH"
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-
-RUN prisma generate --schema=./prisma/schema.prisma
-
-RUN nest build
-
-FROM node:22-alpine AS production
-
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nestjs
+RUN corepack enable && corepack prepare pnpm@10.25.0 --activate
 
 WORKDIR /app
 
-COPY --from=builder --chown=nestjs:nodejs /app/backend/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/backend/prisma ./prisma
-COPY --from=builder --chown=nestjs:nodejs /app/backend/prisma.config.ts ./prisma.config.ts
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/backend/node_modules ./backend/node_modules 2>/dev/null || true
 
-COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY .npmrc* ./
+
+COPY backend ./backend
+
+ENV NODE_ENV=production
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
+WORKDIR /app/backend
+
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
+RUN npx prisma generate --schema=./prisma/schema.prisma
+
+RUN npx nest build
+
+FROM node:22-alpine AS prod-deps
+
+RUN apk add --no-cache libc6-compat openssl
+
+RUN corepack enable && corepack prepare pnpm@10.25.0 --activate
+
+WORKDIR /app
+
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY .npmrc* ./
+COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+
+RUN pnpm install --frozen-lockfile --prod
+
+FROM node:22-alpine AS production
+
+RUN apk add --no-cache libc6-compat openssl wget
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nestjs
+
+WORKDIR /app
+
+COPY --from=prod-deps --chown=nestjs:nodejs /app/node_modules ./node_modules
+
+COPY --from=builder --chown=nestjs:nodejs /app/backend/dist ./dist
+
+COPY --from=builder --chown=nestjs:nodejs /app/backend/prisma ./prisma
+
+COPY --from=builder --chown=nestjs:nodejs /app/backend/package.json ./package.json
+
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
 ENV NODE_ENV=production
 ENV PORT=3001
-ENV PATH="/app/node_modules/.bin:$PATH"
 
 EXPOSE 3001
 
 USER nestjs
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health/live || exit 1
 
-CMD ["sh", "-c", "prisma migrate deploy --schema=./prisma/schema.prisma && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=./prisma/schema.prisma && node dist/main.js"]

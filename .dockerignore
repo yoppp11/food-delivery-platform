@@ -1,0 +1,71 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs
+**/dist
+**/build
+**/.next
+
+# Development
+.git
+.gitignore
+**/.git
+**/.gitignore
+
+# IDE
+.vscode
+.idea
+**/.vscode
+**/.idea
+
+# Logs
+*.log
+**/logs
+**/*.log
+
+# Environment files (keep .env.example)
+.env
+.env.local
+.env.development
+.env.production
+**/.env
+**/.env.local
+**/.env.development
+**/.env.production
+
+# Test files
+**/test
+**/tests
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+**/e2e
+**/test-results
+**/playwright-report
+**/coverage
+
+# Documentation
+*.md
+!README.md
+DEPLOYMENT.md
+**/API_REFERENCE.md
+**/SETUP_GUIDE.md
+
+# Git backup
+**/git_backup
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# pnpm
+.pnpm-store
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+!backend/Dockerfile
+!frontend/Dockerfile

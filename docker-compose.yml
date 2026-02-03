@@ -20,7 +20,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 30s
+
   redis-cache:
     image: redis:7-alpine
     container_name: food-delivery-redis-cache
@@ -37,6 +38,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+
   redis-queue:
     image: redis:7-alpine
     container_name: food-delivery-redis-queue
@@ -53,6 +56,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+
   backend:
     build:
       context: .
@@ -82,7 +87,7 @@ services:
       PAKASIR_SLUG: ${PAKASIR_SLUG:-demo}
       PAKASIR_KEY: ${PAKASIR_KEY:-demo}
 
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:80,http://localhost:4000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:80,http://localhost:4000,http://frontend:80}
     ports:
       - "3001:3001"
     depends_on:
@@ -95,11 +100,12 @@ services:
     networks:
       - food-delivery-network
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"const http = require('http'); http.get('http://localhost:3001/api/health/live', (r) => { process.exit(r.statusCode === 200 || r.statusCode === 401 ? 0 : 1); }).on('error', () => process.exit(1));\""]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health/live"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 120s
+
   frontend:
     build:
       context: .
@@ -119,11 +125,11 @@ services:
     networks:
       - food-delivery-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
 
 networks:
   food-delivery-network:
