@@ -9,7 +9,9 @@ import { CacheInvalidationService } from "./cache-invalidation.service";
   imports: [
     CacheModule.registerAsync({
       useFactory: async () => ({
-        store: await redisStore(process.env.REDIS_URL),
+        store: await redisStore({
+          url: process.env.REDIS_URL,
+        }),
       }),
     }),
   ],
