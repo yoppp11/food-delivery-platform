@@ -8,6 +8,7 @@ import { PrismaService } from "./common/prisma.service";
 import cookieParser from "cookie-parser";
 import * as express from "express";
 import { IoAdapter } from "@nestjs/platform-socket.io";
+import { RequestMethod } from "@nestjs/common";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -21,7 +22,6 @@ async function bootstrap() {
   const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
   const prisma = new PrismaService();
 
-  // Dynamic CORS configuration for production
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(",")
     : ["http://localhost:4000", "http://localhost:5173"];
@@ -32,12 +32,13 @@ async function bootstrap() {
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Merchant-Id"],
   });
-  
-  // Enable WebSocket adapter with CORS
+
   app.useWebSocketAdapter(new IoAdapter(app));
-  
+
   app.useLogger(logger);
-  app.setGlobalPrefix("api");
+  app.setGlobalPrefix("api", {
+    exclude: [{ path: "health", method: RequestMethod.GET }],
+  });
   app.useGlobalInterceptors(new CurrentUserInterceptor(prisma, logger));
 
   const port = process.env.PORT ?? 3001;

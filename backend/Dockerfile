@@ -72,6 +72,8 @@ COPY --from=builder --chown=nestjs:nodejs /app/backend/prisma ./prisma
 
 COPY --from=builder --chown=nestjs:nodejs /app/backend/package.json ./package.json
 
+COPY --from=builder --chown=nestjs:nodejs /app/backend/prisma.config.ts ./prisma.config.ts
+
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
@@ -85,4 +87,4 @@ USER nestjs
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health/live || exit 1
 
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=./prisma/schema.prisma && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
