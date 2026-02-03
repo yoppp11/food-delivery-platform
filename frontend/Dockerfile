@@ -24,7 +24,6 @@ RUN corepack enable && corepack prepare pnpm@10.25.0 --activate
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/frontend/node_modules ./frontend/node_modules 2>/dev/null || true
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY .npmrc* ./
