@@ -442,7 +442,7 @@ export const mockNotifications: Notification[] = [
   {
     id: 'n3',
     userId: '1',
-    type: 'Payment',
+    type: 'PAYMENT',
     message: 'Payment successful for order #order-2',
     isRead: true,
     createdAt: new Date(Date.now() - 7200000),

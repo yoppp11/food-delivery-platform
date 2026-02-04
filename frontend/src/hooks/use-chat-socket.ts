@@ -5,7 +5,6 @@ import {
   chatSocketManager,
   type ConnectionState,
   type TypingState,
-  type MessageAck,
   type ChatStatusChange,
   type ReadReceipt,
 } from '@/lib/chat-socket-manager';

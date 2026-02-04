@@ -19,7 +19,7 @@ import {
   type ChatNotification,
 } from '@/lib/chat-socket-manager';
 import { queryKeys } from '@/lib/query-keys';
-import type { ChatMessage, ChatRoom, MessageStatus } from '@/types';
+import type { ChatMessage, MessageStatus } from '@/types';
 
 interface PendingMessage {
   clientMessageId: string;

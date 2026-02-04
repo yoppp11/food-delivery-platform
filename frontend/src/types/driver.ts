@@ -1,4 +1,4 @@
-import type { User, Merchant, Order, PaymentStatus } from './index';
+import type { User, Merchant, PaymentStatus } from './index';
 
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 

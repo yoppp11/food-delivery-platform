@@ -92,6 +92,7 @@ export interface ReportParams {
   startDate?: string;
   endDate?: string;
   period?: '7d' | '30d' | '90d' | '1y';
+  [key: string]: unknown;
 }
 
 export interface TopMerchant {

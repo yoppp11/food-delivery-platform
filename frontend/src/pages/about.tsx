@@ -12,7 +12,6 @@ import {
   MapPin,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -37,7 +36,7 @@ const itemVariants = {
 };
 
 export function AboutPage() {
-  const { t } = useTranslation();
+  useTranslation();
 
   const values = [
     {

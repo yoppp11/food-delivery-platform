@@ -74,9 +74,9 @@ export function ProfilePage() {
   useEffect(() => {
     if (user) {
       setFormData({
-        name: user.name,
+        name: user.name || '',
         email: user.email,
-        phone: '',
+        phone: user.phone || '',
       });
     }
   }, [user]);

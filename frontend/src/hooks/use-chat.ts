@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { chatService, type GetChatRoomsParams, type GetMessagesParams, type CreateSupportTicketInput } from '@/services/chat.service';
-import type { ChatRoom, ChatMessage, ChatRoomType, TicketStatus, TicketPriority } from '@/types';
+import type { ChatMessage, ChatRoomType, TicketStatus, TicketPriority } from '@/types';
 
 interface SendMessageInput {
   chatRoomId: string;

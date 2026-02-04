@@ -21,7 +21,7 @@ const itemVariants = {
   },
 };
 
-export function MerchantCard({ merchant, variant = 'default' }: MerchantCardProps) {
+export function MerchantCard({ merchant }: MerchantCardProps) {
   const { t } = useTranslation();
   const imageUrl = getMerchantImage(merchant.id);
 

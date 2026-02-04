@@ -8,7 +8,7 @@ interface ChatBadgeProps {
 
 export function ChatBadge({ className }: ChatBadgeProps) {
   const { data } = useUnreadMessageCount();
-  const count = data?.count ?? 0;
+  const count = data?.total ?? 0;
 
   if (count === 0) return null;
 

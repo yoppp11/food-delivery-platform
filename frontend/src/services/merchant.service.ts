@@ -2,7 +2,6 @@ import { apiClient } from "@/lib/api-client";
 import type {
   Merchant,
   MerchantOperationalHour,
-  MerchantReview,
   UpdateMerchantRequest,
   CreateOperationalHourRequest,
   UpdateOperationalHourRequest,

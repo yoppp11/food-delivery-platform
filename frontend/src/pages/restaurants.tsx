@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { useSearchParams } from 'react-router-dom';
 import {
   Search,
   Filter,
@@ -39,7 +38,6 @@ const containerVariants = {
 
 export function RestaurantsPage() {
   const { t } = useTranslation();
-  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [showOpenOnly, setShowOpenOnly] = useState(false);
@@ -48,7 +46,7 @@ export function RestaurantsPage() {
   const { data: merchantsResponse, isLoading: merchantsLoading } = useMerchants({ search: searchQuery });
   const merchants = merchantsResponse?.data;
 
-  const { data: categories, isLoading: categoriesLoading } = useCategories();
+  const { data: categories } = useCategories();
 
   // Filter and sort merchants
   const filteredMerchants = merchants

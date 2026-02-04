@@ -22,6 +22,7 @@ interface MerchantListResponse {
 
 interface ReviewListResponse {
   data: MerchantReview[];
+  total?: number;
   pagination: {
     page: number;
     limit: number;

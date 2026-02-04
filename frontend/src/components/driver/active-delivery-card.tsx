@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Store, Package, Navigation, Loader2, MessageCircle } from 'lucide-react';
+import { Store, Package, Navigation, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { ChatButton } from '@/components/chat';
 import type { Order, Merchant } from '@/types';

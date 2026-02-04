@@ -1,27 +1,21 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   MapPin,
   CreditCard,
-  Wallet,
-  Building,
   Check,
-  ChevronRight,
   Plus,
   ShoppingBag,
   Loader2,
-  PartyPopper,
   Truck,
   ScanQrCode,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,

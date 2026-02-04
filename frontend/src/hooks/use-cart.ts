@@ -48,14 +48,6 @@ interface BackendCart {
   cartItems: BackendCartItem[];
 }
 
-interface CreateCartItemInput {
-  menuName: string;
-  variantId: string;
-  basePrice: number;
-  quantity: number;
-  notes?: string;
-}
-
 interface CreateCartInput {
   merchantId: string;
   menuName: string;

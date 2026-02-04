@@ -85,7 +85,6 @@ class ChatSocketManager {
   private token: string | null = null;
   private userId: string | null = null;
   private maxRetries = 3;
-  private retryDelay = 2000;
 
   private constructor() {}
 
@@ -206,7 +205,6 @@ class ChatSocketManager {
   }
 
   private retryPendingMessages(): void {
-    const now = Date.now();
     this.pendingMessages.forEach((msg, clientId) => {
       if (msg.retryCount >= this.maxRetries) {
         this.emit('message:ack', {

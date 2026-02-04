@@ -285,7 +285,7 @@ export function RestaurantDetailPage() {
                         ))}
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {reviewsResponse?.total || reviews?.length || 0} reviews
+                        {reviewsResponse?.pagination?.total || reviewsResponse?.total || reviews?.length || 0} reviews
                       </p>
                     </div>
                     <Separator orientation="vertical" className="h-20" />

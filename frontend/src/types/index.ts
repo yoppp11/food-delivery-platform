@@ -6,8 +6,10 @@ export interface User {
   id: string;
   email: string;
   emailVerified: boolean;
+  name?: string;
   image?: string | null;
   phoneNumber?: string | null;
+  phone?: string | null;
   role: Role;
   status: UserStatus;
   createdAt: Date;
@@ -240,6 +242,8 @@ export interface Notification {
   id: string;
   userId: string;
   type: NotificationType;
+  title?: string;
+  body?: string;
   message: string;
   isRead: boolean;
   createdAt: Date;

@@ -79,8 +79,8 @@ export function MerchantSettingsPage() {
     },
   });
 
-  const latitude = watch('latitude');
-  const longitude = watch('longitude');
+  const latitude = watch('latitude') ?? 0;
+  const longitude = watch('longitude') ?? 0;
 
   const handleLocationChange = (lat: number, lng: number) => {
     setValue('latitude', lat, { shouldDirty: true });
