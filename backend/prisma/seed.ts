@@ -25,8 +25,6 @@ const adapter = new PrismaPg({
 });
 const prisma = new PrismaClient({ adapter });
 
-// Create Better Auth instance specifically for seeding
-// This ensures we use the SAME prisma instance for both auth and database operations
 const seedAuth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
@@ -61,7 +59,6 @@ async function createUserWithBetterAuth(data: {
     throw new Error(`Failed to create user: ${data.email}`);
   }
 
-  // Update user with additional fields
   const updatedUser = await prisma.user.update({
     where: { id: result.user.id },
     data: {
@@ -133,14 +130,12 @@ async function main() {
   console.log("🌱 Starting comprehensive portfolio seed...");
   console.log("📡 Direct database seeding with Better Auth\n");
   
-  // Log configuration info
   console.log("⚙️  Configuration:");
   console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? "✓ Set" : "❌ Not set"}`);
   console.log(`   BETTER_AUTH_SECRET: ${process.env.BETTER_AUTH_SECRET ? "✓ Set" : "⚠️ Using default"}`);
   console.log(`   BETTER_AUTH_URL: ${process.env.BETTER_AUTH_URL || "http://localhost:3000"}`);
   console.log(`   DEFAULT_PASSWORD: ${DEFAULT_PASSWORD}\n`);
 
-  // Test database connection
   try {
     await prisma.$connect();
     console.log("✓ Database connection successful\n");
@@ -778,7 +773,6 @@ async function main() {
   }
   console.log(`   ✓ ${customers.length * 2} notifications created\n`);
 
-  // Verify that accounts can login
   console.log("🔐 Verifying login credentials...");
   const testAccounts = [
     { email: "admin@fooddelivery.com", name: "Admin" },
