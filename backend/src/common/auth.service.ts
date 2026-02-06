@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaService } from "./prisma.service";
+import "dotenv/config";
 
 @Injectable()
 export class Auth {
@@ -18,9 +19,16 @@ export class Auth {
       "https://food-delivery-platform-production-add3.up.railway.app",
     ];
 
-    const trustedOrigins = process.env.TRUSTED_ORIGINS
-      ? process.env.TRUSTED_ORIGINS.split(",")
-      : defaultOrigins;
+    const envOrigins = process.env.TRUSTED_ORIGINS
+      ? process.env.TRUSTED_ORIGINS.split(",").map((o) => o.trim())
+      : [];
+
+    // Combine default and env origins, removing duplicates
+    const trustedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+
+    console.log("[Auth] NODE_ENV:", process.env.NODE_ENV);
+    console.log("[Auth] Trusted Origins:", trustedOrigins);
+    console.log("[Auth] BETTER_AUTH_URL:", process.env.BETTER_AUTH_URL);
 
     return betterAuth({
       database: prismaAdapter(this.prisma, {

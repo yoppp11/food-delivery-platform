@@ -12,16 +12,49 @@ import {
   Order,
   OrderStatus,
   Provider,
-  NotificationType 
+  NotificationType,
+  Role,
+  Status
 } from "@prisma/client";
 import { v4 as uuid } from "uuid";
-import * as crypto from "crypto";
+import { auth } from "../src/common/auth.service";
 
-// Initialize Prisma with PrismaPg adapter (same as the app)
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL as string,
 });
 const prisma = new PrismaClient({ adapter });
+
+async function createUserWithBetterAuth(data: {
+  email: string;
+  password: string;
+  name: string;
+  role?: Role;
+  phoneNumber?: string;
+}): Promise<User> {
+  const result = await auth.api.signUpEmail({
+    body: {
+      email: data.email,
+      password: data.password,
+      name: data.name,
+    },
+  });
+
+  if (!result || !result.user) {
+    throw new Error(`Failed to create user: ${data.email}`);
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: result.user.id },
+    data: {
+      role: data.role || Role.CUSTOMER,
+      phoneNumber: data.phoneNumber,
+      emailVerified: true,
+      status: Status.ACTIVE,
+    },
+  });
+
+  return updatedUser;
+}
 
 async function shouldSkipSeeding(): Promise<boolean> {
   if (process.env.FORCE_SEED === "true") {
@@ -41,11 +74,7 @@ async function shouldSkipSeeding(): Promise<boolean> {
   return false;
 }
 
-function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString("hex");
-  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
-}
+const DEFAULT_PASSWORD = "password123";
 
 const FOOD_IMAGES = {
   nasiRendang: "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=800",
@@ -146,13 +175,15 @@ async function main() {
   }
   console.log(`   ✓ ${Object.keys(imageMap).length + profileImages.length} images created\n`);
 
-  console.log("👥 Creating users...");
-  const hashedPassword = hashPassword("password123");
+  console.log("👥 Creating users with Better Auth...");
 
-  const adminUser = await prisma.user.create({
-    data: { id: uuid(), email: "admin@fooddelivery.com", emailVerified: true, role: "ADMIN", status: "ACTIVE", phoneNumber: "+6281234567800" },
+  const adminUser = await createUserWithBetterAuth({
+    email: "admin@fooddelivery.com",
+    password: DEFAULT_PASSWORD,
+    name: "Admin",
+    role: Role.ADMIN,
+    phoneNumber: "+6281234567800",
   });
-  await prisma.account.create({ data: { id: uuid(), userId: adminUser.id, accountId: adminUser.id, providerId: "credential", password: hashedPassword } });
 
   const customerData = [
     { email: "budi@gmail.com", phone: "+6281234567801", name: "Budi Santoso" },
@@ -164,10 +195,13 @@ async function main() {
   const customers: User[] = [];
   for (let i = 0; i < customerData.length; i++) {
     const c = customerData[i];
-    const user = await prisma.user.create({
-      data: { id: uuid(), email: c.email, emailVerified: true, role: "CUSTOMER", status: "ACTIVE", phoneNumber: c.phone },
+    const user = await createUserWithBetterAuth({
+      email: c.email,
+      password: DEFAULT_PASSWORD,
+      name: c.name,
+      role: Role.CUSTOMER,
+      phoneNumber: c.phone,
     });
-    await prisma.account.create({ data: { id: uuid(), userId: user.id, accountId: user.id, providerId: "credential", password: hashedPassword } });
     await prisma.userProfile.create({
       data: { userId: user.id, fullName: c.name, imageId: profileImages[i].id, birthDate: new Date(`199${i}-0${i + 1}-1${i}`) },
     });
@@ -175,37 +209,43 @@ async function main() {
   }
 
   const merchantData = [
-    { email: "merchant.padang@gmail.com", phone: "+6281234567810" },
-    { email: "merchant.sushi@gmail.com", phone: "+6281234567811" },
-    { email: "merchant.pizza@gmail.com", phone: "+6281234567812" },
-    { email: "merchant.burger@gmail.com", phone: "+6281234567813" },
-    { email: "merchant.korean@gmail.com", phone: "+6281234567814" },
-    { email: "merchant.thai@gmail.com", phone: "+6281234567815" },
-    { email: "merchant@example.com", phone: "+6281234567816" },
+    { email: "merchant.padang@gmail.com", phone: "+6281234567810", name: "Merchant Padang" },
+    { email: "merchant.sushi@gmail.com", phone: "+6281234567811", name: "Merchant Sushi" },
+    { email: "merchant.pizza@gmail.com", phone: "+6281234567812", name: "Merchant Pizza" },
+    { email: "merchant.burger@gmail.com", phone: "+6281234567813", name: "Merchant Burger" },
+    { email: "merchant.korean@gmail.com", phone: "+6281234567814", name: "Merchant Korean" },
+    { email: "merchant.thai@gmail.com", phone: "+6281234567815", name: "Merchant Thai" },
+    { email: "merchant@example.com", phone: "+6281234567816", name: "Demo Merchant" },
   ];
   const merchantUsers: User[] = [];
   for (const m of merchantData) {
-    const user = await prisma.user.create({
-      data: { id: uuid(), email: m.email, emailVerified: true, role: "MERCHANT", status: "ACTIVE", phoneNumber: m.phone },
+    const user = await createUserWithBetterAuth({
+      email: m.email,
+      password: DEFAULT_PASSWORD,
+      name: m.name,
+      role: Role.MERCHANT,
+      phoneNumber: m.phone,
     });
-    await prisma.account.create({ data: { id: uuid(), userId: user.id, accountId: user.id, providerId: "credential", password: hashedPassword } });
     merchantUsers.push(user);
   }
 
   const driverData = [
-    { email: "driver.rudi@gmail.com", phone: "+6281234567820", plate: "B 1234 XYZ" },
-    { email: "driver.eko@gmail.com", phone: "+6281234567821", plate: "B 5678 ABC" },
-    { email: "driver.joko@gmail.com", phone: "+6281234567822", plate: "B 9012 DEF" },
-    { email: "driver.bambang@gmail.com", phone: "+6281234567823", plate: "B 3456 GHI" },
-    { email: "driver@example.com", phone: "+6281234567824", plate: "B 7890 JKL" },
+    { email: "driver.rudi@gmail.com", phone: "+6281234567820", plate: "B 1234 XYZ", name: "Rudi Driver" },
+    { email: "driver.eko@gmail.com", phone: "+6281234567821", plate: "B 5678 ABC", name: "Eko Driver" },
+    { email: "driver.joko@gmail.com", phone: "+6281234567822", plate: "B 9012 DEF", name: "Joko Driver" },
+    { email: "driver.bambang@gmail.com", phone: "+6281234567823", plate: "B 3456 GHI", name: "Bambang Driver" },
+    { email: "driver@example.com", phone: "+6281234567824", plate: "B 7890 JKL", name: "Demo Driver" },
   ];
   const driverUsers: User[] = [];
   const drivers: Driver[] = [];
   for (const d of driverData) {
-    const user = await prisma.user.create({
-      data: { id: uuid(), email: d.email, emailVerified: true, role: "DRIVER", status: "ACTIVE", phoneNumber: d.phone },
+    const user = await createUserWithBetterAuth({
+      email: d.email,
+      password: DEFAULT_PASSWORD,
+      name: d.name,
+      role: Role.DRIVER,
+      phoneNumber: d.phone,
     });
-    await prisma.account.create({ data: { id: uuid(), userId: user.id, accountId: user.id, providerId: "credential", password: hashedPassword } });
     driverUsers.push(user);
     const driver = await prisma.driver.create({
       data: { id: uuid(), userId: user.id, plateNumber: d.plate, isAvailable: true, rating: 4.5 + Math.random() * 0.5, approvalStatus: "APPROVED" },
