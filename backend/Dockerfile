@@ -88,4 +88,4 @@ USER nestjs
 
 # Run migrations first, then seed, then start the server
 # Seed errors are logged but won't stop deployment
-CMD ["sh", "-c", "npx prisma migrate deploy && (node dist/prisma/seed.js || echo 'Seed failed - check logs') && node dist/src/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma generate && npx seed && node dist/src/main.js"]
