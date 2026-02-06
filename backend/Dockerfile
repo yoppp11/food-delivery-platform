@@ -78,6 +78,9 @@ WORKDIR /app
 
 COPY --from=prod-deps --chown=nestjs:nodejs /app/node_modules ./node_modules
 
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules/.pnpm/@prisma+client@7.1.0*/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules/.pnpm/@prisma+client@7.1.0*/node_modules/@prisma/client ./node_modules/@prisma/client
+
 COPY --from=builder --chown=nestjs:nodejs /app/backend/dist ./dist
 
 COPY --from=builder --chown=nestjs:nodejs /app/backend/prisma ./prisma
@@ -85,9 +88,6 @@ COPY --from=builder --chown=nestjs:nodejs /app/backend/prisma ./prisma
 COPY --from=builder --chown=nestjs:nodejs /app/backend/package.json ./package.json
 
 COPY --from=builder --chown=nestjs:nodejs /app/backend/prisma.config.ts ./prisma.config.ts
-
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
-RUN npx prisma generate --schema=./prisma/schema.prisma
 
 ENV NODE_ENV=production
 ENV PORT=3001
@@ -104,12 +104,7 @@ RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
     echo 'npx prisma migrate deploy --schema=./prisma/schema.prisma' >> /app/entrypoint.sh && \
     echo 'echo "✅ Migrations completed successfully"' >> /app/entrypoint.sh && \
     echo '' >> /app/entrypoint.sh && \
-    echo '# Step 2: Generate Prisma Client' >> /app/entrypoint.sh && \
-    echo 'echo "🔧 Generating Prisma Client..."' >> /app/entrypoint.sh && \
-    echo 'npx prisma generate --schema=./prisma/schema.prisma' >> /app/entrypoint.sh && \
-    echo 'echo "✅ Prisma Client generated successfully"' >> /app/entrypoint.sh && \
-    echo '' >> /app/entrypoint.sh && \
-    echo '# Step 3: Run database seeding (non-blocking on error)' >> /app/entrypoint.sh && \
+    echo '# Step 2: Run database seeding (non-blocking on error)' >> /app/entrypoint.sh && \
     echo 'echo "🌱 Running database seed..."' >> /app/entrypoint.sh && \
     echo 'if [ -f "./dist/prisma/seed.js" ]; then' >> /app/entrypoint.sh && \
     echo '  node ./dist/prisma/seed.js || echo "⚠️ Seed completed with warnings (this is normal if data already exists)"' >> /app/entrypoint.sh && \
@@ -118,7 +113,7 @@ RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
     echo 'fi' >> /app/entrypoint.sh && \
     echo 'echo "✅ Seeding step completed"' >> /app/entrypoint.sh && \
     echo '' >> /app/entrypoint.sh && \
-    echo '# Step 4: Start the NestJS server' >> /app/entrypoint.sh && \
+    echo '# Step 3: Start the NestJS server' >> /app/entrypoint.sh && \
     echo 'echo "🎯 Starting NestJS server on port ${PORT}..."' >> /app/entrypoint.sh && \
     echo 'exec node dist/src/main.js' >> /app/entrypoint.sh && \
     chmod +x /app/entrypoint.sh
