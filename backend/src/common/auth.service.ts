@@ -9,7 +9,19 @@ export class Auth {
 
   auth() {
     const isProduction = process.env.NODE_ENV === "production";
-    
+
+    const defaultOrigins = [
+      "http://localhost:4000",
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "https://food-delivery-platform-virid.vercel.app",
+      "https://food-delivery-platform-production-add3.up.railway.app",
+    ];
+
+    const trustedOrigins = process.env.TRUSTED_ORIGINS
+      ? process.env.TRUSTED_ORIGINS.split(",")
+      : defaultOrigins;
+
     return betterAuth({
       database: prismaAdapter(this.prisma, {
         provider: "postgresql",
@@ -21,15 +33,7 @@ export class Auth {
       basePath: "/api/auth",
       secret: process.env.BETTER_AUTH_SECRET!,
       baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
-      trustedOrigins: process.env.TRUSTED_ORIGINS
-        ? process.env.TRUSTED_ORIGINS.split(",")
-        : [
-            "http://localhost:4000",
-            "http://localhost:5173",
-            "http://localhost:3000",
-            "https://food-delivery-platform-virid.vercel.app",
-            "https://food-delivery-platform-production-add3.up.railway.app",
-          ],
+      trustedOrigins: trustedOrigins,
       advanced: {
         crossSubDomainCookies: {
           enabled: isProduction,
