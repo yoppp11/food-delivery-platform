@@ -1,6 +1,7 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import "dotenv/config";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { 
   PrismaClient, 
   User, 
@@ -16,7 +17,11 @@ import {
 import { v4 as uuid } from "uuid";
 import * as crypto from "crypto";
 
-const prisma = new PrismaClient();
+// Initialize Prisma with PrismaPg adapter (same as the app)
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL as string,
+});
+const prisma = new PrismaClient({ adapter });
 
 async function shouldSkipSeeding(): Promise<boolean> {
   if (process.env.FORCE_SEED === "true") {
