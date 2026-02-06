@@ -17,12 +17,28 @@ import {
   Status
 } from "@prisma/client";
 import { v4 as uuid } from "uuid";
-import { auth } from "../src/common/auth.service";
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL as string,
 });
 const prisma = new PrismaClient({ adapter });
+
+// Create Better Auth instance specifically for seeding
+// This ensures we use the SAME prisma instance for both auth and database operations
+const seedAuth = betterAuth({
+  database: prismaAdapter(prisma, {
+    provider: "postgresql",
+  }),
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: false,
+  },
+  basePath: "/api/auth",
+  secret: process.env.BETTER_AUTH_SECRET || "seed-secret-key-for-development",
+  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+});
 
 async function createUserWithBetterAuth(data: {
   email: string;
@@ -31,7 +47,9 @@ async function createUserWithBetterAuth(data: {
   role?: Role;
   phoneNumber?: string;
 }): Promise<User> {
-  const result = await auth.api.signUpEmail({
+  console.log(`   Creating user: ${data.email}...`);
+  
+  const result = await seedAuth.api.signUpEmail({
     body: {
       email: data.email,
       password: data.password,
@@ -43,6 +61,7 @@ async function createUserWithBetterAuth(data: {
     throw new Error(`Failed to create user: ${data.email}`);
   }
 
+  // Update user with additional fields
   const updatedUser = await prisma.user.update({
     where: { id: result.user.id },
     data: {
@@ -53,6 +72,7 @@ async function createUserWithBetterAuth(data: {
     },
   });
 
+  console.log(`   ✓ User created: ${data.email} (${updatedUser.id})`);
   return updatedUser;
 }
 
@@ -111,7 +131,23 @@ const FOOD_IMAGES = {
 
 async function main() {
   console.log("🌱 Starting comprehensive portfolio seed...");
-  console.log("📡 Direct database seeding (no API dependency)\n");
+  console.log("📡 Direct database seeding with Better Auth\n");
+  
+  // Log configuration info
+  console.log("⚙️  Configuration:");
+  console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? "✓ Set" : "❌ Not set"}`);
+  console.log(`   BETTER_AUTH_SECRET: ${process.env.BETTER_AUTH_SECRET ? "✓ Set" : "⚠️ Using default"}`);
+  console.log(`   BETTER_AUTH_URL: ${process.env.BETTER_AUTH_URL || "http://localhost:3000"}`);
+  console.log(`   DEFAULT_PASSWORD: ${DEFAULT_PASSWORD}\n`);
+
+  // Test database connection
+  try {
+    await prisma.$connect();
+    console.log("✓ Database connection successful\n");
+  } catch (error) {
+    console.error("❌ Database connection failed:", error);
+    throw error;
+  }
 
   if (await shouldSkipSeeding()) {
     return;
@@ -741,6 +777,35 @@ async function main() {
     }
   }
   console.log(`   ✓ ${customers.length * 2} notifications created\n`);
+
+  // Verify that accounts can login
+  console.log("🔐 Verifying login credentials...");
+  const testAccounts = [
+    { email: "admin@fooddelivery.com", name: "Admin" },
+    { email: "customer@example.com", name: "Customer" },
+    { email: "merchant@example.com", name: "Merchant" },
+    { email: "driver@example.com", name: "Driver" },
+  ];
+  
+  for (const account of testAccounts) {
+    try {
+      const loginResult = await seedAuth.api.signInEmail({
+        body: {
+          email: account.email,
+          password: DEFAULT_PASSWORD,
+        },
+      });
+      
+      if (loginResult && loginResult.user) {
+        console.log(`   ✓ ${account.name} (${account.email}) - Login OK`);
+      } else {
+        console.log(`   ⚠️ ${account.name} (${account.email}) - Login failed (no user returned)`);
+      }
+    } catch (error) {
+      console.log(`   ❌ ${account.name} (${account.email}) - Login error:`, error instanceof Error ? error.message : error);
+    }
+  }
+  console.log("");
 
   console.log("═".repeat(50));
   console.log("✅ SEED COMPLETED SUCCESSFULLY!");
