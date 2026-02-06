@@ -90,7 +90,7 @@ async function main() {
     await prisma.chatParticipant.deleteMany();
     await prisma.chatRoom.deleteMany();
     await prisma.supportTicket.deleteMany();
-  } catch (e) {  }
+  } catch (e) {}
   await prisma.paymentCallback.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.orderPromotion.deleteMany();
