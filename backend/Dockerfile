@@ -39,7 +39,8 @@ ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
 RUN npx nest build
-RUN npx tsc prisma/seed.ts --outDir dist/prisma --esModuleInterop --resolveJsonModule --skipLibCheck --module commonjs --target ES2021 2>/dev/null || echo "Seed compilation warning - will use ts-node as fallback"
+
+RUN npx esbuild prisma/seed.ts --bundle --platform=node --target=node22 --outfile=dist/prisma/seed.js --external:@prisma/client --external:dotenv || echo "Seed bundling skipped"
 
 FROM node:22-alpine AS prod-deps
 
@@ -85,5 +86,6 @@ EXPOSE 3001
 
 USER nestjs
 
-# Run migrations first, then seed (only if seed file exists), then start the server
-CMD ["sh", "-c", "npx prisma migrate deploy && (node dist/prisma/seed.js 2>/dev/null || npx ts-node --transpile-only prisma/seed.ts || echo 'Seed skipped') && node dist/src/main.js"]
+# Run migrations first, then seed, then start the server
+# Seed errors are logged but won't stop deployment
+CMD ["sh", "-c", "npx prisma migrate deploy && (node dist/prisma/seed.js || echo 'Seed failed - check logs') && node dist/src/main.js"]

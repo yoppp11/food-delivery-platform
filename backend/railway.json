@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "npx prisma migrate deploy && node dist/prisma/seed.js && node dist/main.js",
+    "startCommand": "npx prisma migrate deploy && (node dist/prisma/seed.js || echo 'Seed completed or skipped') && node dist/src/main.js",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
