@@ -1,43 +1,96 @@
 /* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import "dotenv/config";
-
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-import { PrismaService } from "../src/common/prisma.service";
+import { 
+  PrismaClient, 
+  User, 
+  Merchant, 
+  Driver, 
+  Image, 
+  Promotion, 
+  Order,
+  OrderStatus,
+  Provider,
+  NotificationType 
+} from "@prisma/client";
 import { v4 as uuid } from "uuid";
+import * as crypto from "crypto";
 
-const prisma = new PrismaService();
+const prisma = new PrismaClient();
 
-const BASE_URL = process.env.BETTER_AUTH_URL || "http://localhost:3000";
-
-// Helper function to sign up a user via Better Auth API
-async function signUpUser(email: string, password: string) {
-  const response = await fetch(`${BASE_URL}/api/auth/sign-up/email`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Origin: "http://localhost:3000",
-    },
-    body: JSON.stringify({ email, password }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to sign up ${email}: ${error}`);
+async function shouldSkipSeeding(): Promise<boolean> {
+  if (process.env.FORCE_SEED === "true") {
+    console.log("🔄 FORCE_SEED is enabled - will reseed database\n");
+    return false;
   }
-
-  const data = await response.json();
-  return data.user;
+  
+  const userCount = await prisma.user.count();
+  const merchantCount = await prisma.merchant.count();
+  
+  if (userCount > 0 && merchantCount > 0) {
+    console.log(`📊 Database already has data (${userCount} users, ${merchantCount} merchants)`);
+    console.log("⏭️  Skipping seed to preserve existing data");
+    console.log("💡 Set FORCE_SEED=true to reseed\n");
+    return true;
+  }
+  return false;
 }
 
-async function main() {
-  console.log("🌱 Starting seed...");
-  console.log(`📡 Using Better Auth API at: ${BASE_URL}`);
+function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
 
-  // Clean up existing data (in reverse order of dependencies)
+const FOOD_IMAGES = {
+  nasiRendang: "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=800",
+  nasiPadang: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=800",
+  satay: "https://images.unsplash.com/photo-1529563021893-cc83c992d75d?w=800",
+  friedRice: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=800",
+  sushi: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=800",
+  ramen: "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=800",
+  sashimi: "https://images.unsplash.com/photo-1534256958597-7fe685cbd745?w=800",
+  tempura: "https://images.unsplash.com/photo-1581781870027-04212e231e96?w=800",
+  gyoza: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=800",
+  bento: "https://images.unsplash.com/photo-1569050467447-ce54b3bbc37d?w=800",
+  pizza: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
+  pasta: "https://images.unsplash.com/photo-1563379926898-05f4575a45d8?w=800",
+  lasagna: "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?w=800",
+  burger: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800",
+  fries: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=800",
+  chicken: "https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?w=800",
+  coffee: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800",
+  tea: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=800",
+  juice: "https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=800",
+  smoothie: "https://images.unsplash.com/photo-1505252585461-04db1eb84625?w=800",
+  bubble: "https://images.unsplash.com/photo-1558857563-c0c67b28c4ad?w=800",
+  cake: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=800",
+  ice: "https://images.unsplash.com/photo-1497034825429-c343d7c6a68f?w=800",
+  donut: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=800",
+  bibimbap: "https://images.unsplash.com/photo-1553163147-622ab57be1c7?w=800",
+  kimchi: "https://images.unsplash.com/photo-1583224964978-2d8c1c9e7c5e?w=800",
+  kbbq: "https://images.unsplash.com/photo-1590301157890-4810ed352733?w=800",
+  padthai: "https://images.unsplash.com/photo-1559314809-0d155014e29e?w=800",
+  tomyum: "https://images.unsplash.com/photo-1548943487-a2e4e43b4853?w=800",
+  greencurry: "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=800",
+};
+
+async function main() {
+  console.log("🌱 Starting comprehensive portfolio seed...");
+  console.log("📡 Direct database seeding (no API dependency)\n");
+
+  if (await shouldSkipSeeding()) {
+    return;
+  }
+
   console.log("🧹 Cleaning up existing data...");
+  try {
+    await prisma.messageReadReceipt.deleteMany();
+    await prisma.chatMessage.deleteMany();
+    await prisma.chatParticipant.deleteMany();
+    await prisma.chatRoom.deleteMany();
+    await prisma.supportTicket.deleteMany();
+  } catch (e) {  }
   await prisma.paymentCallback.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.orderPromotion.deleteMany();
@@ -66,1831 +119,600 @@ async function main() {
   await prisma.verification.deleteMany();
   await prisma.image.deleteMany();
   await prisma.user.deleteMany();
+  console.log("   ✓ Database cleaned\n");
 
-  // Create Images (expanded for more menu items)
   console.log("📸 Creating images...");
-  const images = await Promise.all([
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({
-      data: {
-        id: uuid(),
-        imageUrl:
-          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750513695/c7pxafle3zhmhmzpswmb.jpg",
-      },
-    }),
-    prisma.image.create({
-      data: {
-        id: uuid(),
-        imageUrl:
-          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750503080/o6oy3773pbava52m2ygp.jpg",
-      },
-    }),
-    prisma.image.create({
-      data: {
-        id: uuid(),
-        imageUrl:
-          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750502929/m7w1sqiayr0sqwmmhpyh.jpg",
-      },
-    }),
-    prisma.image.create({
-      data: {
-        id: uuid(),
-        imageUrl:
-          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750502672/ukdeffqc5pkbgbebefvr.jpg",
-      },
-    }),
-    // Additional images for more menu items
-    prisma.image.create({
-      data: {
-        id: uuid(),
-        imageUrl:
-          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750445576/m4nrl2spmzrp4bc3in8s.jpg",
-      },
-    }),
-    prisma.image.create({
-      data: {
-        id: uuid(),
-        imageUrl:
-          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750445798/fgskfbi1w8q7qtlrrnrq.jpg",
-      },
-    }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({ data: { id: uuid(), imageUrl: "" } }),
-    prisma.image.create({
-      data: {
-        id: uuid(),
-        imageUrl:
-          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750445576/m4nrl2spmzrp4bc3in8s.jpg",
-      },
-    }),
-    prisma.image.create({
-      data: {
-        id: uuid(),
-        imageUrl:
-          "https://res.cloudinary.com/dtjbr2rgi/image/upload/v1750445798/fgskfbi1w8q7qtlrrnrq.jpg",
-      },
-    }),
-  ]);
+  const imageMap: Record<string, string> = {};
+  for (const [key, url] of Object.entries(FOOD_IMAGES)) {
+    const img = await prisma.image.create({ data: { id: uuid(), imageUrl: url } });
+    imageMap[key] = img.id;
+  }
+  const profileImages: Image[] = [];
+  const profileUrls = [
+    "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200",
+    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200",
+    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200",
+    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
+    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
+  ];
+  for (const url of profileUrls) {
+    const img = await prisma.image.create({ data: { id: uuid(), imageUrl: url } });
+    profileImages.push(img);
+  }
+  console.log(`   ✓ ${Object.keys(imageMap).length + profileImages.length} images created\n`);
 
-  // Create Users via Better Auth API
-  console.log("👥 Creating users via Better Auth...");
+  console.log("👥 Creating users...");
+  const hashedPassword = hashPassword("password123");
 
-  const customerUserData = await signUpUser(
-    "customer@example.com",
-    "password123",
-  );
-  console.log(`   ✓ Customer created: ${customerUserData.id}`);
-
-  const merchantUserData = await signUpUser(
-    "merchant@example.com",
-    "password123",
-  );
-  console.log(`   ✓ Merchant created: ${merchantUserData.id}`);
-
-  const merchantUserData2 = await signUpUser(
-    "merchant2@example.com",
-    "password123",
-  );
-  console.log(`   ✓ Merchant 2 created: ${merchantUserData2.id}`);
-
-  const driverUserData = await signUpUser("driver@example.com", "password123");
-  console.log(`   ✓ Driver created: ${driverUserData.id}`);
-
-  const adminUserData = await signUpUser("admin@example.com", "password123");
-  console.log(`   ✓ Admin created: ${adminUserData.id}`);
-
-  // Update user roles
-  console.log("🔐 Updating user roles...");
-  const customerUser = await prisma.user.update({
-    where: { id: customerUserData.id },
-    data: { role: "CUSTOMER", phoneNumber: "+6281234567890" },
+  const adminUser = await prisma.user.create({
+    data: { id: uuid(), email: "admin@fooddelivery.com", emailVerified: true, role: "ADMIN", status: "ACTIVE", phoneNumber: "+6281234567800" },
   });
+  await prisma.account.create({ data: { id: uuid(), userId: adminUser.id, accountId: adminUser.id, providerId: "credential", password: hashedPassword } });
 
-  const merchantUser = await prisma.user.update({
-    where: { id: merchantUserData.id },
-    data: { role: "MERCHANT", phoneNumber: "+6281234567891" },
-  });
+  const customerData = [
+    { email: "budi@gmail.com", phone: "+6281234567801", name: "Budi Santoso" },
+    { email: "siti@gmail.com", phone: "+6281234567802", name: "Siti Rahayu" },
+    { email: "andi@gmail.com", phone: "+6281234567803", name: "Andi Wijaya" },
+    { email: "dewi@gmail.com", phone: "+6281234567804", name: "Dewi Lestari" },
+    { email: "customer@example.com", phone: "+6281234567805", name: "Demo Customer" },
+  ];
+  const customers: User[] = [];
+  for (let i = 0; i < customerData.length; i++) {
+    const c = customerData[i];
+    const user = await prisma.user.create({
+      data: { id: uuid(), email: c.email, emailVerified: true, role: "CUSTOMER", status: "ACTIVE", phoneNumber: c.phone },
+    });
+    await prisma.account.create({ data: { id: uuid(), userId: user.id, accountId: user.id, providerId: "credential", password: hashedPassword } });
+    await prisma.userProfile.create({
+      data: { userId: user.id, fullName: c.name, imageId: profileImages[i].id, birthDate: new Date(`199${i}-0${i + 1}-1${i}`) },
+    });
+    customers.push(user);
+  }
 
-  const merchantUser2 = await prisma.user.update({
-    where: { id: merchantUserData2.id },
-    data: { role: "MERCHANT", phoneNumber: "+6281234567894" },
-  });
+  const merchantData = [
+    { email: "merchant.padang@gmail.com", phone: "+6281234567810" },
+    { email: "merchant.sushi@gmail.com", phone: "+6281234567811" },
+    { email: "merchant.pizza@gmail.com", phone: "+6281234567812" },
+    { email: "merchant.burger@gmail.com", phone: "+6281234567813" },
+    { email: "merchant.korean@gmail.com", phone: "+6281234567814" },
+    { email: "merchant.thai@gmail.com", phone: "+6281234567815" },
+    { email: "merchant@example.com", phone: "+6281234567816" },
+  ];
+  const merchantUsers: User[] = [];
+  for (const m of merchantData) {
+    const user = await prisma.user.create({
+      data: { id: uuid(), email: m.email, emailVerified: true, role: "MERCHANT", status: "ACTIVE", phoneNumber: m.phone },
+    });
+    await prisma.account.create({ data: { id: uuid(), userId: user.id, accountId: user.id, providerId: "credential", password: hashedPassword } });
+    merchantUsers.push(user);
+  }
 
-  const driverUser = await prisma.user.update({
-    where: { id: driverUserData.id },
-    data: { role: "DRIVER", phoneNumber: "+6281234567892" },
-  });
+  const driverData = [
+    { email: "driver.rudi@gmail.com", phone: "+6281234567820", plate: "B 1234 XYZ" },
+    { email: "driver.eko@gmail.com", phone: "+6281234567821", plate: "B 5678 ABC" },
+    { email: "driver.joko@gmail.com", phone: "+6281234567822", plate: "B 9012 DEF" },
+    { email: "driver.bambang@gmail.com", phone: "+6281234567823", plate: "B 3456 GHI" },
+    { email: "driver@example.com", phone: "+6281234567824", plate: "B 7890 JKL" },
+  ];
+  const driverUsers: User[] = [];
+  const drivers: Driver[] = [];
+  for (const d of driverData) {
+    const user = await prisma.user.create({
+      data: { id: uuid(), email: d.email, emailVerified: true, role: "DRIVER", status: "ACTIVE", phoneNumber: d.phone },
+    });
+    await prisma.account.create({ data: { id: uuid(), userId: user.id, accountId: user.id, providerId: "credential", password: hashedPassword } });
+    driverUsers.push(user);
+    const driver = await prisma.driver.create({
+      data: { id: uuid(), userId: user.id, plateNumber: d.plate, isAvailable: true, rating: 4.5 + Math.random() * 0.5, approvalStatus: "APPROVED" },
+    });
+    drivers.push(driver);
+    await prisma.driverLocation.create({
+      data: { driverId: driver.id, latitude: -6.2 + Math.random() * 0.05, longitude: 106.84 + Math.random() * 0.05, recordedAt: new Date() },
+    });
+  }
+  console.log(`   ✓ 1 Admin, ${customers.length} Customers, ${merchantUsers.length} Merchants, ${drivers.length} Drivers created\n`);
 
-  const adminUser = await prisma.user.update({
-    where: { id: adminUserData.id },
-    data: { role: "ADMIN", phoneNumber: "+6281234567893" },
-  });
+  console.log("📍 Creating addresses...");
+  const addresses = [
+    { userId: customers[0].id, label: "Rumah", lat: -6.2088, lng: 106.8456, addr: "Jl. Sudirman No. 123, Jakarta Pusat", isDefault: true },
+    { userId: customers[0].id, label: "Kantor", lat: -6.1751, lng: 106.865, addr: "Jl. Thamrin No. 456, Jakarta Pusat", isDefault: false },
+    { userId: customers[1].id, label: "Rumah", lat: -6.2297, lng: 106.6895, addr: "Jl. Kemanggisan Raya No. 78, Jakarta Barat", isDefault: true },
+    { userId: customers[2].id, label: "Apartemen", lat: -6.2262, lng: 106.8007, addr: "Apartemen Green Park Tower A Lt. 15", isDefault: true },
+    { userId: customers[3].id, label: "Kos", lat: -6.1934, lng: 106.822, addr: "Kost Putri Harmoni, Jl. Gajah Mada No. 50", isDefault: true },
+    { userId: customers[4].id, label: "Home", lat: -6.2146, lng: 106.8451, addr: "Jl. MH Thamrin No. 1, Jakarta Pusat", isDefault: true },
+  ];
+  for (const a of addresses) {
+    await prisma.userAddres.create({ data: { userId: a.userId, label: a.label, latitude: a.lat, longitude: a.lng, address: a.addr, isDefault: a.isDefault } });
+  }
+  console.log(`   ✓ ${addresses.length} addresses created\n`);
 
-  // Create User Profiles
-  console.log("👤 Creating user profiles...");
-  await Promise.all([
-    prisma.userProfile.create({
-      data: {
-        userId: customerUser.id,
-        fullName: "John Customer",
-        imageId: images[0].id,
-        birthDate: new Date("1995-05-15"),
-      },
-    }),
-    prisma.userProfile.create({
-      data: {
-        userId: merchantUser.id,
-        fullName: "Jane Merchant",
-        imageId: images[1].id,
-        birthDate: new Date("1988-08-20"),
-      },
-    }),
-    prisma.userProfile.create({
-      data: {
-        userId: merchantUser2.id,
-        fullName: "Bob Sushi Owner",
-        imageId: images[1].id,
-        birthDate: new Date("1990-03-10"),
-      },
-    }),
-  ]);
-
-  // Create User Addresses
-  console.log("📍 Creating user addresses...");
-  await Promise.all([
-    prisma.userAddres.create({
-      data: {
-        userId: customerUser.id,
-        label: "Home",
-        latitude: -6.2088,
-        longitude: 106.8456,
-        address: "Jl. Sudirman No. 123, Jakarta Pusat",
-        isDefault: true,
-      },
-    }),
-    prisma.userAddres.create({
-      data: {
-        userId: customerUser.id,
-        label: "Office",
-        latitude: -6.1751,
-        longitude: 106.865,
-        address: "Jl. Thamrin No. 456, Jakarta Pusat",
-        isDefault: false,
-      },
-    }),
-  ]);
-
-  // Create Merchants
-  console.log("🏪 Creating merchants...");
-  const merchant1 = await prisma.merchant.create({
-    data: {
-      id: uuid(),
-      ownerId: merchantUser.id,
-      name: "Warung Nasi Padang Sederhana",
-      description: "Authentic Padang cuisine with rich flavors",
-      latitude: -6.2,
-      longitude: 106.84,
-      isOpen: true,
-      rating: 4.5,
-    },
-  });
-
-  const merchant2 = await prisma.merchant.create({
-    data: {
-      id: uuid(),
-      ownerId: merchantUser2.id,
-      name: "Sushi Express",
-      description: "Fresh Japanese sushi and sashimi",
-      latitude: -6.21,
-      longitude: 106.85,
-      isOpen: true,
-      rating: 4.7,
-    },
-  });
-
-  // Create Merchant Categories (at least 4 per merchant)
-  console.log("🏷️ Creating merchant categories...");
-  const merchantCategory1_1 = await prisma.merchantMenuCategory.create({
-    data: { id: uuid(), name: "Rice Dishes", merchantId: merchant1.id },
-  });
-  const merchantCategory1_2 = await prisma.merchantMenuCategory.create({
-    data: { id: uuid(), name: "Drinks", merchantId: merchant1.id },
-  });
-  const merchantCategory1_3 = await prisma.merchantMenuCategory.create({
-    data: { id: uuid(), name: "Sides", merchantId: merchant1.id },
-  });
-  const merchantCategory1_4 = await prisma.merchantMenuCategory.create({
-    data: { id: uuid(), name: "Desserts", merchantId: merchant1.id },
-  });
-
-  const merchantCategory2_1 = await prisma.merchantMenuCategory.create({
-    data: { id: uuid(), name: "Sushi Rolls", merchantId: merchant2.id },
-  });
-  const merchantCategory2_2 = await prisma.merchantMenuCategory.create({
-    data: { id: uuid(), name: "Sashimi", merchantId: merchant2.id },
-  });
-  const merchantCategory2_3 = await prisma.merchantMenuCategory.create({
-    data: { id: uuid(), name: "Ramen", merchantId: merchant2.id },
-  });
-  const merchantCategory2_4 = await prisma.merchantMenuCategory.create({
-    data: { id: uuid(), name: "Beverages", merchantId: merchant2.id },
-  });
-
-  // Create Merchant Operational Hours
-  console.log("🕐 Creating operational hours...");
-  const daysOfWeek = [0, 1, 2, 3, 4, 5, 6]; // Sunday to Saturday
-  for (const merchant of [merchant1, merchant2]) {
-    for (const day of daysOfWeek) {
+  console.log("🏪 Creating merchants (APPROVED)...");
+  const merchantInfo = [
+    { name: "Warung Nasi Padang Sederhana", desc: "Masakan Padang autentik dengan cita rasa khas Minang. Rendang, gulai, dan sambal lado yang bikin nagih!", lat: -6.200, lng: 106.840, rating: 4.8 },
+    { name: "Sakura Sushi House", desc: "Fresh Japanese sushi, sashimi, and authentic ramen. All fish imported weekly from Tsukiji Market.", lat: -6.210, lng: 106.850, rating: 4.7 },
+    { name: "Pizza Roma Authentic Italian", desc: "Wood-fired authentic Italian pizza with imported ingredients from Italy.", lat: -6.220, lng: 106.830, rating: 4.6 },
+    { name: "Burger Bros Premium", desc: "100% Australian beef burgers with homemade sauces. Best fries in town!", lat: -6.190, lng: 106.860, rating: 4.5 },
+    { name: "Seoul Kitchen 서울식당", desc: "Authentic Korean cuisine - Bibimbap, Korean BBQ, and homemade Kimchi. Halal certified.", lat: -6.205, lng: 106.835, rating: 4.7 },
+    { name: "Thai Smile Kitchen", desc: "Authentic Thai street food - Tom Yum, Pad Thai, Green Curry. Spicy level adjustable!", lat: -6.215, lng: 106.845, rating: 4.6 },
+    { name: "Kopi Nusantara Specialty Coffee", desc: "Premium Indonesian single-origin coffee. Specialty drinks and fresh juices.", lat: -6.198, lng: 106.852, rating: 4.9 },
+  ];
+  const merchants: Merchant[] = [];
+  for (let i = 0; i < merchantInfo.length; i++) {
+    const m = merchantInfo[i];
+    const merchant = await prisma.merchant.create({
+      data: { id: uuid(), ownerId: merchantUsers[i].id, name: m.name, description: m.desc, latitude: m.lat, longitude: m.lng, isOpen: true, rating: m.rating, approvalStatus: "APPROVED" },
+    });
+    merchants.push(merchant);
+    for (let day = 0; day < 7; day++) {
       await prisma.merchantOperationalHour.create({
+        data: { merchantId: merchant.id, dayOfWeek: day, openTime: day === 0 ? "10:00" : "08:00", closeTime: day >= 5 ? "23:00" : "22:00" },
+      });
+    }
+  }
+  console.log(`   ✓ ${merchants.length} merchants created (all APPROVED)\n`);
+
+  console.log("📂 Creating categories...");
+  const globalCategories = [
+    { name: "Indonesian", desc: "Traditional Indonesian cuisine" },
+    { name: "Japanese", desc: "Sushi, Ramen, and more" },
+    { name: "Italian", desc: "Pizza, Pasta, and Italian favorites" },
+    { name: "American", desc: "Burgers, Fries, and Fast Food" },
+    { name: "Korean", desc: "Korean BBQ and traditional dishes" },
+    { name: "Thai", desc: "Spicy Thai cuisine" },
+    { name: "Beverages", desc: "Coffee, Tea, and Drinks" },
+    { name: "Desserts", desc: "Sweet treats and desserts" },
+  ];
+  for (const c of globalCategories) {
+    await prisma.category.create({ data: { id: uuid(), name: c.name, description: c.desc } });
+  }
+  console.log(`   ✓ ${globalCategories.length} global categories created\n`);
+
+  console.log("🍽️ Creating menus...");
+  const allVariants: Array<{ id: string; price: number; merchantId: string; menuName: string }> = [];
+
+  const menuData = [
+    {
+      merchantId: merchants[0].id,
+      categories: [
+        { name: "Nasi Padang", menus: [
+          { name: "Nasi Rendang", desc: "Nasi putih dengan rendang daging sapi empuk bumbu rempah", price: 35000, img: "nasiRendang" },
+          { name: "Nasi Ayam Pop", desc: "Nasi dengan ayam goreng bumbu khas Padang", price: 30000, img: "nasiPadang" },
+          { name: "Nasi Gulai Ikan", desc: "Nasi dengan ikan kakap gulai kuning segar", price: 32000, img: "nasiPadang" },
+          { name: "Nasi Dendeng Balado", desc: "Nasi dengan dendeng sapi balado pedas manis", price: 38000, img: "satay" },
+        ]},
+        { name: "Lauk Pauk", menus: [
+          { name: "Rendang Daging", desc: "Rendang daging sapi dimasak hingga kering", price: 25000, img: "nasiRendang" },
+          { name: "Ayam Bakar Padang", desc: "Ayam bakar bumbu padang dengan sambal lado", price: 22000, img: "chicken" },
+          { name: "Telur Balado", desc: "Telur rebus dengan sambal balado merah", price: 10000, img: "nasiPadang" },
+        ]},
+        { name: "Minuman", menus: [
+          { name: "Es Teh Manis", desc: "Teh manis dingin segar", price: 8000, img: "tea" },
+          { name: "Es Jeruk", desc: "Jus jeruk segar dengan es", price: 12000, img: "juice" },
+          { name: "Teh Tarik", desc: "Teh tarik ala Malaysia creamy", price: 15000, img: "tea" },
+        ]},
+      ],
+    },
+    {
+      merchantId: merchants[1].id,
+      categories: [
+        { name: "Sushi Rolls", menus: [
+          { name: "Dragon Roll", desc: "Eel and cucumber topped with avocado", price: 85000, img: "sushi" },
+          { name: "California Roll", desc: "Crab, avocado, cucumber inside-out roll", price: 55000, img: "sushi" },
+          { name: "Spicy Tuna Roll", desc: "Fresh tuna with spicy mayo", price: 65000, img: "sushi" },
+          { name: "Rainbow Roll", desc: "Assorted fresh fish over California roll", price: 95000, img: "sushi" },
+        ]},
+        { name: "Sashimi", menus: [
+          { name: "Salmon Sashimi", desc: "Premium Norwegian salmon, 5 slices", price: 65000, img: "sashimi" },
+          { name: "Tuna Sashimi", desc: "Bluefin tuna, 5 slices", price: 75000, img: "sashimi" },
+          { name: "Mixed Sashimi", desc: "Chef's selection of fresh fish", price: 120000, img: "sashimi" },
+        ]},
+        { name: "Ramen", menus: [
+          { name: "Tonkotsu Ramen", desc: "Rich pork bone broth with chashu", price: 55000, img: "ramen" },
+          { name: "Miso Ramen", desc: "Fermented soybean paste broth", price: 50000, img: "ramen" },
+          { name: "Spicy Tantanmen", desc: "Spicy sesame broth with minced pork", price: 58000, img: "ramen" },
+        ]},
+        { name: "Appetizers", menus: [
+          { name: "Gyoza (6 pcs)", desc: "Pan-fried Japanese dumplings", price: 35000, img: "gyoza" },
+          { name: "Tempura Set", desc: "Assorted tempura with dipping sauce", price: 45000, img: "tempura" },
+        ]},
+      ],
+    },
+    {
+      merchantId: merchants[2].id,
+      categories: [
+        { name: "Pizza", menus: [
+          { name: "Margherita", desc: "Classic tomato sauce, mozzarella, fresh basil", price: 75000, img: "pizza" },
+          { name: "Pepperoni", desc: "Tomato sauce, mozzarella, premium pepperoni", price: 95000, img: "pizza" },
+          { name: "Four Cheese", desc: "Mozzarella, gorgonzola, parmesan, ricotta", price: 105000, img: "pizza" },
+          { name: "BBQ Chicken", desc: "BBQ sauce, grilled chicken, red onion", price: 98000, img: "pizza" },
+        ]},
+        { name: "Pasta", menus: [
+          { name: "Spaghetti Carbonara", desc: "Creamy egg sauce with pancetta", price: 65000, img: "pasta" },
+          { name: "Fettuccine Alfredo", desc: "Creamy parmesan sauce", price: 60000, img: "pasta" },
+          { name: "Lasagna Bolognese", desc: "Layered pasta with meat sauce", price: 75000, img: "lasagna" },
+        ]},
+        { name: "Desserts", menus: [
+          { name: "Tiramisu", desc: "Classic Italian coffee-flavored dessert", price: 45000, img: "cake" },
+          { name: "Panna Cotta", desc: "Italian cream dessert with berry sauce", price: 40000, img: "cake" },
+        ]},
+      ],
+    },
+    {
+      merchantId: merchants[3].id,
+      categories: [
+        { name: "Burgers", menus: [
+          { name: "Classic Cheeseburger", desc: "Beef patty, cheddar, lettuce, tomato", price: 45000, img: "burger" },
+          { name: "Double Bacon Burger", desc: "Double beef, crispy bacon, BBQ sauce", price: 75000, img: "burger" },
+          { name: "Mushroom Swiss", desc: "Beef patty, sautéed mushrooms, Swiss cheese", price: 55000, img: "burger" },
+          { name: "Crispy Chicken Burger", desc: "Crispy fried chicken, coleslaw, pickles", price: 48000, img: "chicken" },
+        ]},
+        { name: "Sides", menus: [
+          { name: "French Fries", desc: "Crispy golden fries with seasoning", price: 20000, img: "fries" },
+          { name: "Onion Rings", desc: "Crispy battered onion rings", price: 25000, img: "fries" },
+          { name: "Cheese Fries", desc: "Fries topped with melted cheese", price: 30000, img: "fries" },
+        ]},
+        { name: "Drinks", menus: [
+          { name: "Milkshake", desc: "Creamy vanilla, chocolate or strawberry", price: 28000, img: "smoothie" },
+          { name: "Coca Cola", desc: "Ice cold Coca Cola", price: 15000, img: "juice" },
+        ]},
+      ],
+    },
+    {
+      merchantId: merchants[4].id,
+      categories: [
+        { name: "Rice Bowls", menus: [
+          { name: "Bibimbap", desc: "Mixed rice with vegetables, egg, gochujang", price: 45000, img: "bibimbap" },
+          { name: "Bulgogi Rice", desc: "Marinated beef with rice and vegetables", price: 55000, img: "bibimbap" },
+          { name: "Chicken Teriyaki Bowl", desc: "Grilled chicken with teriyaki sauce", price: 48000, img: "bento" },
+        ]},
+        { name: "Korean BBQ", menus: [
+          { name: "Samgyeopsal", desc: "Grilled pork belly (200g) with sides", price: 85000, img: "kbbq" },
+          { name: "Beef Galbi", desc: "Marinated beef short ribs (200g)", price: 120000, img: "kbbq" },
+          { name: "Dakgalbi", desc: "Spicy stir-fried chicken with vegetables", price: 75000, img: "kbbq" },
+        ]},
+        { name: "Soups & Stews", menus: [
+          { name: "Kimchi Jjigae", desc: "Spicy kimchi stew with pork and tofu", price: 45000, img: "kimchi" },
+          { name: "Sundubu Jjigae", desc: "Soft tofu stew with seafood", price: 48000, img: "tomyum" },
+        ]},
+        { name: "Sides (Banchan)", menus: [
+          { name: "Kimchi", desc: "Traditional fermented napa cabbage", price: 15000, img: "kimchi" },
+          { name: "Tteokbokki", desc: "Spicy rice cakes in gochujang sauce", price: 28000, img: "kimchi" },
+        ]},
+      ],
+    },
+    {
+      merchantId: merchants[5].id,
+      categories: [
+        { name: "Noodles", menus: [
+          { name: "Pad Thai", desc: "Stir-fried rice noodles with shrimp and peanuts", price: 45000, img: "padthai" },
+          { name: "Pad See Ew", desc: "Flat rice noodles with egg and broccoli", price: 42000, img: "padthai" },
+          { name: "Drunken Noodles", desc: "Spicy stir-fried noodles with basil", price: 48000, img: "padthai" },
+        ]},
+        { name: "Curries", menus: [
+          { name: "Green Curry", desc: "Coconut curry with Thai basil", price: 55000, img: "greencurry" },
+          { name: "Red Curry", desc: "Spicy red curry with bamboo shoots", price: 55000, img: "greencurry" },
+          { name: "Massaman Curry", desc: "Rich curry with potatoes and peanuts", price: 58000, img: "greencurry" },
+        ]},
+        { name: "Soups", menus: [
+          { name: "Tom Yum Kung", desc: "Spicy and sour shrimp soup", price: 48000, img: "tomyum" },
+          { name: "Tom Kha Gai", desc: "Coconut chicken soup with galangal", price: 45000, img: "tomyum" },
+        ]},
+        { name: "Rice Dishes", menus: [
+          { name: "Basil Chicken Rice", desc: "Stir-fried chicken with holy basil", price: 40000, img: "friedRice" },
+          { name: "Pineapple Fried Rice", desc: "Fried rice with pineapple and cashews", price: 48000, img: "friedRice" },
+        ]},
+      ],
+    },
+    {
+      merchantId: merchants[6].id,
+      categories: [
+        { name: "Hot Coffee", menus: [
+          { name: "Espresso", desc: "Double shot espresso", price: 22000, img: "coffee" },
+          { name: "Cappuccino", desc: "Espresso with steamed milk foam", price: 32000, img: "coffee" },
+          { name: "Latte", desc: "Espresso with steamed milk", price: 35000, img: "coffee" },
+          { name: "Kopi Tubruk", desc: "Traditional Indonesian black coffee", price: 18000, img: "coffee" },
+        ]},
+        { name: "Iced Coffee", menus: [
+          { name: "Iced Americano", desc: "Espresso with cold water and ice", price: 28000, img: "coffee" },
+          { name: "Es Kopi Susu Gula Aren", desc: "Iced coffee with milk and palm sugar", price: 32000, img: "coffee" },
+          { name: "Cold Brew", desc: "Slow-brewed cold coffee (12 hours)", price: 35000, img: "coffee" },
+        ]},
+        { name: "Non-Coffee", menus: [
+          { name: "Matcha Latte", desc: "Japanese green tea with milk", price: 35000, img: "tea" },
+          { name: "Brown Sugar Boba", desc: "Fresh milk with brown sugar and tapioca", price: 32000, img: "bubble" },
+          { name: "Fresh Orange Juice", desc: "Freshly squeezed orange juice", price: 28000, img: "juice" },
+        ]},
+        { name: "Snacks", menus: [
+          { name: "Croissant", desc: "Butter croissant, plain or chocolate", price: 25000, img: "donut" },
+          { name: "Cheesecake", desc: "New York style cheesecake", price: 35000, img: "cake" },
+        ]},
+      ],
+    },
+  ];
+
+  let totalMenus = 0;
+  for (const merchantMenus of menuData) {
+    for (const cat of merchantMenus.categories) {
+      const category = await prisma.merchantMenuCategory.create({
+        data: { id: uuid(), name: cat.name, merchantId: merchantMenus.merchantId },
+      });
+      for (const menu of cat.menus) {
+        const createdMenu = await prisma.menu.create({
+          data: {
+            id: uuid(),
+            merchantId: merchantMenus.merchantId,
+            categoryId: category.id,
+            name: menu.name,
+            description: menu.desc,
+            price: menu.price,
+            isAvailable: true,
+            imageId: imageMap[menu.img],
+          },
+        });
+       
+        const variant = await prisma.menuVariant.create({
+          data: { id: uuid(), menuId: createdMenu.id, name: "Regular", price: menu.price },
+        });
+        allVariants.push({ id: variant.id, price: variant.price, merchantId: merchantMenus.merchantId, menuName: menu.name });
+        
+        if (menu.price >= 30000) {
+          const largeVariant = await prisma.menuVariant.create({
+            data: { id: uuid(), menuId: createdMenu.id, name: "Large", price: Math.round(menu.price * 1.3) },
+          });
+          allVariants.push({ id: largeVariant.id, price: largeVariant.price, merchantId: merchantMenus.merchantId, menuName: menu.name });
+        }
+        totalMenus++;
+      }
+    }
+  }
+  console.log(`   ✓ ${totalMenus} menus with variants created\n`);
+
+  console.log("🎉 Creating promotions...");
+  const promotions = [
+    { code: "NEWUSER50", type: "PERCENT", value: 50, max: 30000, days: 90 },
+    { code: "HEMAT25K", type: "FLAT", value: 25000, max: 25000, days: 60 },
+    { code: "WEEKEND30", type: "PERCENT", value: 30, max: 50000, days: 30 },
+    { code: "FREESHIP", type: "FLAT", value: 15000, max: 15000, days: 45 },
+    { code: "PAYDAY20", type: "PERCENT", value: 20, max: 40000, days: 120 },
+  ];
+  const createdPromos: Promotion[] = [];
+  for (const p of promotions) {
+    const promo = await prisma.promotion.create({
+      data: {
+        id: uuid(),
+        code: p.code,
+        discountType: p.type as "PERCENT" | "FLAT",
+        discountValue: p.value,
+        maxDiscount: p.max,
+        expiredAt: new Date(Date.now() + p.days * 24 * 60 * 60 * 1000),
+      },
+    });
+    createdPromos.push(promo);
+  }
+  console.log(`   ✓ ${promotions.length} promotions created\n`);
+
+  console.log("📦 Creating orders...");
+  const orderStatuses = ["COMPLETED", "COMPLETED", "COMPLETED", "PREPARING", "ON_DELIVERY", "PAID", "COMPLETED", "READY"];
+  const createdOrders: Order[] = [];
+
+  for (let i = 0; i < 20; i++) {
+    const customer = customers[i % customers.length];
+    const merchantIndex = i % merchants.length;
+    const merchant = merchants[merchantIndex];
+    const status = orderStatuses[i % orderStatuses.length];
+    const driver = ["ON_DELIVERY", "COMPLETED", "READY"].includes(status) ? drivers[i % drivers.length] : null;
+    const merchantVariants = allVariants.filter(v => v.merchantId === merchant.id);
+
+    const orderDate = new Date(Date.now() - Math.floor(Math.random() * 14 * 24 * 60 * 60 * 1000));
+    const itemCount = 1 + Math.floor(Math.random() * 3);
+    let totalPrice = 0;
+
+    const order = await prisma.order.create({
+      data: {
+        id: uuid(),
+        userId: customer.id,
+        merchantId: merchant.id,
+        driverId: driver?.id,
+        status: status as OrderStatus,
+        totalPrice: 0,
+        deliveryFee: 8000 + Math.floor(Math.random() * 7000),
+        paymentStatus: ["COMPLETED", "ON_DELIVERY", "PAID", "PREPARING", "READY"].includes(status) ? "SUCCESS" : "PENDING",
+        createdAt: orderDate,
+      },
+    });
+
+    for (let j = 0; j < itemCount && j < merchantVariants.length; j++) {
+      const variant = merchantVariants[j % merchantVariants.length];
+      const qty = 1 + Math.floor(Math.random() * 2);
+      const price = variant.price * qty;
+      totalPrice += price;
+      await prisma.orderItem.create({
+        data: { orderId: order.id, variantId: variant.id, quantity: qty, price },
+      });
+    }
+
+    await prisma.order.update({ where: { id: order.id }, data: { totalPrice } });
+
+    await prisma.orderStatusHistory.create({
+      data: { orderId: order.id, status: "CREATED", changedAt: orderDate, changedBy: customer.id },
+    });
+    if (status !== "CREATED") {
+      await prisma.orderStatusHistory.create({
+        data: { orderId: order.id, status: "PAID", changedAt: new Date(orderDate.getTime() + 5 * 60 * 1000), changedBy: customer.id },
+      });
+    }
+    if (["PREPARING", "READY", "ON_DELIVERY", "COMPLETED"].includes(status)) {
+      await prisma.orderStatusHistory.create({
+        data: { orderId: order.id, status: "PREPARING", changedAt: new Date(orderDate.getTime() + 10 * 60 * 1000), changedBy: merchantUsers[merchantIndex].id },
+      });
+    }
+    if (["READY", "ON_DELIVERY", "COMPLETED"].includes(status)) {
+      await prisma.orderStatusHistory.create({
+        data: { orderId: order.id, status: "READY", changedAt: new Date(orderDate.getTime() + 25 * 60 * 1000), changedBy: merchantUsers[merchantIndex].id },
+      });
+    }
+    if (status === "COMPLETED") {
+      await prisma.orderStatusHistory.create({
+        data: { orderId: order.id, status: "COMPLETED", changedAt: new Date(orderDate.getTime() + 45 * 60 * 1000), changedBy: driver?.userId || customer.id },
+      });
+    }
+
+    if (order.paymentStatus === "SUCCESS") {
+      const payment = await prisma.payment.create({
         data: {
+          id: uuid(),
+          orderId: order.id,
+          customerId: customer.id,
           merchantId: merchant.id,
-          dayOfWeek: day,
-          openTime: day === 0 ? "10:00" : "08:00", // Sunday opens later
-          closeTime: "22:00",
+          provider: ["MIDTRANS", "XENDIT", "PAKASIR"][Math.floor(Math.random() * 3)] as Provider,
+          paymentType: ["gopay", "ovo", "dana", "bank_transfer"][Math.floor(Math.random() * 4)],
+          transactionId: `TXN-${Date.now()}-${i}`,
+          amount: totalPrice + (order.deliveryFee || 0),
+          status: "SUCCESS",
+        },
+      });
+      await prisma.paymentCallback.create({
+        data: { paymentId: payment.id, payload: { status_code: "200", transaction_status: "settlement" } },
+      });
+    }
+
+    if (["COMPLETED", "ON_DELIVERY"].includes(status) && driver) {
+      await prisma.delivery.create({
+        data: {
+          orderId: order.id,
+          driverId: driver.id,
+          pickedAt: new Date(orderDate.getTime() + 30 * 60 * 1000),
+          deliveredAt: status === "COMPLETED"
+            ? new Date(orderDate.getTime() + 50 * 60 * 1000)
+            : new Date(Date.now() + 15 * 60 * 1000),
+          distanceKm: 2 + Math.random() * 5,
+        },
+      });
+    }
+
+    if (Math.random() > 0.5) {
+      const promo = createdPromos[Math.floor(Math.random() * createdPromos.length)];
+      await prisma.orderPromotion.create({
+        data: { orderId: order.id, promotionId: promo.id, discountAmount: Math.min(promo.maxDiscount, Math.floor(totalPrice * 0.2)) },
+      });
+    }
+
+    createdOrders.push(order);
+  }
+  console.log(`   ✓ ${createdOrders.length} orders with payments created\n`);
+
+  console.log("⭐ Creating reviews...");
+  const merchantReviewComments = [
+    "Makanan enak banget! Pasti order lagi.",
+    "Porsi banyak, harga terjangkau. Recommended!",
+    "Rasanya enak, cepat sampai.",
+    "Best food in town! Must try!",
+    "Authentic taste, just like homemade!",
+    "Packaging rapi, makanan masih hangat.",
+  ];
+  const driverReviewComments = [
+    "Driver ramah dan cepat!",
+    "Pengantaran tepat waktu.",
+    "Good service, friendly driver.",
+    "Sangat profesional!",
+  ];
+
+  for (const merchant of merchants) {
+    for (let i = 0; i < 3; i++) {
+      await prisma.merchantReview.create({
+        data: {
+          userId: customers[i % customers.length].id,
+          merchantId: merchant.id,
+          rating: 4 + Math.floor(Math.random() * 2),
+          comment: merchantReviewComments[Math.floor(Math.random() * merchantReviewComments.length)],
+          createdAt: new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)),
         },
       });
     }
   }
 
-  // Create Categories (global categories - at least 4)
-  console.log("📂 Creating categories...");
-  const categories = await Promise.all([
-    prisma.category.create({
-      data: {
-        id: uuid(),
-        name: "Rice Dishes",
-        description: "Various rice-based meals",
-      },
-    }),
-    prisma.category.create({
-      data: { id: uuid(), name: "Noodles", description: "Noodle dishes" },
-    }),
-    prisma.category.create({
-      data: {
-        id: uuid(),
-        name: "Sushi",
-        description: "Fresh sushi rolls and nigiri",
-      },
-    }),
-    prisma.category.create({
-      data: { id: uuid(), name: "Beverages", description: "Refreshing drinks" },
-    }),
-    prisma.category.create({
-      data: {
-        id: uuid(),
-        name: "Desserts",
-        description: "Sweet treats and pastries",
-      },
-    }),
-    prisma.category.create({
-      data: {
-        id: uuid(),
-        name: "Appetizers",
-        description: "Starters and sides",
-      },
-    }),
-  ]);
-
-  // Create Menus (at least 4 per merchant, with proper category relationships)
-  console.log("🍽️ Creating menus...");
-
-  // ===== Merchant 1 (Padang Restaurant) Menus =====
-  // Rice Dishes (4 items)
-  const menu1_1 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_1.id,
-      name: "Nasi Rendang",
-      description: "Steamed rice with spicy beef rendang",
-      price: 35000,
-      isAvailable: true,
-      imageId: images[2].id,
-    },
-  });
-
-  const menu1_2 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_1.id,
-      name: "Nasi Ayam Pop",
-      description: "Steamed rice with Padang-style fried chicken",
-      price: 30000,
-      isAvailable: true,
-      imageId: images[3].id,
-    },
-  });
-
-  const menu1_3 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_1.id,
-      name: "Nasi Gulai Ikan",
-      description: "Steamed rice with fish curry",
-      price: 32000,
-      isAvailable: true,
-      imageId: images[8].id,
-    },
-  });
-
-  const menu1_4 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_1.id,
-      name: "Nasi Dendeng Balado",
-      description: "Steamed rice with crispy beef and chili",
-      price: 38000,
-      isAvailable: true,
-      imageId: images[9].id,
-    },
-  });
-
-  // Drinks (4 items)
-  const menu1_5 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_2.id,
-      name: "Es Teh Manis",
-      description: "Sweet iced tea",
-      price: 8000,
-      isAvailable: true,
-      imageId: images[10].id,
-    },
-  });
-
-  const menu1_6 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_2.id,
-      name: "Es Jeruk",
-      description: "Fresh orange juice with ice",
-      price: 12000,
-      isAvailable: true,
-      imageId: images[11].id,
-    },
-  });
-
-  const menu1_7 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_2.id,
-      name: "Teh Tarik",
-      description: "Malaysian pulled tea",
-      price: 15000,
-      isAvailable: true,
-      imageId: images[12].id,
-    },
-  });
-
-  const menu1_8 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_2.id,
-      name: "Kopi Susu",
-      description: "Coffee with condensed milk",
-      price: 15000,
-      isAvailable: true,
-      imageId: images[13].id,
-    },
-  });
-
-  // Sides (4 items)
-  const menu1_9 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_3.id,
-      name: "Perkedel",
-      description: "Indonesian potato fritters",
-      price: 5000,
-      isAvailable: true,
-      imageId: images[14].id,
-    },
-  });
-
-  const menu1_10 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_3.id,
-      name: "Telur Balado",
-      description: "Boiled egg with chili sauce",
-      price: 8000,
-      isAvailable: true,
-      imageId: images[15].id,
-    },
-  });
-
-  const menu1_11 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_3.id,
-      name: "Kerupuk",
-      description: "Crispy crackers",
-      price: 3000,
-      isAvailable: true,
-      imageId: images[16].id,
-    },
-  });
-
-  const menu1_12 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_3.id,
-      name: "Sayur Nangka",
-      description: "Jackfruit vegetable curry",
-      price: 10000,
-      isAvailable: true,
-      imageId: images[17].id,
-    },
-  });
-
-  // Desserts (4 items)
-  const menu1_13 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_4.id,
-      name: "Es Campur",
-      description: "Mixed ice dessert with fruits and jellies",
-      price: 18000,
-      isAvailable: true,
-      imageId: images[18].id,
-    },
-  });
-
-  const menu1_14 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_4.id,
-      name: "Kolak Pisang",
-      description: "Banana in coconut milk syrup",
-      price: 12000,
-      isAvailable: true,
-      imageId: images[19].id,
-    },
-  });
-
-  const menu1_15 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_4.id,
-      name: "Bubur Sumsum",
-      description: "Rice flour porridge with palm sugar",
-      price: 10000,
-      isAvailable: true,
-    },
-  });
-
-  const menu1_16 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      categoryId: merchantCategory1_4.id,
-      name: "Es Cendol",
-      description: "Green rice flour jelly with coconut milk",
-      price: 15000,
-      isAvailable: true,
-    },
-  });
-
-  // ===== Merchant 2 (Sushi Restaurant) Menus =====
-  // Sushi Rolls (4 items)
-  const menu2_1 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_1.id,
-      name: "Dragon Roll",
-      description: "Eel and cucumber roll topped with avocado",
-      price: 85000,
-      isAvailable: true,
-      imageId: images[4].id,
-    },
-  });
-
-  const menu2_2 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_1.id,
-      name: "California Roll",
-      description: "Crab, avocado, and cucumber inside-out roll",
-      price: 55000,
-      isAvailable: true,
-      imageId: images[5].id,
-    },
-  });
-
-  const menu2_3 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_1.id,
-      name: "Spicy Tuna Roll",
-      description: "Tuna with spicy mayo and cucumber",
-      price: 65000,
-      isAvailable: true,
-      imageId: images[6].id,
-    },
-  });
-
-  const menu2_4 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_1.id,
-      name: "Rainbow Roll",
-      description: "Assorted fish over California roll",
-      price: 95000,
-      isAvailable: true,
-      imageId: images[7].id,
-    },
-  });
-
-  // Sashimi (4 items)
-  const menu2_5 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_2.id,
-      name: "Salmon Sashimi",
-      description: "Fresh Norwegian salmon slices",
-      price: 65000,
-      isAvailable: true,
-    },
-  });
-
-  const menu2_6 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_2.id,
-      name: "Tuna Sashimi",
-      description: "Premium bluefin tuna slices",
-      price: 75000,
-      isAvailable: true,
-    },
-  });
-
-  const menu2_7 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_2.id,
-      name: "Mixed Sashimi",
-      description: "Assorted fresh fish selection",
-      price: 120000,
-      isAvailable: true,
-    },
-  });
-
-  const menu2_8 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_2.id,
-      name: "Octopus Sashimi",
-      description: "Tender octopus slices",
-      price: 70000,
-      isAvailable: true,
-    },
-  });
-
-  // Ramen (4 items)
-  const menu2_9 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_3.id,
-      name: "Tonkotsu Ramen",
-      description: "Rich pork bone broth ramen",
-      price: 55000,
-      isAvailable: true,
-    },
-  });
-
-  const menu2_10 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_3.id,
-      name: "Shoyu Ramen",
-      description: "Soy sauce based ramen",
-      price: 50000,
-      isAvailable: true,
-    },
-  });
-
-  const menu2_11 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_3.id,
-      name: "Miso Ramen",
-      description: "Fermented soybean paste ramen",
-      price: 52000,
-      isAvailable: true,
-    },
-  });
-
-  const menu2_12 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_3.id,
-      name: "Spicy Tantanmen",
-      description: "Spicy sesame ramen with minced pork",
-      price: 58000,
-      isAvailable: true,
-    },
-  });
-
-  // Beverages (4 items)
-  const menu2_13 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_4.id,
-      name: "Green Tea",
-      description: "Traditional Japanese green tea",
-      price: 15000,
-      isAvailable: true,
-    },
-  });
-
-  const menu2_14 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_4.id,
-      name: "Matcha Latte",
-      description: "Creamy matcha green tea latte",
-      price: 28000,
-      isAvailable: true,
-    },
-  });
-
-  const menu2_15 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_4.id,
-      name: "Ramune",
-      description: "Japanese marble soda",
-      price: 20000,
-      isAvailable: true,
-    },
-  });
-
-  const menu2_16 = await prisma.menu.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      categoryId: merchantCategory2_4.id,
-      name: "Calpis",
-      description: "Sweet and tangy milk-based drink",
-      price: 18000,
-      isAvailable: true,
-    },
-  });
-
-  // Create Menu Variants (at least 4 variants across menus)
-  console.log("🔄 Creating menu variants...");
-
-  // Variants for Nasi Rendang
-  const variant1_1 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_1.id, name: "Regular", price: 35000 },
-  });
-  const variant1_2 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_1.id, name: "Large", price: 45000 },
-  });
-  const variant1_3 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_1.id, name: "Extra Large", price: 55000 },
-  });
-  const variant1_4 = await prisma.menuVariant.create({
-    data: {
-      id: uuid(),
-      menuId: menu1_1.id,
-      name: "Family Pack",
-      price: 120000,
-    },
-  });
-
-  // Variants for Nasi Ayam Pop
-  const variant2_1 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_2.id, name: "Regular", price: 30000 },
-  });
-  const variant2_2 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_2.id, name: "Large", price: 40000 },
-  });
-  const variant2_3 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_2.id, name: "With Egg", price: 35000 },
-  });
-  const variant2_4 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_2.id, name: "Extra Spicy", price: 32000 },
-  });
-
-  // Variants for Es Teh Manis
-  const variant3_1 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_5.id, name: "Small", price: 8000 },
-  });
-  const variant3_2 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_5.id, name: "Medium", price: 10000 },
-  });
-  const variant3_3 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_5.id, name: "Large", price: 12000 },
-  });
-  const variant3_4 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_5.id, name: "Extra Large", price: 15000 },
-  });
-
-  // Variants for Dragon Roll
-  const variant4_1 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_1.id, name: "6 pcs", price: 85000 },
-  });
-  const variant4_2 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_1.id, name: "8 pcs", price: 105000 },
-  });
-  const variant4_3 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_1.id, name: "12 pcs", price: 150000 },
-  });
-  const variant4_4 = await prisma.menuVariant.create({
-    data: {
-      id: uuid(),
-      menuId: menu2_1.id,
-      name: "Party Platter (24 pcs)",
-      price: 280000,
-    },
-  });
-
-  // Variants for Salmon Sashimi
-  const variant5_1 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_5.id, name: "5 pcs", price: 65000 },
-  });
-  const variant5_2 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_5.id, name: "10 pcs", price: 120000 },
-  });
-  const variant5_3 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_5.id, name: "15 pcs", price: 170000 },
-  });
-  const variant5_4 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_5.id, name: "20 pcs", price: 220000 },
-  });
-
-  // Variants for Tonkotsu Ramen
-  const variant6_1 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_9.id, name: "Regular", price: 55000 },
-  });
-  const variant6_2 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_9.id, name: "Large", price: 70000 },
-  });
-  const variant6_3 = await prisma.menuVariant.create({
-    data: {
-      id: uuid(),
-      menuId: menu2_9.id,
-      name: "Extra Chashu",
-      price: 75000,
-    },
-  });
-  const variant6_4 = await prisma.menuVariant.create({
-    data: {
-      id: uuid(),
-      menuId: menu2_9.id,
-      name: "Combo with Gyoza",
-      price: 85000,
-    },
-  });
-
-  // Variants for other menus (single variants for simpler items)
-  const variant7_1 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_9.id, name: "Regular", price: 5000 },
-  });
-  const variant8_1 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_13.id, name: "Regular", price: 18000 },
-  });
-  const variant9_1 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_13.id, name: "Hot", price: 15000 },
-  });
-  const variant9_2 = await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_13.id, name: "Iced", price: 18000 },
-  });
-
-  // Default variants for remaining Merchant 1 menus
-  // menu1_3: Nasi Gulai Ikan
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_3.id, name: "Regular", price: 32000 },
-  });
-  // menu1_4: Nasi Dendeng Balado
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_4.id, name: "Regular", price: 38000 },
-  });
-  // menu1_6: Es Jeruk
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_6.id, name: "Regular", price: 12000 },
-  });
-  // menu1_7: Teh Tarik
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_7.id, name: "Regular", price: 15000 },
-  });
-  // menu1_8: Kopi Susu
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_8.id, name: "Regular", price: 15000 },
-  });
-  // menu1_10: Telur Balado
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_10.id, name: "Regular", price: 8000 },
-  });
-  // menu1_11: Kerupuk
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_11.id, name: "Regular", price: 3000 },
-  });
-  // menu1_12: Sayur Nangka
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_12.id, name: "Regular", price: 10000 },
-  });
-  // menu1_14: Kolak Pisang
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_14.id, name: "Regular", price: 12000 },
-  });
-  // menu1_15: Bubur Sumsum
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_15.id, name: "Regular", price: 10000 },
-  });
-  // menu1_16: Es Cendol
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu1_16.id, name: "Regular", price: 15000 },
-  });
-
-  // Default variants for remaining Merchant 2 menus
-  // menu2_2: California Roll
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_2.id, name: "6 pcs", price: 55000 },
-  });
-  // menu2_3: Spicy Tuna Roll
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_3.id, name: "6 pcs", price: 65000 },
-  });
-  // menu2_4: Rainbow Roll
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_4.id, name: "6 pcs", price: 95000 },
-  });
-  // menu2_6: Tuna Sashimi
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_6.id, name: "5 pcs", price: 75000 },
-  });
-  // menu2_7: Mixed Sashimi
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_7.id, name: "Regular", price: 120000 },
-  });
-  // menu2_8: Octopus Sashimi
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_8.id, name: "5 pcs", price: 70000 },
-  });
-  // menu2_10: Shoyu Ramen
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_10.id, name: "Regular", price: 50000 },
-  });
-  // menu2_11: Miso Ramen
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_11.id, name: "Regular", price: 52000 },
-  });
-  // menu2_12: Spicy Tantanmen
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_12.id, name: "Regular", price: 58000 },
-  });
-  // menu2_14: Matcha Latte
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_14.id, name: "Regular", price: 28000 },
-  });
-  // menu2_15: Ramune
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_15.id, name: "Regular", price: 20000 },
-  });
-  // menu2_16: Calpis
-  await prisma.menuVariant.create({
-    data: { id: uuid(), menuId: menu2_16.id, name: "Regular", price: 18000 },
-  });
-
-  // Create Drivers (at least 4)
-  console.log("🚗 Creating drivers...");
-  const driver1 = await prisma.driver.create({
-    data: {
-      id: uuid(),
-      userId: driverUser.id,
-      plateNumber: "B 1234 XYZ",
-      isAvailable: true,
-    },
-  });
-
-  // Create additional driver users
-  const driverUserData2 = await signUpUser(
-    "driver2@example.com",
-    "password123",
-  );
-  console.log(`   ✓ Driver 2 created: ${driverUserData2.id}`);
-  const driverUser2 = await prisma.user.update({
-    where: { id: driverUserData2.id },
-    data: { role: "DRIVER", phoneNumber: "+6281234567895" },
-  });
-
-  const driverUserData3 = await signUpUser(
-    "driver3@example.com",
-    "password123",
-  );
-  console.log(`   ✓ Driver 3 created: ${driverUserData3.id}`);
-  const driverUser3 = await prisma.user.update({
-    where: { id: driverUserData3.id },
-    data: { role: "DRIVER", phoneNumber: "+6281234567896" },
-  });
-
-  const driverUserData4 = await signUpUser(
-    "driver4@example.com",
-    "password123",
-  );
-  console.log(`   ✓ Driver 4 created: ${driverUserData4.id}`);
-  const driverUser4 = await prisma.user.update({
-    where: { id: driverUserData4.id },
-    data: { role: "DRIVER", phoneNumber: "+6281234567897" },
-  });
-
-  const driver2 = await prisma.driver.create({
-    data: {
-      id: uuid(),
-      userId: driverUser2.id,
-      plateNumber: "B 5678 ABC",
-      isAvailable: true,
-    },
-  });
-
-  const driver3 = await prisma.driver.create({
-    data: {
-      id: uuid(),
-      userId: driverUser3.id,
-      plateNumber: "B 9012 DEF",
-      isAvailable: false,
-    },
-  });
-
-  const driver4 = await prisma.driver.create({
-    data: {
-      id: uuid(),
-      userId: driverUser4.id,
-      plateNumber: "B 3456 GHI",
-      isAvailable: true,
-    },
-  });
-
-  // Create Driver Locations (at least 4)
-  console.log("📍 Creating driver locations...");
-  await Promise.all([
-    prisma.driverLocation.create({
-      data: {
-        driverId: driver1.id,
-        latitude: -6.205,
-        longitude: 106.845,
-        recordedAt: new Date(),
-      },
-    }),
-    prisma.driverLocation.create({
-      data: {
-        driverId: driver2.id,
-        latitude: -6.21,
-        longitude: 106.85,
-        recordedAt: new Date(),
-      },
-    }),
-    prisma.driverLocation.create({
-      data: {
-        driverId: driver3.id,
-        latitude: -6.215,
-        longitude: 106.84,
-        recordedAt: new Date(),
-      },
-    }),
-    prisma.driverLocation.create({
-      data: {
-        driverId: driver4.id,
-        latitude: -6.2,
-        longitude: 106.855,
-        recordedAt: new Date(),
-      },
-    }),
-  ]);
-
-  // Create Promotions (at least 4)
-  console.log("🎉 Creating promotions...");
-  const promotion1 = await prisma.promotion.create({
-    data: {
-      id: uuid(),
-      code: "NEWUSER50",
-      discountType: "PERCENT",
-      discountValue: 50,
-      maxDiscount: 30000,
-      expiredAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    },
-  });
-
-  const promotion2 = await prisma.promotion.create({
-    data: {
-      id: uuid(),
-      code: "FLAT10K",
-      discountType: "FLAT",
-      discountValue: 10000,
-      maxDiscount: 10000,
-      expiredAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
-    },
-  });
-
-  const promotion3 = await prisma.promotion.create({
-    data: {
-      id: uuid(),
-      code: "WEEKEND25",
-      discountType: "PERCENT",
-      discountValue: 25,
-      maxDiscount: 50000,
-      expiredAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    },
-  });
-
-  const promotion4 = await prisma.promotion.create({
-    data: {
-      id: uuid(),
-      code: "FREESHIP",
-      discountType: "FLAT",
-      discountValue: 15000,
-      maxDiscount: 15000,
-      expiredAt: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
-    },
-  });
-
-  // Create Orders (at least 4)
-  console.log("📦 Creating orders...");
-  const order1 = await prisma.order.create({
-    data: {
-      id: uuid(),
-      userId: customerUser.id,
-      merchantId: merchant1.id,
-      driverId: driver1.id,
-      status: "COMPLETED",
-      totalPrice: 80000,
-      deliveryFee: 10000,
-      paymentStatus: "SUCCESS",
-    },
-  });
-
-  const order2 = await prisma.order.create({
-    data: {
-      id: uuid(),
-      userId: customerUser.id,
-      merchantId: merchant2.id,
-      driverId: driver2.id,
-      status: "PREPARING",
-      totalPrice: 150000,
-      deliveryFee: 15000,
-      paymentStatus: "SUCCESS",
-    },
-  });
-
-  const order3 = await prisma.order.create({
-    data: {
-      id: uuid(),
-      userId: customerUser.id,
-      merchantId: merchant1.id,
-      driverId: driver1.id,
-      status: "COMPLETED",
-      totalPrice: 65000,
-      deliveryFee: 8000,
-      paymentStatus: "SUCCESS",
-    },
-  });
-
-  const order4 = await prisma.order.create({
-    data: {
-      id: uuid(),
-      userId: customerUser.id,
-      merchantId: merchant2.id,
-      driverId: driver4.id,
-      status: "ON_DELIVERY",
-      totalPrice: 200000,
-      deliveryFee: 12000,
-      paymentStatus: "SUCCESS",
-    },
-  });
-
-  // Create Order Items (at least 4)
-  console.log("🛒 Creating order items...");
-  await Promise.all([
-    prisma.orderItem.create({
-      data: {
-        orderId: order1.id,
-        variantId: variant1_1.id,
-        quantity: 2,
-        price: 70000,
-      },
-    }),
-    prisma.orderItem.create({
-      data: {
-        orderId: order1.id,
-        variantId: variant3_2.id,
-        quantity: 2,
-        price: 20000,
-      },
-    }),
-    prisma.orderItem.create({
-      data: {
-        orderId: order2.id,
-        variantId: variant4_2.id,
-        quantity: 1,
-        price: 105000,
-      },
-    }),
-    prisma.orderItem.create({
-      data: {
-        orderId: order2.id,
-        variantId: variant5_1.id,
-        quantity: 1,
-        price: 65000,
-      },
-    }),
-    prisma.orderItem.create({
-      data: {
-        orderId: order3.id,
-        variantId: variant2_1.id,
-        quantity: 2,
-        price: 60000,
-      },
-    }),
-    prisma.orderItem.create({
-      data: {
-        orderId: order4.id,
-        variantId: variant4_3.id,
-        quantity: 1,
-        price: 150000,
-      },
-    }),
-    prisma.orderItem.create({
-      data: {
-        orderId: order4.id,
-        variantId: variant6_2.id,
-        quantity: 1,
-        price: 70000,
-      },
-    }),
-  ]);
-
-  // Create Order Status History (at least 4)
-  console.log("📜 Creating order status histories...");
-  await Promise.all([
-    // Order 1 history
-    prisma.orderStatusHistory.create({
-      data: {
-        orderId: order1.id,
-        status: "CREATED",
-        changedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        changedBy: customerUser.id,
-      },
-    }),
-    prisma.orderStatusHistory.create({
-      data: {
-        orderId: order1.id,
-        status: "PAID",
-        changedAt: new Date(Date.now() - 1.9 * 60 * 60 * 1000),
-        changedBy: customerUser.id,
-      },
-    }),
-    prisma.orderStatusHistory.create({
-      data: {
-        orderId: order1.id,
-        status: "PREPARING",
-        changedAt: new Date(Date.now() - 1.8 * 60 * 60 * 1000),
-        changedBy: merchantUser.id,
-      },
-    }),
-    prisma.orderStatusHistory.create({
-      data: {
-        orderId: order1.id,
-        status: "COMPLETED",
-        changedAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-        changedBy: driverUser.id,
-      },
-    }),
-    // Order 2 history
-    prisma.orderStatusHistory.create({
-      data: {
-        orderId: order2.id,
-        status: "CREATED",
-        changedAt: new Date(Date.now() - 0.5 * 60 * 60 * 1000),
-        changedBy: customerUser.id,
-      },
-    }),
-    prisma.orderStatusHistory.create({
-      data: {
-        orderId: order2.id,
-        status: "PAID",
-        changedAt: new Date(Date.now() - 0.4 * 60 * 60 * 1000),
-        changedBy: customerUser.id,
-      },
-    }),
-    prisma.orderStatusHistory.create({
-      data: {
-        orderId: order2.id,
-        status: "PREPARING",
-        changedAt: new Date(Date.now() - 0.3 * 60 * 60 * 1000),
-        changedBy: merchantUser2.id,
-      },
-    }),
-    // Order 3 history
-    prisma.orderStatusHistory.create({
-      data: {
-        orderId: order3.id,
-        status: "CREATED",
-        changedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        changedBy: customerUser.id,
-      },
-    }),
-    prisma.orderStatusHistory.create({
-      data: {
-        orderId: order3.id,
-        status: "COMPLETED",
-        changedAt: new Date(Date.now() - 23 * 60 * 60 * 1000),
-        changedBy: driverUser.id,
-      },
-    }),
-    // Order 4 history
-    prisma.orderStatusHistory.create({
-      data: {
-        orderId: order4.id,
-        status: "CREATED",
-        changedAt: new Date(Date.now() - 0.2 * 60 * 60 * 1000),
-        changedBy: customerUser.id,
-      },
-    }),
-    prisma.orderStatusHistory.create({
-      data: {
-        orderId: order4.id,
-        status: "ON_DELIVERY",
-        changedAt: new Date(Date.now() - 0.1 * 60 * 60 * 1000),
-        changedBy: driverUser4.id,
-      },
-    }),
-  ]);
-
-  // Create Payments (at least 4)
-  console.log("💳 Creating payments...");
-  const payment1 = await prisma.payment.create({
-    data: {
-      id: uuid(),
-      orderId: order1.id,
-      customerId: customerUser.id,
-      merchantId: merchant1.id,
-      provider: "MIDTRANS",
-      paymentType: "gopay",
-      transactionId: "TXN-001-" + Date.now(),
-      amount: 90000,
-      status: "SUCCESS",
-    },
-  });
-
-  const payment2 = await prisma.payment.create({
-    data: {
-      id: uuid(),
-      orderId: order2.id,
-      customerId: customerUser.id,
-      merchantId: merchant2.id,
-      provider: "MIDTRANS",
-      paymentType: "bank_transfer",
-      transactionId: "TXN-002-" + Date.now(),
-      amount: 165000,
-      status: "SUCCESS",
-    },
-  });
-
-  const payment3 = await prisma.payment.create({
-    data: {
-      id: uuid(),
-      orderId: order3.id,
-      customerId: customerUser.id,
-      merchantId: merchant1.id,
-      provider: "MIDTRANS",
-      paymentType: "credit_card",
-      transactionId: "TXN-003-" + Date.now(),
-      amount: 73000,
-      status: "SUCCESS",
-    },
-  });
-
-  const payment4 = await prisma.payment.create({
-    data: {
-      id: uuid(),
-      orderId: order4.id,
-      customerId: customerUser.id,
-      merchantId: merchant2.id,
-      provider: "XENDIT",
-      paymentType: "ovo",
-      transactionId: "TXN-004-" + Date.now(),
-      amount: 212000,
-      status: "SUCCESS",
-    },
-  });
-
-  // Create Payment Callbacks (at least 4)
-  console.log("📞 Creating payment callbacks...");
-  await Promise.all([
-    prisma.paymentCallback.create({
-      data: {
-        paymentId: payment1.id,
-        payload: {
-          status_code: "200",
-          transaction_status: "settlement",
-          gross_amount: "90000",
+  for (const driver of drivers) {
+    for (let i = 0; i < 2; i++) {
+      await prisma.driverReview.create({
+        data: {
+          userId: customers[i % customers.length].id,
+          driverId: driver.id,
+          rating: 4 + Math.floor(Math.random() * 2),
+          comment: driverReviewComments[Math.floor(Math.random() * driverReviewComments.length)],
+          createdAt: new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)),
         },
-      },
-    }),
-    prisma.paymentCallback.create({
-      data: {
-        paymentId: payment2.id,
-        payload: {
-          status_code: "200",
-          transaction_status: "settlement",
-          gross_amount: "165000",
-        },
-      },
-    }),
-    prisma.paymentCallback.create({
-      data: {
-        paymentId: payment3.id,
-        payload: {
-          status_code: "200",
-          transaction_status: "settlement",
-          gross_amount: "73000",
-        },
-      },
-    }),
-    prisma.paymentCallback.create({
-      data: {
-        paymentId: payment4.id,
-        payload: {
-          status_code: "200",
-          transaction_status: "settlement",
-          gross_amount: "212000",
-        },
-      },
-    }),
-  ]);
+      });
+    }
+  }
+  console.log(`   ✓ ${merchants.length * 3} merchant reviews, ${drivers.length * 2} driver reviews created\n`);
 
-  // Create Deliveries (at least 4)
-  console.log("🚚 Creating deliveries...");
-  await Promise.all([
-    prisma.delivery.create({
-      data: {
-        orderId: order1.id,
-        driverId: driver1.id,
-        pickedAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000),
-        deliveredAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-        distanceKm: 3.5,
-      },
-    }),
-    prisma.delivery.create({
-      data: {
-        orderId: order3.id,
-        driverId: driver1.id,
-        pickedAt: new Date(Date.now() - 23.5 * 60 * 60 * 1000),
-        deliveredAt: new Date(Date.now() - 23 * 60 * 60 * 1000),
-        distanceKm: 2.8,
-      },
-    }),
-    prisma.delivery.create({
-      data: {
-        orderId: order4.id,
-        driverId: driver4.id,
-        pickedAt: new Date(Date.now() - 0.1 * 60 * 60 * 1000),
-        deliveredAt: new Date(Date.now() + 0.5 * 60 * 60 * 1000), // Expected delivery
-        distanceKm: 4.2,
-      },
-    }),
-  ]);
+  console.log("🛒 Creating active carts...");
+  for (let i = 0; i < 3; i++) {
+    const customer = customers[i];
+    const merchant = merchants[i];
+    const merchantVariants = allVariants.filter(v => v.merchantId === merchant.id);
+    let subtotal = 0;
 
-  // Create Order Promotions (at least 4)
-  console.log("🏷️ Creating order promotions...");
-  await Promise.all([
-    prisma.orderPromotion.create({
-      data: {
-        orderId: order1.id,
-        promotionId: promotion1.id,
-        discountAmount: 30000,
-      },
-    }),
-    prisma.orderPromotion.create({
-      data: {
-        orderId: order2.id,
-        promotionId: promotion2.id,
-        discountAmount: 10000,
-      },
-    }),
-    prisma.orderPromotion.create({
-      data: {
-        orderId: order3.id,
-        promotionId: promotion4.id,
-        discountAmount: 8000,
-      },
-    }),
-    prisma.orderPromotion.create({
-      data: {
-        orderId: order4.id,
-        promotionId: promotion3.id,
-        discountAmount: 50000,
-      },
-    }),
-  ]);
+    const cart = await prisma.cart.create({
+      data: { id: uuid(), merchantId: merchant.id, userId: customer.id, status: "ACTIVE", subtotal: 0, notes: i === 0 ? "Tolong extra pedas ya" : undefined },
+    });
 
-  // Create Merchant Reviews (at least 4)
-  console.log("⭐ Creating reviews...");
-  await Promise.all([
-    prisma.merchantReview.create({
-      data: {
-        userId: customerUser.id,
-        merchantId: merchant1.id,
-        rating: 5,
-        comment: "Delicious food! The rendang was amazing.",
-      },
-    }),
-    prisma.merchantReview.create({
-      data: {
-        userId: customerUser.id,
-        merchantId: merchant1.id,
-        rating: 4,
-        comment: "Good portion, tasty food. A bit slow on delivery.",
-      },
-    }),
-    prisma.merchantReview.create({
-      data: {
-        userId: customerUser.id,
-        merchantId: merchant2.id,
-        rating: 5,
-        comment: "Best sushi in town! Super fresh.",
-      },
-    }),
-    prisma.merchantReview.create({
-      data: {
-        userId: customerUser.id,
-        merchantId: merchant2.id,
-        rating: 4,
-        comment: "Great ramen, will order again!",
-      },
-    }),
-  ]);
+    for (let j = 0; j < 2 && j < merchantVariants.length; j++) {
+      const variant = merchantVariants[j];
+      const qty = 1 + Math.floor(Math.random() * 2);
+      const itemTotal = variant.price * qty;
+      subtotal += itemTotal;
+      await prisma.cartItem.create({
+        data: { cartId: cart.id, menuName: variant.menuName, variantId: variant.id, basePrice: variant.price, quantity: qty, itemTotal },
+      });
+    }
 
-  // Create Driver Reviews (at least 4)
-  await Promise.all([
-    prisma.driverReview.create({
-      data: {
-        userId: customerUser.id,
-        driverId: driver1.id,
-        rating: 5,
-        comment: "Very fast delivery, friendly driver!",
-      },
-    }),
-    prisma.driverReview.create({
-      data: {
-        userId: customerUser.id,
-        driverId: driver2.id,
-        rating: 4,
-        comment: "Good service, arrived on time.",
-      },
-    }),
-    prisma.driverReview.create({
-      data: {
-        userId: customerUser.id,
-        driverId: driver1.id,
-        rating: 5,
-        comment: "Always reliable!",
-      },
-    }),
-    prisma.driverReview.create({
-      data: {
-        userId: customerUser.id,
-        driverId: driver4.id,
-        rating: 4,
-        comment: "Polite and professional.",
-      },
-    }),
-  ]);
+    await prisma.cart.update({ where: { id: cart.id }, data: { subtotal } });
+  }
+  console.log(`   ✓ 3 active carts created\n`);
 
-  // Create Carts (at least 4)
-  console.log("🛒 Creating carts...");
-  const cart1 = await prisma.cart.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      userId: customerUser.id,
-      status: "ACTIVE",
-      subtotal: 80000,
-      notes: "Please make it extra spicy",
-    },
-  });
-
-  // Create additional customer users for carts
-  const customerUserData2 = await signUpUser(
-    "customer2@example.com",
-    "password123",
-  );
-  console.log(`   ✓ Customer 2 created: ${customerUserData2.id}`);
-  const customerUser2 = await prisma.user.update({
-    where: { id: customerUserData2.id },
-    data: { role: "CUSTOMER", phoneNumber: "+6281234567898" },
-  });
-
-  const customerUserData3 = await signUpUser(
-    "customer3@example.com",
-    "password123",
-  );
-  console.log(`   ✓ Customer 3 created: ${customerUserData3.id}`);
-  const customerUser3 = await prisma.user.update({
-    where: { id: customerUserData3.id },
-    data: { role: "CUSTOMER", phoneNumber: "+6281234567899" },
-  });
-
-  const cart2 = await prisma.cart.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      userId: customerUser2.id,
-      status: "ACTIVE",
-      subtotal: 170000,
-      notes: "No wasabi please",
-    },
-  });
-
-  const cart3 = await prisma.cart.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant1.id,
-      userId: customerUser3.id,
-      status: "CHECKOUT",
-      subtotal: 45000,
-    },
-  });
-
-  const cart4 = await prisma.cart.create({
-    data: {
-      id: uuid(),
-      merchantId: merchant2.id,
-      userId: customerUser.id,
-      status: "EXPIRED",
-      subtotal: 55000,
-    },
-  });
-
-  // Create Cart Items (at least 4 per cart where applicable)
-  console.log("🛍️ Creating cart items...");
-  await Promise.all([
-    // Cart 1 items
-    prisma.cartItem.create({
-      data: {
-        cartId: cart1.id,
-        menuName: "Nasi Rendang",
-        variantId: variant1_1.id,
-        basePrice: 35000,
-        quantity: 2,
-        itemTotal: 70000,
-        notes: "Extra rendang sauce",
-      },
-    }),
-    prisma.cartItem.create({
-      data: {
-        cartId: cart1.id,
-        menuName: "Es Teh Manis",
-        variantId: variant3_1.id,
-        basePrice: 8000,
-        quantity: 2,
-        itemTotal: 16000,
-      },
-    }),
-    prisma.cartItem.create({
-      data: {
-        cartId: cart1.id,
-        menuName: "Perkedel",
-        variantId: variant7_1.id,
-        basePrice: 5000,
-        quantity: 4,
-        itemTotal: 20000,
-      },
-    }),
-    prisma.cartItem.create({
-      data: {
-        cartId: cart1.id,
-        menuName: "Es Campur",
-        variantId: variant8_1.id,
-        basePrice: 18000,
-        quantity: 1,
-        itemTotal: 18000,
-      },
-    }),
-    // Cart 2 items
-    prisma.cartItem.create({
-      data: {
-        cartId: cart2.id,
-        menuName: "Dragon Roll",
-        variantId: variant4_2.id,
-        basePrice: 105000,
-        quantity: 1,
-        itemTotal: 105000,
-      },
-    }),
-    prisma.cartItem.create({
-      data: {
-        cartId: cart2.id,
-        menuName: "Salmon Sashimi",
-        variantId: variant5_1.id,
-        basePrice: 65000,
-        quantity: 1,
-        itemTotal: 65000,
-      },
-    }),
-    prisma.cartItem.create({
-      data: {
-        cartId: cart2.id,
-        menuName: "Green Tea",
-        variantId: variant9_1.id,
-        basePrice: 15000,
-        quantity: 2,
-        itemTotal: 30000,
-      },
-    }),
-    prisma.cartItem.create({
-      data: {
-        cartId: cart2.id,
-        menuName: "Tonkotsu Ramen",
-        variantId: variant6_1.id,
-        basePrice: 55000,
-        quantity: 1,
-        itemTotal: 55000,
-      },
-    }),
-    // Cart 3 items
-    prisma.cartItem.create({
-      data: {
-        cartId: cart3.id,
-        menuName: "Nasi Ayam Pop",
-        variantId: variant2_1.id,
-        basePrice: 30000,
-        quantity: 1,
-        itemTotal: 30000,
-      },
-    }),
-    prisma.cartItem.create({
-      data: {
-        cartId: cart3.id,
-        menuName: "Es Teh Manis",
-        variantId: variant3_2.id,
-        basePrice: 10000,
-        quantity: 1,
-        itemTotal: 10000,
-      },
-    }),
-    prisma.cartItem.create({
-      data: {
-        cartId: cart3.id,
-        menuName: "Telur Balado",
-        variantId: variant7_1.id,
-        basePrice: 5000,
-        quantity: 1,
-        itemTotal: 5000,
-      },
-    }),
-    // Cart 4 items (expired cart)
-    prisma.cartItem.create({
-      data: {
-        cartId: cart4.id,
-        menuName: "Tonkotsu Ramen",
-        variantId: variant6_1.id,
-        basePrice: 55000,
-        quantity: 1,
-        itemTotal: 55000,
-      },
-    }),
-  ]);
-
-  // Create Notifications (at least 4)
   console.log("🔔 Creating notifications...");
-  await Promise.all([
-    prisma.notification.create({
-      data: {
-        userId: customerUser.id,
-        type: "ORDER",
-        message: "Your order #order-1 has been delivered!",
-        isRead: true,
-        createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-      },
-    }),
-    prisma.notification.create({
-      data: {
-        userId: customerUser.id,
-        type: "PROMO",
-        message:
-          "New promotion! Use code NEWUSER50 for 50% off your next order!",
-        isRead: false,
-        createdAt: new Date(),
-      },
-    }),
-    prisma.notification.create({
-      data: {
-        userId: merchantUser.id,
-        type: "ORDER",
-        message: "New order received! Order #order-2",
-        isRead: false,
-        createdAt: new Date(),
-      },
-    }),
-    prisma.notification.create({
-      data: {
-        userId: customerUser.id,
-        type: "ORDER",
-        message: "Your order is on the way! Driver is arriving soon.",
-        isRead: false,
-        createdAt: new Date(Date.now() - 0.1 * 60 * 60 * 1000),
-      },
-    }),
-    prisma.notification.create({
-      data: {
-        userId: merchantUser2.id,
-        type: "ORDER",
-        message: "New order received! Prepare the Dragon Roll.",
-        isRead: true,
-        createdAt: new Date(Date.now() - 0.5 * 60 * 60 * 1000),
-      },
-    }),
-    prisma.notification.create({
-      data: {
-        userId: driverUser.id,
-        type: "ORDER",
-        message: "New delivery assignment! Pick up from Warung Nasi Padang.",
-        isRead: true,
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      },
-    }),
-    prisma.notification.create({
-      data: {
-        userId: customerUser2.id,
-        type: "PROMO",
-        message: "Weekend special! Use code WEEKEND25 for 25% off.",
-        isRead: false,
-        createdAt: new Date(),
-      },
-    }),
-    prisma.notification.create({
-      data: {
-        userId: customerUser3.id,
-        type: "Payment",
-        message: "Payment successful! Your order is being prepared.",
-        isRead: true,
-        createdAt: new Date(Date.now() - 0.3 * 60 * 60 * 1000),
-      },
-    }),
-  ]);
+  const notifications = [
+    { type: "PROMO", message: "🎉 Promo Spesial! Gunakan kode NEWUSER50 untuk diskon 50%!" },
+    { type: "PROMO", message: "🔥 Weekend Sale! Diskon 30% semua menu. Kode: WEEKEND30" },
+    { type: "ORDER", message: "📦 Pesanan Anda sedang disiapkan oleh merchant." },
+    { type: "ORDER", message: "🚗 Driver sedang menuju lokasi Anda!" },
+    { type: "ORDER", message: "✅ Pesanan telah selesai. Terima kasih!" },
+    { type: "Payment", message: "💰 Pembayaran berhasil! Pesanan sedang diproses." },
+  ];
 
-  console.log("✅ Seed completed successfully!");
+  for (const customer of customers) {
+    for (let i = 0; i < 2; i++) {
+      const notif = notifications[Math.floor(Math.random() * notifications.length)];
+      await prisma.notification.create({
+        data: {
+          userId: customer.id,
+          type: notif.type as NotificationType,
+          message: notif.message,
+          isRead: Math.random() > 0.5,
+          createdAt: new Date(Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)),
+        },
+      });
+    }
+  }
+  console.log(`   ✓ ${customers.length * 2} notifications created\n`);
+
+  console.log("═".repeat(50));
+  console.log("✅ SEED COMPLETED SUCCESSFULLY!");
+  console.log("═".repeat(50));
   console.log("\n📋 Summary:");
-  console.log("   - 10 Users (3 customers, 2 merchants, 4 drivers, 1 admin)");
-  console.log("   - 10 Accounts with password: password123");
-  console.log("   - 3 User Profiles");
-  console.log("   - 2 User Addresses");
-  console.log("   - 2 Merchants with operational hours");
-  console.log("   - 8 Merchant Menu Categories (4 per merchant)");
-  console.log("   - 6 Global Categories");
-  console.log("   - 32 Menus (16 per merchant, 4 per category)");
-  console.log("   - 32+ Menu Variants");
-  console.log("   - 4 Drivers with locations");
-  console.log("   - 4 Promotions");
-  console.log("   - 4 Orders with items and status history");
-  console.log("   - 4 Payments with callbacks");
-  console.log("   - 3 Deliveries");
-  console.log("   - 8 Reviews (4 merchant, 4 driver)");
-  console.log("   - 4 Carts with items");
-  console.log("   - 8 Notifications");
+  console.log(`   👤 Users: 1 Admin + ${customers.length} Customers + ${merchantUsers.length} Merchants + ${drivers.length} Drivers`);
+  console.log(`   🏪 Merchants: ${merchants.length} (all APPROVED)`);
+  console.log(`   🍽️  Menus: ${totalMenus} with variants`);
+  console.log(`   📦 Orders: ${createdOrders.length}`);
+  console.log(`   🎉 Promotions: ${promotions.length}`);
+  console.log(`   ⭐ Reviews: ${merchants.length * 3} merchant + ${drivers.length * 2} driver`);
+  console.log("\n🔑 Login Credentials (password: password123):");
+  console.log("   Admin:    admin@fooddelivery.com");
+  console.log("   Customer: customer@example.com / budi@gmail.com");
+  console.log("   Merchant: merchant@example.com");
+  console.log("   Driver:   driver@example.com");
+  console.log("");
 }
 
 main()
